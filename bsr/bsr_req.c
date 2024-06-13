@@ -1063,6 +1063,11 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 		// BSR-1170
 		atomic_inc_return64(&peer_device->local_writing);
 		bsr_set_out_of_sync(peer_device, req->i.sector, req->i.size);
+
+		// BSR-1304
+		if ((old_local & RQ_IN_AL_OOS) && (idx && (old_net & RQ_IN_AL_OOS)))
+			atomic_dec(&peer_device->al_oos_cnt);
+
 		return;
 	}
 
@@ -1183,8 +1188,12 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 
 	// BSR-1295 if it is cleared before transfer, decrease rq_pending_oos_cnt if RQ_OOS_PENDING is set. (ex. CONNECTION_LOST_WHILE_PENDING)
 	if (clear & RQ_NET_OK) {
-		if ((old_net & RQ_OOS_PENDING) && (clear & RQ_OOS_PENDING)) 
+		if ((old_net & RQ_OOS_PENDING) && (clear & RQ_OOS_PENDING))  {
 			atomic_dec(&peer_device->rq_pending_oos_cnt);
+			// BSR-1304
+			if ((old_local & RQ_IN_AL_OOS) && (idx && (old_net & RQ_IN_AL_OOS)))
+				atomic_dec(&peer_device->al_oos_cnt);
+		}
 	}
 
 	if ((old_net & RQ_NET_QUEUED) && (clear & RQ_NET_QUEUED)) {
@@ -1196,7 +1205,8 @@ static void mod_rq_state(struct bsr_request *req, struct bio_and_error *m,
 			++k_put;
 
 			// BSR-1256
-			if (req->rq_state[peer_device->node_id + 1] & RQ_IN_AL_OOS) 
+			// BSR-1304
+			if ((old_local & RQ_IN_AL_OOS) && (idx && (old_net & RQ_IN_AL_OOS)))
 				atomic_dec(&peer_device->al_oos_cnt);
 		} else
 #endif

@@ -1953,6 +1953,7 @@ struct bsr_peer_device {
 	// BSR-1039 increase when changing from congestion to sync source.
 	atomic_t resync_seq;
 	// BSR-1039
+	// BSR-1304 al_oos_cnt does not set 0 in disconnecting, but increases or decreases according to logic.
 	atomic_t al_oos_cnt;
 
 	/* Used to track operations of resync... */
@@ -1978,7 +1979,11 @@ struct bsr_peer_device {
 	// BSR-842 sart resync when 0 in L_BEHIND state. Set to 1 in L_BEHIND state and set to 0 when ID_OUT_OF_SYNC_FINISHED is received.
 	atomic_t wait_for_out_of_sync;
 
+
 	// DW-2058 number of incomplete write requests to send out of sync
+	// DW-2076
+	// BSR-1248 The rq_pending_oos_cnt processing for OOS transfer failure and cancellation was done by another operation and should not be set to 0 at the end of the connection.
+	// if it is set to 0 at the end of the connection, depending on the timing, rq_pending_oos_cnt may not be 0, so synchronization may not proceed after congestion.
 	atomic_t rq_pending_oos_cnt;
 
 	// DW-2119 this variables in the device were moved to the peer_device.
