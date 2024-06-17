@@ -391,17 +391,13 @@ static struct lc_element *__lc_find(struct lru_cache *lc, unsigned int enr,
 {
 	struct lc_element *e;
 
-#ifdef _WIN
+	// BSR-1317 like Windows, Linux also outputs an error log and returns null
 	if (!lc ||
 		!lc->nr_elements)
 	{
 		bsr_err(30, BSR_LC_LRU, NO_OBJECT, "Failed to find lc due to inaccessible, it could be not initialized or destroyed.");
 		return NULL;
 	}
-#else // _LIN
-	BUG_ON(!lc);
-	BUG_ON(!lc->nr_elements);
-#endif
 
 	hlist_for_each_entry_ex(struct lc_element, e, lc_hash_slot(lc, enr), colision) {
 		/* "about to be changed" elements, pending transaction commit,
