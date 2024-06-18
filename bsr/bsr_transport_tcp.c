@@ -2624,7 +2624,8 @@ static bool dtt_start_send_buffring(struct bsr_transport *transport, signed long
 					else
 						set_bit(IDX_STREAM, &tcp_transport->flags);
 
-					NTSTATUS Status = PsCreateSystemThread(&attr->send_buf_thread_handle, THREAD_ALL_ACCESS, NULL, NULL, NULL, send_buf_thread, tcp_transport);
+					// BSR-1322
+					NTSTATUS Status = PsCreateSystemThread(&attr->send_buf_thread_handle, THREAD_ALL_ACCESS, NULL, NULL, NULL, send_buf_thread, transport);
 					if (!NT_SUCCESS(Status)) {
 						tr_warn(transport, "send-buffering: create thread(%s) failed(0x%08X)", tcp_transport->stream[i]->name, Status);
 						destroy_ring_buffer(attr->bab);
@@ -2702,7 +2703,8 @@ static bool dtt_start_send_buffring(struct bsr_transport *transport, signed long
 					else
 						set_bit(IDX_STREAM, &tcp_transport->flags);
 
-					attr->send_buf_thread_handle = kthread_run(send_buf_thread, (void *)tcp_transport, "send_buf_thr");
+					// BSR-1322
+					attr->send_buf_thread_handle = kthread_run(send_buf_thread, (void *)transport, "send_buf_thr");
 
 					if(!attr->send_buf_thread_handle || IS_ERR(attr->send_buf_thread_handle)) {
 						tr_warn(transport, "send-buffering: create thread(channel:%d) failed(%d)", i, (int)IS_ERR(attr->send_buf_thread_handle));
