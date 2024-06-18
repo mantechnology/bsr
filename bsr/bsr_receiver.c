@@ -5256,6 +5256,14 @@ static void disk_states_to_goodness(struct bsr_device *device,
 	if (peer_disk_state == D_UNKNOWN)
 		return;
 
+	// BSR-1311 if the disk status has been updated but it is an initial uuid, we will not set the sync status because the promotion is in progress.
+	if (device->resource->role[NOW] == R_PRIMARY && disk_state == D_UP_TO_DATE) {
+		if (bsr_current_uuid(device) == UUID_JUST_CREATED) {
+			bsr_info(233, BSR_LC_RESYNC_OV, device, "Resynchronization state is not set based on disk state because uuid was received during promotion.");
+			return;
+		}
+	}
+
 	/* rule_nr 40 means that the current UUIDs are equal. The decision
 	   was found by looking at the crashed_primary bits.
 	   The current disk states might give a better basis for decision-making! */
