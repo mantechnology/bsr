@@ -2365,6 +2365,11 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 			// BSR-1064
 			if ((repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S) ||
 				(repl_state[OLD] != L_STARTING_SYNC_T && repl_state[NEW] == L_STARTING_SYNC_T)) {
+
+				// BSR-1311 set wat_for_recv_bitmap because resync must be carried out after bitmap exchange.
+				if (repl_state[OLD] != L_STARTING_SYNC_S && repl_state[NEW] == L_STARTING_SYNC_S)
+					atomic_set(&peer_device->wait_for_recv_bitmap, 1);
+
 				atomic_inc(&resource->will_be_used_vol_ctl_mutex);
 			}
 
