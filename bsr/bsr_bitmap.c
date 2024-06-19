@@ -906,13 +906,18 @@ static u64 bsr_md_on_disk_bits(struct bsr_device *device)
  * In case this is actually a resize, we copy the old bitmap into the new one.
  * Otherwise, the bitmap is initialized to all bits set.
  */
-int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits)
+int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int flags)
 {
 	struct bsr_bitmap *b = device->bitmap;
 	ULONG_PTR bits, words, obits;
 	ULONG_PTR want, have, onpages; /* number of pages */
 	struct page **npages, **opages = NULL;
 	int err = 0;
+	int set_new_bits = !(flags & DDSF_NO_RESYNC);
+	// BSR-1327
+	bool attaching = flags & DDSF_ATTACHING;
+	ULONG_PTR start_obits = 0, end_obits = 0;
+
 	bool growing;
 
 	if (!expect(device, b))
@@ -1000,12 +1005,35 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int set_new_bits
 		for (bitmap_index = 0; bitmap_index < b->bm_max_peers; bitmap_index++) {
 			ULONG_PTR bm_set = b->bm_set[bitmap_index];
 
-			if (set_new_bits) { 
-				___bm_op(device, bitmap_index, obits, BSR_END_OF_BITMAP, BM_OP_SET, NULL, KM_IRQ1);
+			// BSR-1327 
+			start_obits = obits;
+			do {
+				// BSR-1327 set the bitmap to a size of up to 1TB.
+				end_obits += RANGE_NEXT_BIT;
+				if (bits <= end_obits) 
+					end_obits = BSR_END_OF_BITMAP;
+
+				// BSR-1327 if the bitmap size you set is greater than 10TB, turn the lock on/off in units of 1TB bitmap settings.
+				if (attaching && (start_obits != obits)) 
+					spin_lock_irq(&b->bm_lock);
+
+				if (set_new_bits) 
+					___bm_op(device, bitmap_index, start_obits, end_obits, BM_OP_SET, NULL, KM_IRQ1);
+				else
+					___bm_op(device, bitmap_index, start_obits, end_obits, BM_OP_CLEAR, NULL, KM_IRQ1);
+
+				if (attaching && (end_obits != BSR_END_OF_BITMAP)) {
+					spin_unlock_irq(&b->bm_lock);
+					cond_resched();
+				}
+
+				start_obits = end_obits;
+			} while (end_obits != BSR_END_OF_BITMAP);
+
+			// BSR-1327
+			end_obits = 0;
+			if (set_new_bits)
 				bm_set += bits - obits;
-			}
-			else
-				___bm_op(device, bitmap_index, obits, BSR_END_OF_BITMAP, BM_OP_CLEAR, NULL, KM_IRQ1);
 
 			b->bm_set[bitmap_index] = bm_set;
 		}
@@ -1988,7 +2016,7 @@ __bm_many_bits_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PT
 
 		// DW-1996 use windows instead of need_resched()
 #ifdef _WIN
-		if (1 <= ((bit - offset) / RANGE_FIND_NEXT_BIT)) {
+		if (1 <= ((bit - offset) / RANGE_NEXT_BIT)) {
 			spin_unlock_irq(&bitmap->bm_lock);
 			offset = bit;
 			spin_lock_irq(&bitmap->bm_lock);
