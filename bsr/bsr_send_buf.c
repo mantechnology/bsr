@@ -690,7 +690,7 @@ VOID NTAPI send_buf_thread(PVOID p)
 		case (STATUS_WAIT_0 + 1) :
 			if (do_send(&tcp_transport->transport, stream, socket, buffering_attr->bab, socket->sk_linux_attr->sk_sndtimeo, &buffering_attr->send_buf_kill_event) < 0) {
 				// BSR-1322 reconnect when an error occurs.
-				struct bsr_connection *connection = container_of(tcp_transport, struct bsr_connection, transport);
+				struct bsr_connection *connection = container_of(transport, struct bsr_connection, transport);
 				change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
 				goto done;
 			}
@@ -742,7 +742,7 @@ int send_buf_thread(void *p)
 		if(test_and_clear_bit(RING_BUF_EVENT, &buffering_attr->flags)) {
 			if (do_send(&tcp_transport->transport, stream, socket, buffering_attr->bab, socket->sk->sk_sndtimeo) < 0) {
 				// BSR-1322 reconnect when an error occurs.
-				struct bsr_connection *connection = container_of(tcp_transport, struct bsr_connection, transport);
+				struct bsr_connection *connection = container_of(transport, struct bsr_connection, transport);
 				change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
 				break;
 			}
