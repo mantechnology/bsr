@@ -1985,7 +1985,7 @@ bsr_determine_dev_size(struct bsr_device *device, sector_t peer_current_size,
 	if (bsr_get_vdisk_capacity(device) != size ||
 	    bsr_bm_capacity(device) != size) {
 		int err;
-		err = bsr_bm_resize(device, size, !(flags & DDSF_NO_RESYNC));
+		err = bsr_bm_resize(device, size, flags);
 		if (unlikely(err)) {
 			/* currently there is only one error: ENOMEM! */
 			size = bsr_bm_capacity(device);
@@ -3541,7 +3541,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 			set_bit(USE_DEGR_WFC_T, &peer_device->flags);
 	}
 
-	dd = bsr_determine_dev_size(device, 0, 0, NULL);
+	dd = bsr_determine_dev_size(device, 0, DDSF_ATTACHING, NULL);
 	if (dd == DS_ERROR) {
 		retcode = ERR_NOMEM_BITMAP;
 		goto force_diskless_dec;

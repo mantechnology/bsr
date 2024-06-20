@@ -2416,9 +2416,9 @@ static int fill_bitmap_rle_bits(struct bsr_peer_device *peer_device,
 		// DW-1979 to avoid lock occupancy, divide and find.
 		offset = c->bit_offset;
 		for (;;) {
-			tmp = (toggle == 0) ? bsr_bm_range_find_next_zero(peer_device, offset, offset + RANGE_FIND_NEXT_BIT) :
-				bsr_bm_range_find_next(peer_device, offset, offset + RANGE_FIND_NEXT_BIT);
-			if (tmp >= c->bm_bits || tmp < (offset + RANGE_FIND_NEXT_BIT + 1))
+			tmp = (toggle == 0) ? bsr_bm_range_find_next_zero(peer_device, offset, offset + RANGE_NEXT_BIT) :
+				bsr_bm_range_find_next(peer_device, offset, offset + RANGE_NEXT_BIT);
+			if (tmp >= c->bm_bits || tmp < (offset + RANGE_NEXT_BIT + 1))
 				break;
 			offset = tmp;
 			// BSR-1083 fix prevent disconnection due to CPU occupation
@@ -2700,9 +2700,9 @@ bool bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bs
 
 		word_offset = current_offset = offset = 0;
 		for (;;) {
-			offset = bsr_bm_range_find_next(to_merge, current_offset, current_offset + RANGE_FIND_NEXT_BIT);
+			offset = bsr_bm_range_find_next(to_merge, current_offset, current_offset + RANGE_NEXT_BIT);
 			// DW-2088 word that is not a bit should be used for merging
-			if (offset < (current_offset + RANGE_FIND_NEXT_BIT + 1)) {
+			if (offset < (current_offset + RANGE_NEXT_BIT + 1)) {
 				word_offset = (offset / BITS_PER_LONG);
 				for (; (word_offset * BITS_PER_LONG) < bsr_bm_bits(peer_device->device); word_offset += allow_size) {
 					bsr_bm_get_lel(to_merge, word_offset, allow_size, bb);
@@ -3687,7 +3687,7 @@ void bsr_cleanup_device(struct bsr_device *device)
 		// BSR-875
 		atomic_sub64(device->bitmap->bm_number_of_pages, &mem_usage.bm_pp);
 #endif
-		bsr_bm_resize(device, 0, 1);
+		bsr_bm_resize(device, 0, 0);
 		bsr_bm_free(device->bitmap);
 		device->bitmap = NULL;
 	}

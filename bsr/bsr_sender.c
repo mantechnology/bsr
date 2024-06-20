@@ -1308,9 +1308,6 @@ static int bsr_rs_number_requests(struct bsr_peer_device *peer_device)
 	return number;
 }
 
-// DW-1978 25000000 is 100 Gbyte (1bit = 4k)
-#define RANGE_FIND_NEXT_BIT 25000000
-
 static int make_resync_request(struct bsr_peer_device *peer_device, int cancel)
 {
 	struct bsr_device *device = peer_device->device;
@@ -1403,8 +1400,8 @@ next_sector:
 		size = BM_BLOCK_SIZE;
 		for (;;) {
 			// DW-1978
-			bit = bsr_bm_range_find_next(peer_device, device->bm_resync_fo, device->bm_resync_fo + RANGE_FIND_NEXT_BIT);
-			if (bit < (device->bm_resync_fo + RANGE_FIND_NEXT_BIT + 1)) {
+			bit = bsr_bm_range_find_next(peer_device, device->bm_resync_fo, device->bm_resync_fo + RANGE_NEXT_BIT);
+			if (bit < (device->bm_resync_fo + RANGE_NEXT_BIT + 1)) {
 				break;
 			}
 
@@ -1601,8 +1598,8 @@ static int make_ov_request(struct bsr_peer_device *peer_device, int cancel)
 
 			// BSR-118 bitmap operation to use fast ov
 			for (;;) {
-				bit = bsr_ov_bm_range_find_next(peer_device, peer_device->ov_bm_position, peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT);
-				if (bit < bsr_ov_bm_bits(peer_device) && bit < (peer_device->ov_bm_position + RANGE_FIND_NEXT_BIT)) {
+				bit = bsr_ov_bm_range_find_next(peer_device, peer_device->ov_bm_position, peer_device->ov_bm_position + RANGE_NEXT_BIT);
+				if (bit < bsr_ov_bm_bits(peer_device) && bit < (peer_device->ov_bm_position + RANGE_NEXT_BIT)) {
 					break;
 				}
 
@@ -3484,9 +3481,9 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			// DW-1908 set start out of sync bit
 			// DW-2050 fix temporary hang caused by req_lock and bm_lock
 			for (;;) {
-				ULONG_PTR tmp = bsr_bm_range_find_next(peer_device, offset, offset + RANGE_FIND_NEXT_BIT);
+				ULONG_PTR tmp = bsr_bm_range_find_next(peer_device, offset, offset + RANGE_NEXT_BIT);
 
-				if (tmp < (offset + RANGE_FIND_NEXT_BIT + 1)) {
+				if (tmp < (offset + RANGE_NEXT_BIT + 1)) {
 					atomic_set64(&peer_device->s_resync_bb, tmp);
 					break;
 				}

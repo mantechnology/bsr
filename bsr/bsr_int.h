@@ -2458,6 +2458,8 @@ enum dds_flags {
 	DDSF_NO_RESYNC = 2, /* Do not run a resync for the new space */
 	DDSF_IGNORE_PEER_CONSTRAINTS = 4,
 	DDSF_2PC = 8, /* local only, not on the wire */
+	// BSR-1327 This enum is set during volume attachment.
+	DDSF_ATTACHING = 16, 
 };
 
 extern int  bsr_thread_start(struct bsr_thread *thi);
@@ -2765,7 +2767,7 @@ __bsr_next_peer_device_ref(u64 *, struct bsr_peer_device *, struct bsr_device *)
 #define BSR_MAX_BBIO_SECTORS    (BSR_MAX_BATCH_BIO_SIZE >> 9)
 
 extern struct bsr_bitmap *bsr_bm_alloc(void);
-extern int  bsr_bm_resize(struct bsr_device *device, sector_t sectors, int set_new_bits);
+extern int  bsr_bm_resize(struct bsr_device *device, sector_t sectors, int flags);
 void bsr_bm_free(struct bsr_bitmap *bitmap);
 extern void bsr_bm_set_all(struct bsr_device *device);
 extern void bsr_bm_clear_all(struct bsr_device *device);
@@ -2799,7 +2801,7 @@ extern sector_t      bsr_bm_capacity(struct bsr_device *device);
 #define BSR_END_OF_BITMAP	UINTPTR_MAX
 
 // DW-1979 25000000 is 100 Gbyte (1bit = 4k) 
-#define RANGE_FIND_NEXT_BIT 25000000
+#define RANGE_NEXT_BIT 25000000
 extern ULONG_PTR bsr_bm_range_find_next_zero(struct bsr_peer_device *, ULONG_PTR, ULONG_PTR);
 
 // BSR-835
