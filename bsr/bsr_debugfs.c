@@ -1221,7 +1221,7 @@ int device_io_frozen_show(struct seq_file *m, void *ignored)
 	seq_printf(m, "ap_bio_cnt[READ]: %d\n", atomic_read(&device->ap_bio_cnt[READ]));
 	seq_printf(m, "ap_bio_cnt[WRITE]: %d\n", atomic_read(&device->ap_bio_cnt[WRITE]));
 	seq_printf(m, "device->pending_bitmap_work.n: %d\n", atomic_read(&device->pending_bitmap_work.n));
-	seq_printf(m, "may_inc_ap_bio(): %d\n", may_inc_ap_bio(device));
+	seq_printf(m, "may_inc_ap_bio(): %d\n", may_inc_ap_bio(device, NULL));
 	put_ldev(__FUNCTION__, device);
 
 	return 0;
@@ -1469,7 +1469,7 @@ int device_io_pending_show(struct seq_file *m, void *ignored)
 			test_bit(AL_SUSPENDED, &device->flags),
 			device->act_log->pending_changes,
 			atomic_read(&device->ap_actlog_cnt),
-			!may_inc_ap_bio(device),
+			!may_inc_ap_bio(device, NULL),
 			bsr_suspended(device),
 			atomic_read(&device->suspend_cnt),
 			!bsr_state_is_stable(device),

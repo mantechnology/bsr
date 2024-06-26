@@ -5983,7 +5983,7 @@ static void device_to_statistics(struct device_statistics *s,
 				 struct bsr_device *device)
 {
 	memset(s, 0, sizeof(*s));
-	s->dev_upper_blocked = !may_inc_ap_bio(device);
+	s->dev_upper_blocked = !may_inc_ap_bio(device, NULL);
 	if (get_ldev(device)) {
 		struct bsr_md *md = &device->ldev->md;
 		u64 *history_uuids = (u64 *)s->history_uuids;

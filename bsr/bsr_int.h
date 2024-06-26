@@ -530,7 +530,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
 #define BSR_LC_BITMAP_MAX_INDEX 128
 #define BSR_LC_LRU_MAX_INDEX 42
-#define BSR_LC_REQUEST_MAX_INDEX 37
+#define BSR_LC_REQUEST_MAX_INDEX 38
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
 #define BSR_LC_RESYNC_OV_MAX_INDEX 236
 #define BSR_LC_REPLICATION_MAX_INDEX 33
@@ -4296,7 +4296,7 @@ static inline bool bsr_suspended(struct bsr_device *device)
 	return resource_is_suspended(device->resource, NOW, false);
 }
 
-static inline bool may_inc_ap_bio(struct bsr_device *device)
+static inline bool may_inc_ap_bio(struct bsr_device *device, struct bio *bio)
 {
 	if (bsr_suspended(device))
 		return false;
@@ -4311,12 +4311,27 @@ static inline bool may_inc_ap_bio(struct bsr_device *device)
 	if (!bsr_state_is_stable(device))
 		return false;
 
-	if (atomic_read(&device->pending_bitmap_work.n))
+	if (atomic_read(&device->pending_bitmap_work.n)) {
+#ifdef _LIN
+		// BSR-1336 added conditions for handling exception situations where REQ_NOMERGE is enabled but not handled independently
+		if (bio && bio_data_dir(bio) == WRITE && atomic_read(&device->ap_bio_cnt[WRITE])) {
+			struct bsr_request *req;
+			list_for_each_entry_ex(struct bsr_request, req, &device->pending_completion[1], req_pending_local) {
+				if (req->master_bio->bi_opf & REQ_NOMERGE) {
+					if (req->master_bio->bi_private == bio || req->master_bio->bi_private == bio->bi_private) {
+						bsr_info(38, BSR_LC_REQUEST, device, "bio(%p) split write to bio has already been requested(%p, %p), so a bitmap operation is waiting, but proceed with bio's write.", bio, req, req->master_bio);
+						return true;
+					}
+				}
+			}
+		}
+#endif
 		return false;
+	}
 	return true;
 }
 
-static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
+static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw, struct bio* bio)
 {
 	bool rv = false;
 	int nr_requests;
@@ -4325,7 +4340,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 
 	spin_lock_irq(&device->resource->req_lock);
 	nr_requests = device->resource->res_opts.nr_requests;
-	rv = may_inc_ap_bio(device) && (atomic_read(&device->ap_bio_cnt[rw]) < nr_requests);
+	rv = may_inc_ap_bio(device, bio) && (atomic_read(&device->ap_bio_cnt[rw]) < nr_requests);
 
 	// DW-1925 postpone I/O if current request count is too big.
 	max_req_write_cnt = device->resource->res_opts.max_req_write_cnt;   
@@ -4357,7 +4372,7 @@ static inline bool inc_ap_bio_cond(struct bsr_device *device, int rw)
 	return rv;
 }
 
-static inline void inc_ap_bio(struct bsr_device *device, int rw)
+static inline void inc_ap_bio(struct bsr_device *device, int rw, struct bio* bio)
 {
 	/* we wait here
 	 *    as long as the device is suspended
@@ -4367,7 +4382,7 @@ static inline void inc_ap_bio(struct bsr_device *device, int rw)
 	 * to avoid races with the reconnect code,
 	 * we need to atomic_inc within the spinlock. */
 
-	wait_event(device->misc_wait, inc_ap_bio_cond(device, rw));
+	wait_event(device->misc_wait, inc_ap_bio_cond(device, rw, bio));
 }
 
 static inline int bsr_set_exposed_data_uuid(struct bsr_device *device, u64 val)

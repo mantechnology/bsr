@@ -3447,7 +3447,7 @@ MAKE_REQUEST_TYPE bsr_make_request(struct request_queue *q, struct bio *bio)
 		spin_unlock_irq(&device->io_pending_list_lock);
 	}
 
-	inc_ap_bio(device, bio_data_dir(bio));
+	inc_ap_bio(device, bio_data_dir(bio), bio);
 
 #ifdef _WIN
 	status = __bsr_make_request(device, bio, start_kt, start_jif);
