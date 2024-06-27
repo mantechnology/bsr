@@ -5295,6 +5295,14 @@ static void various_states_to_goodness(struct bsr_device *device,
 	if (*hg != 0 || (bsr_bm_total_weight(peer_device) == 0 && peer_device->dirty_bits == 0))
 		return;
 
+	// BSR-1341 if the disk status has been updated but it is an initial uuid, we will not set the sync status because the promotion is in progress.
+	if (device->resource->role[NOW] == R_PRIMARY && disk_state == D_UP_TO_DATE) {
+		if (bsr_current_uuid(device) == UUID_JUST_CREATED) {
+			bsr_info(236, BSR_LC_RESYNC_OV, device, "Resynchronization state is not set based on disk state because uuid was received during promotion.");
+			return;
+		}
+	}
+
 	if (disk_state == D_NEGOTIATING)
 		disk_state = disk_state_from_md(device);
 
