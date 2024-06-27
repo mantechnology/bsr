@@ -4100,7 +4100,7 @@ static void do_retry(struct work_struct *ws)
 
 		/* We are not just doing generic_make_request(),
 		 * as we want to keep the start_time information. */
-		inc_ap_bio(device, bio_data_dir(bio));
+		inc_ap_bio(device, bio_data_dir(bio), NULL);
 		// BSR-1054
 		if (atomic_read(&g_bsrmon_run) & (1 << BSRMON_IO_PENDING)) {
 			struct io_pending_info* io_pending = bsr_kmalloc(sizeof(struct io_pending_info), GFP_ATOMIC|__GFP_NOWARN, 'CASB');
@@ -4191,7 +4191,7 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 	struct request_queue *q;
 	int r = 0;
 
-	if (!may_inc_ap_bio(device)) {
+	if (!may_inc_ap_bio(device, NULL)) {
 		/* BSR has frozen IO */
 		r = bdi_bits;
 		goto out;
