@@ -29,8 +29,6 @@ BuildRequires: redhat-rpm-config
 %if %{defined kernel_module_package_buildreqs}
 BuildRequires: %kernel_module_package_buildreqs
 %endif
-# BSR-1316
-Requires: bsr-utils = %{version}-%{?release}
 
 %description
 This module is the kernel-dependent driver for BSR.  This is split out so
@@ -42,29 +40,6 @@ installed kernel.
 
 # BSR-1089 support for suse
 %if %{defined suse_kernel_module_package}
-
-# BSR-1316
-installed_kernels=$(rpm -qa kernel-default | sed 's/kernel-default-//;s/.1\.(x86_64|i.86)$//')
-this_kmp_version=$(echo %kernel_version | sed 's/-default//')
-
-echo "Installed kernel versions: $installed_kernels"
-echo "Required kernel version (from package): $this_kmp_version"
-
-kernel_found=false
-for installed_kernel in $installed_kernels; do
-    if [[ "$installed_kernel" == "$this_kmp_version" ]]; then
-        kernel_found=true
-        break
-    fi
-done
-
-if [[ "$kernel_found" == true ]]; then
-    echo "Success: Required kernel version $this_kmp_version found."
-else
-    echo "Error: Required kernel version $this_kmp_version not found. Installed versions: $installed_kernels"
-    exit 1
-fi
-
 # Support also sles10, where kernel_module_package was not yet defined.
 # In sles11, suse_k_m_p became a wrapper around k_m_p.
 
@@ -72,9 +47,9 @@ fi
 %if 0%{?suse_version} < 1110
 # We need to exclude some flavours on sles10 etc,
 # or we hit an rpm internal buffer limit.
-%suse_kernel_module_package -n bsr -f filelist-suse kdump kdumppae vmi vmipae um
+%suse_kernel_module_package -n bsr -f filelist-suse -p preamble-suse kdump kdumppae vmi vmipae um
 %else
-%suse_kernel_module_package -n bsr -f filelist-suse
+%suse_kernel_module_package -n bsr -f filelist-suse -p preamble-suse
 %endif
 %else
 # Concept stolen from sles kernel-module-subpackage:
@@ -86,32 +61,8 @@ fi
 # For convenience, we want both 6.0 and 6.1 in the same repository,
 # and have yum/rpm figure out via dependencies, which kmod version should be installed.
 # This is a dirty hack, non generic, and should probably be enclosed in some "if-on-rhel6".
-
-# BSR-1316
-installed_kernels=$(rpm -qa kernel | sed -r 's/^kernel-//;s/\.el[0-9]+\.(x86_64|i.86)$//')
-this_kmp_version=$(echo %kernel_version | sed -r 's/\.el[0-9]+\.(x86_64|i.86)$//')
-
-echo "Installed kernel versions: $installed_kernels"
-echo "Required kernel version (from package): $this_kmp_version"
-
-kernel_found=false
-
-for kernel in $installed_kernels; do
-    if [[ "$kernel" == "$this_kmp_version" ]]; then
-        kernel_found=true
-        break
-    fi
-done
-
-if [[ "$kernel_found" == true ]]; then
-    echo "Success: Required kernel version $this_kmp_version found."
-else
-    echo "Error: Required kernel version $this_kmp_version not found. Current versions: $installed_kernels"
-    exit 1
-fi
-
-%define _this_kmp_version %{version}_%(echo %kernel_version | sed -r 'y/-/_/; s/\.el.\.(x86_64|i.86)$//')
-%kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat
+%define _this_kmp_version %{version}_%(echo %kernel_version | sed -r 'y/-/_/; s/\.el.\.(x86_64|i.86)$//;')
+%kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble
 %endif
 
 %build
