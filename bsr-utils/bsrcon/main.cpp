@@ -293,6 +293,7 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 	int dbg_ctgr = 0;
 	double log_backup_size = 0;
 	char number[MAX_NUMBER_LEN] = { 0, };
+	char total_number[MAX_NUMBER_LEN] = { 0, };
 
 	// DW-2008
 	if (get_log_level(&sys_evt_lv, &dbglog_lv)) {
@@ -317,9 +318,9 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 			setup_cnt = ((cli_log_max_count >> BSR_SETUP_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 			meta_cnt = ((cli_log_max_count >> BSR_META_LOG_FILE_MAX_COUNT) & BSR_LOG_MAX_FILE_COUNT_MASK);
 
-			printf("    bsradm : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), adm_cnt, printNumber(number, adm_cnt * log_backup_size));
-			printf("    bsrsetup : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), setup_cnt, printNumber(number, setup_cnt * log_backup_size));
-			printf("    bsrmeta : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), meta_cnt, printNumber(number, meta_cnt * log_backup_size));
+			printf("    bsradm : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), adm_cnt, printNumber(total_number, adm_cnt * log_backup_size));
+			printf("    bsrsetup : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), setup_cnt, printNumber(total_number, setup_cnt * log_backup_size));
+			printf("    bsrmeta : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), meta_cnt, printNumber(total_number, meta_cnt * log_backup_size));
 		}
 		else
 			printf("Failed to get cli log file max count\n");
@@ -327,7 +328,7 @@ int cmd_get_log_info(int *index, int argc, char* argv[])
 		log_backup_size = BToM(LOGBUF_MAXCNT * MAX_BSRLOG_BUF);
 		// BSR-579
 		if (get_engine_log_file_max_count(&log_max_count))
-			printf("    bsrdriver : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), log_max_count, printNumber(number, log_max_count * log_backup_size));
+			printf("    bsrdriver : size %sMB, count %d, total size %sMB\n", printNumber(number, log_backup_size), log_max_count, printNumber(total_number, log_max_count * log_backup_size));
 		else
 			printf("Failed to get log file max count\n");
 
