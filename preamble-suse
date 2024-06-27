@@ -3,7 +3,6 @@
 # 4.12.14
 %define _rel_version %(echo %kernel_version | awk -F- '{print $1}')
 # 195
-%define _minor_fix %(echo %kernel_version | awk -F- '{print $2}' | awk -F. '{print $1}')
-# 196
-%define _next_minor_fix %(echo %_minor_fix | awk '{sum = $1 + 1} {print sum}')
-Requires: bsr-utils = %{version}-%{?release}, kernel < %_rel_version-%_next_minor_fix, kernel >= %_rel_version-%_minor_fix
+%define _minor_fix %(echo %kernel_version | awk -F- '{print $2}' | awk -F.x86_64 '{print $1}')
+# BSR-1316
+Requires: bsr-utils = %{version}-%{?release}, kernel = %{_rel_version}-%{_minor_fix}
