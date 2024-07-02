@@ -550,7 +550,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 20
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 91
+#define BSR_LC_ETC_MAX_INDEX 92
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
@@ -4314,11 +4314,11 @@ static inline bool may_inc_ap_bio(struct bsr_device *device, struct bio *bio)
 	if (atomic_read(&device->pending_bitmap_work.n)) {
 #ifdef _LIN
 		// BSR-1336 added conditions for handling exception situations where REQ_NOMERGE is enabled but not handled independently
-		if (bio && bio_data_dir(bio) == WRITE && atomic_read(&device->ap_bio_cnt[WRITE])) {
+		if (bio && (bio_data_dir(bio) == WRITE) && atomic_read(&device->ap_bio_cnt[WRITE])) {
 			struct bsr_request *req;
-			list_for_each_entry_ex(struct bsr_request, req, &device->pending_completion[1], req_pending_local) {
+			list_for_each_entry_ex(struct bsr_request, req, &device->pending_completion[WRITE], req_pending_local) {
 				if (req->master_bio->bi_opf & REQ_NOMERGE) {
-					if (req->master_bio->bi_private == bio || req->master_bio->bi_private == bio->bi_private) {
+					if ((req->master_bio->bi_private == bio) || (req->master_bio->bi_private == bio->bi_private)) {
 						bsr_info(38, BSR_LC_REQUEST, device, "bio(%p) split write to bio has already been requested(%p, %p), so a bitmap operation is waiting, but proceed with bio's write.", bio, req, req->master_bio);
 						return true;
 					}

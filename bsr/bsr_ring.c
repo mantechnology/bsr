@@ -130,6 +130,8 @@ bool bsr_idx_ring_acquire(struct bsr_idx_ring_buffer *rb, LONGLONG *idx)
 char* bsr_offset_ring_adjust(struct bsr_offset_buffer *buf, u64 new_size, char *name)
 {
 	int allocated = atomic_read(&buf->allocated);
+	// BSR-1347
+	int deallocated = atomic_read(&buf->deallocated);
 	char *buffer = NULL;
 
 	if (buf->buf == NULL) {
@@ -138,8 +140,6 @@ char* bsr_offset_ring_adjust(struct bsr_offset_buffer *buf, u64 new_size, char *
 		} else {
 			// BSR-1282
 			if (!allocated && (allocated == atomic_cmpxchg(&buf->allocated, allocated, 1))) {
-				// BSR-1282 increase 1 to prevent unintended deallocation during or after allocation.
-				atomic_add64(1, &buf->used_size);
 #ifdef _WIN
 				buf->buf = (char *)ExAllocatePoolWithTag(NonPagedPool, (size_t)new_size, '63SB');
 #else
@@ -155,27 +155,32 @@ char* bsr_offset_ring_adjust(struct bsr_offset_buffer *buf, u64 new_size, char *
 
 					buf->total_size = new_size;
 					buffer = buf->buf;
+
+					// BSR-1347
+					atomic_set(&buf->deallocated, 0);
 				} else {
 					bsr_warn(91, BSR_LC_ETC, NO_OBJECT, "allocation of %s to offset buffer failed. size %d", name, new_size);
 					atomic_set(&buf->allocated, 0);
 				}
-
-				atomic_sub64(1, &buf->used_size);
 			}
 		}
 	} else {
 		if (buf->total_size != new_size) {
 			// BSR-1145 when reallocating a buffer, if the buffer is in use, it returns NULL to deactivate the buffer and then reassign it.
 			if (!atomic_read64(&buf->used_size)) {
+				// BSR-1347 use deallocated to prevent duplicate deallocated.
+				if (!deallocated && (deallocated == atomic_cmpxchg(&buf->deallocated, deallocated, 1))) {
 #ifdef _LIN
-				sub_kvmalloc_mem_usage(buf->buf, buf->total_size);
+					sub_kvmalloc_mem_usage(buf->buf, buf->total_size);
 #endif
-				kvfree2(buf->buf);
-				// BSR-1282
-				atomic_set(&buf->allocated, 0);
+					bsr_info(92, BSR_LC_ETC, NO_OBJECT, "%p, deallocation  of offset buffer to %s", buf->buf, name);
+					kvfree2(buf->buf);
 
-				if (new_size == 0)
-					buf->total_size = new_size;
+					if (new_size == 0)
+						buf->total_size = new_size;
+
+					atomic_set(&buf->allocated, 0);
+				}
 			}
 		} else 
 			buffer = buf->buf;
@@ -192,6 +197,7 @@ void bsr_offset_ring_free(struct bsr_offset_buffer *buf)
 #endif
 		kvfree2(buf->buf);
 		atomic_set(&buf->allocated, 0);
+		atomic_set(&buf->deallocated, 1);
 		buf->total_size = 0;
 	}
 }
