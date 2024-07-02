@@ -5208,6 +5208,8 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	atomic_set64(&device->accelbuf.used_size, 0);
 	// BSR-1282
 	atomic_set(&device->accelbuf.allocated, 0);
+	// BSR-1347
+	atomic_set(&device->accelbuf.deallocated, 1);
 
 	locked = true;
 	spin_lock_irq(&resource->req_lock);
