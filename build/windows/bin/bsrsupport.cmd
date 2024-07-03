@@ -109,7 +109,7 @@ exit /B %ERRORLEVEL%
     if not exist "%BSR_DIR%" ( mkdir "%BSR_DIR%" )
 
 	@rem BSR-1264 include directories when compressed
-    "%BSR_PATH%\..\support\zip" -9 "%BSR_DIR%\%CORE_ARCHIVE_NAME%" %1
+    "%BSR_PATH%\..\support\zip" -1 "%BSR_DIR%\%CORE_ARCHIVE_NAME%" %1
 
     if %ERRORLEVEL% EQU 0 (
 		call :logging  "core file has been compressed."
