@@ -5256,14 +5256,6 @@ static void disk_states_to_goodness(struct bsr_device *device,
 	if (peer_disk_state == D_UNKNOWN)
 		return;
 
-	// BSR-1311 if the disk status has been updated but it is an initial uuid, we will not set the sync status because the promotion is in progress.
-	if (device->resource->role[NOW] == R_PRIMARY && disk_state == D_UP_TO_DATE) {
-		if (bsr_current_uuid(device) == UUID_JUST_CREATED) {
-			bsr_info(233, BSR_LC_RESYNC_OV, device, "Resynchronization state is not set based on disk state because uuid was received during promotion.");
-			return;
-		}
-	}
-
 	/* rule_nr 40 means that the current UUIDs are equal. The decision
 	   was found by looking at the crashed_primary bits.
 	   The current disk states might give a better basis for decision-making! */
@@ -5294,14 +5286,6 @@ static void various_states_to_goodness(struct bsr_device *device,
 
 	if (*hg != 0 || (bsr_bm_total_weight(peer_device) == 0 && peer_device->dirty_bits == 0))
 		return;
-
-	// BSR-1341 if the disk status has been updated but it is an initial uuid, we will not set the sync status because the promotion is in progress.
-	if (device->resource->role[NOW] == R_PRIMARY && disk_state == D_UP_TO_DATE) {
-		if (bsr_current_uuid(device) == UUID_JUST_CREATED) {
-			bsr_info(236, BSR_LC_RESYNC_OV, device, "Resynchronization state is not set based on disk state because uuid was received during promotion.");
-			return;
-		}
-	}
 
 	if (disk_state == D_NEGOTIATING)
 		disk_state = disk_state_from_md(device);
@@ -5409,10 +5393,15 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		return -1;
 	}
 
-	disk_states_to_goodness(device, peer_disk_state, &hg, rule_nr);
-
-	// DW-1014 to trigger sync when hg is 0 and oos exists, check more states as long as 'disk_states_to_goodness' doesn't cover all situations.
-	various_states_to_goodness(device, peer_device, peer_disk_state, peer_role, &hg);	
+	// BSR-1349 since both nodes are in initial UUID state, it does not invoke a function that sets the replication state based on the state.
+	if (hg == 0 && rule_nr == 10) {
+		if (device->resource->role[NOW] == R_PRIMARY)
+			bsr_info(233, BSR_LC_RESYNC_OV, device, "Resynchronization state is not set based on disk state because uuid was received during promotion.");
+	} else {
+		disk_states_to_goodness(device, peer_disk_state, &hg, rule_nr);
+		// DW-1014 to trigger sync when hg is 0 and oos exists, check more states as long as 'disk_states_to_goodness' doesn't cover all situations.
+		various_states_to_goodness(device, peer_device, peer_disk_state, peer_role, &hg);
+	}
 	
 	// It will not be used for a while because DW-1195 reproduced.
 	/*
@@ -5422,7 +5411,6 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	}
 	*/
 	
-
 	if (abs(hg) == 100)
 		bsr_khelper(device, connection, "initial-split-brain");
 
