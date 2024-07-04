@@ -434,7 +434,7 @@ exit /b 0
 
     @rem Archive gathered information.
     cd /d "%SUPPORT_HOME%"
-    "%BSR_PATH%\..\support\zip" -r -m9 "%ARCHIVE_NAME%" "%COMPUTERNAME%"
+    "%BSR_PATH%\..\support\zip" -r -m1 "%ARCHIVE_NAME%" "%COMPUTERNAME%"
     cd /d "%OLDDIR%"
 
     echo.
