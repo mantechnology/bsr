@@ -1,0 +1,4 @@
+# BSR-861 file added due to difference between rhel and kernel rpm name.
+%define _rel_version %(echo %kernel_version | awk -F- '{print $1}')
+%define _minor_fix %(echo %kernel_version | awk -F- '{print $2}' | awk -F.x86_64 '{print $1}')
+Requires: bsr-utils = %{version}-%{?release}, kernel-uek = %{_rel_version}-%{_minor_fix}
