@@ -2,7 +2,7 @@
 
 void foo(void)
 {
-	struct file *fd;
+	struct file *fd = NULL;
 
 	iterate_dir(fd, NULL);
 }

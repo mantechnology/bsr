@@ -1,8 +1,8 @@
 #include <linux/skbuff.h>
 #include <linux/netlink.h>
 
-void f(void)
+struct nlmsghdr * f(void)
 {
 	struct sk_buff *skb = NULL;
-	struct nlmsghdr *hdr = nlmsg_hdr(skb);
+	return nlmsg_hdr(skb);
 }
