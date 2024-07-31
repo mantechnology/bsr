@@ -503,6 +503,12 @@ int cmd_get_volume_size(int *index, int argc, char* argv[])
 
 	memset(&srcVolumeInfo, 0, sizeof(MVOL_VOLUME_INFO));
 
+	(*index)++;
+	if (*index < argc)
+		letter = (UCHAR)*argv[*index];
+	else
+		usage(false);
+
 	res = MVOL_GetVolumeInfo(letter, &srcVolumeInfo);
 	if (res) {
 		printf("cannot get src volume info, Drive=%c:, err=%d\n",
