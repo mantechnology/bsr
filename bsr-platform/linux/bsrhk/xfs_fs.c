@@ -24,6 +24,57 @@ inline bool xfs_sb_version_hascrc(struct xfs_sb *sbp)
 	return be16_to_cpu(XFS_SB_VERSION_NUM(sbp)) == XFS_SB_VERSION_5;
 }
 
+// BSR-1370
+loff_t find_leaf_node(struct file *fd, loff_t str_offset, loff_t ag_blocks_offset, unsigned int ag_no, int blk_size) 
+{
+    loff_t offset, cur_offset = str_offset;
+    struct xfs_btree_block btsb;
+	int ret = 0;
+	unsigned short bb_level = 0;
+	unsigned short bb_numrecs = 0;
+	int i;
+			
+	offset = fd->f_op->llseek(fd, cur_offset, SEEK_SET);
+	ret = bsr_read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
+	
+	if (ret < 0 || ret != sizeof(struct xfs_btree_block)) {
+		return -1;
+	}
+
+	if (be32_to_cpu(btsb.bb_magic) != XFS_ABTB_MAGIC &&
+		be32_to_cpu(btsb.bb_magic) != XFS_ABTB_CRC_MAGIC) {
+		bsr_err(133, BSR_LC_BITMAP, NO_OBJECT, "Invalid b-tree block magic number %x", be32_to_cpu(btsb.bb_magic));
+		return -1;
+	}
+
+	bb_level = be16_to_cpu(btsb.bb_level);
+	bb_numrecs = be16_to_cpu(btsb.bb_numrecs);
+	
+	if (bb_level == 0) { 
+		// returns the leaf node when it is found.
+		return cur_offset;
+	} else { 
+		xfs_alloc_ptr_t ptr;
+		loff_t leaf_node_offset;
+		// calculate the maximum array size of xfs_alloc_key_t, xfs_alloc_key_t.
+		int max_numrecs = (blk_size - sizeof(struct xfs_btree_block)) / (sizeof(xfs_alloc_key_t) + sizeof(xfs_alloc_ptr_t));
+
+		offset = fd->f_op->llseek(fd, cur_offset + sizeof(struct xfs_btree_block) + (sizeof(xfs_alloc_key_t) * max_numrecs), SEEK_SET);
+		for (i = 0; i < bb_numrecs; i++) {
+			ret = bsr_read(fd, (char *)&ptr, sizeof(xfs_alloc_ptr_t), &fd->f_pos);
+			if (ret < 0 || ret != sizeof(xfs_alloc_ptr_t)) {
+				return -1;
+			}
+			leaf_node_offset = find_leaf_node(fd, ((ag_blocks_offset * ag_no) + be32_to_cpu(ptr)) * blk_size, ag_blocks_offset, ag_no, blk_size);
+			if (leaf_node_offset != -1) {
+				return leaf_node_offset;
+			}
+		}
+	}
+	
+    return -1;
+}
+
 PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 {
 	unsigned int ag_count = 0;
@@ -136,11 +187,38 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 			}
 		}
 
-		bb_level = be16_to_cpu(btsb.bb_level);
-		if(bb_level != 0) {
-			bsr_err(96, BSR_LC_BITMAP, NO_OBJECT, "Failed to read xfs bitmap due to failure to read leaf node (err=%hd)", bb_level);
+		// BSR-1370
+		if (be32_to_cpu(btsb.bb_magic) != XFS_ABTB_MAGIC &&
+			be32_to_cpu(btsb.bb_magic) != XFS_ABTB_CRC_MAGIC) {
+			bsr_err(133, BSR_LC_BITMAP, NO_OBJECT, "Invalid b-tree block magic number %x", be32_to_cpu(btsb.bb_magic));
 			goto fail_and_free;
 		}
+		
+		bb_level = be16_to_cpu(btsb.bb_level);
+		if(bb_level != 0) {
+			loff_t leaf_node_offset;
+			
+			// BSR-1370 if bb_level is not 0, find the leaf node because it is an internal node.
+			leaf_node_offset = find_leaf_node(fd, (ag_blocks_offset * ag_no + be32_to_cpu(agf.agf_roots[0])) * blk_size, ag_blocks_offset, ag_no, blk_size);
+			if(leaf_node_offset == -1) {
+				bsr_err(96, BSR_LC_BITMAP, NO_OBJECT, "Failed to read xfs bitmap due to failure to read leaf node (err=%hd)", bb_level);
+				goto fail_and_free;
+			}
+			
+			offset = fd->f_op->llseek(fd, leaf_node_offset, SEEK_SET);
+			if (offset < 0) {
+				bsr_err(129, BSR_LC_BITMAP, NO_OBJECT, "Failed to read xfs bitmap due to failure to lseek first leaf node of btree_block (err=%lld)", offset);
+				goto fail_and_free;
+			}
+
+			// read free block btree first leaf block
+			ret = bsr_read(fd, (char *)&btsb, sizeof(struct xfs_btree_block), &fd->f_pos);
+			if (ret < 0 || ret != sizeof(struct xfs_btree_block)) {
+				bsr_err(130, BSR_LC_BITMAP, NO_OBJECT, "Failed to read xfs bitmap due to failure to read first leaf node of btree_block (err=%d)", ret);
+				goto fail_and_free;
+			}
+		}
+		
 		bb_numrecs = be16_to_cpu(btsb.bb_numrecs);
 
 		if (debug_fast_sync) {
@@ -162,6 +240,13 @@ PVOLUME_BITMAP_BUFFER read_xfs_bitmap(struct file *fd, struct xfs_sb *xfs_sb)
 					goto fail_and_free;
 				}
 
+				// BSR-1370
+				if (be32_to_cpu(btsb.bb_magic) != XFS_ABTB_MAGIC &&
+					be32_to_cpu(btsb.bb_magic) != XFS_ABTB_CRC_MAGIC) {
+					bsr_err(133, BSR_LC_BITMAP, NO_OBJECT, "Invalid b-tree block magic number %x", be32_to_cpu(btsb.bb_magic));
+					goto fail_and_free;
+				}
+				
 				bb_level = be16_to_cpu(btsb.bb_level);
 				if(bb_level != 0) {
 					bsr_err(100, BSR_LC_BITMAP, NO_OBJECT, "Failed to read xfs bitmap due to failure to read secondary leaf node (err=%hd)", bb_level);

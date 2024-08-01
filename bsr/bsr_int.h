@@ -528,7 +528,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_VOLUME_MAX_INDEX 101
 #define BSR_LC_IO_MAX_INDEX 64
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
-#define BSR_LC_BITMAP_MAX_INDEX 128
+#define BSR_LC_BITMAP_MAX_INDEX 130
 #define BSR_LC_LRU_MAX_INDEX 42
 #define BSR_LC_REQUEST_MAX_INDEX 38
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
