@@ -2927,7 +2927,11 @@ retry:
 #ifdef _WIN
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr, false);
 #else // _LIN
+#ifdef COMPAT_HAVE_BLKDEV_GET_BY_PATH_4_PARAMS
+	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr, NULL);
+#else
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr);	
+#endif
 #endif
 	if (IS_ERR(bdev)) {
 		bsr_err(140, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device with %ld",
@@ -2956,7 +2960,12 @@ retry:
 	err = bd_claim_by_disk(bdev, claim_ptr, device->vdisk);
 #endif
 	if (err) {
+// BSR-1376
+#ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
+		blkdev_put(bdev, claim_ptr);
+#else
 		blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
+#endif
 		bsr_err(141, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
 				bdev_path, err);
 		bdev = ERR_PTR(err);
@@ -3015,6 +3024,10 @@ static int open_backing_devices(struct bsr_device *device,
 }
 
 static void close_backing_dev(struct bsr_device *device, struct block_device *bdev,
+	// BSR-1376
+#ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
+	void *holder,
+#endif
 	bool do_bd_unlink)
 {
 	UNREFERENCED_PARAMETER(device);
@@ -3028,7 +3041,12 @@ static void close_backing_dev(struct bsr_device *device, struct block_device *bd
 		bd_release_from_disk(bdev, device->vdisk);
 #endif
 	}
+// BSR-1376
+#ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
+	blkdev_put(bdev, holder);
+#else
 	blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
+#endif
 }
 
 void bsr_backing_dev_free(struct bsr_device *device, struct bsr_backing_dev *ldev)
@@ -3043,8 +3061,19 @@ void bsr_backing_dev_free(struct bsr_device *device, struct bsr_backing_dev *lde
 	}
 #endif
 
-	close_backing_dev(device, ldev->md_bdev, ldev->md_bdev != ldev->backing_bdev);
-	close_backing_dev(device, ldev->backing_bdev, true);
+	close_backing_dev(device, ldev->md_bdev,
+		// BSR-1376
+#ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
+		(rcu_dereference(device->ldev->disk_conf)->meta_dev_idx < 0) ? (void*)device : (void*)bsr_m_holder, 
+#endif
+		ldev->md_bdev != ldev->backing_bdev);
+
+	close_backing_dev(device, ldev->backing_bdev,
+		// BSR-1376
+#ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
+		(void*)device,
+#endif
+		true);
 
 	bsr_kfree(ldev->disk_conf);
 	bsr_kfree(ldev);
