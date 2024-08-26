@@ -28,21 +28,34 @@
 
 MODULE_LICENSE("GPL");
 
-//#ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
 #ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
+#define BSR_RELEASE_RETURN void
+#else
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
 #define BSR_RELEASE_RETURN void
 #else
 #define BSR_RELEASE_RETURN int
 #endif
+#endif
 
 extern int bsr_init(void);
 extern void bsr_cleanup(void);
+
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+extern int bsr_open(struct gendisk *gd, blk_mode_t mode);
+extern BSR_RELEASE_RETURN bsr_release(struct gendisk *gd);
+
+static int _bsr_open(struct gendisk *gd, blk_mode_t mode);
+static BSR_RELEASE_RETURN _bsr_release(struct gendisk *gd);
+#else
 extern int bsr_open(struct block_device *bdev, fmode_t mode);
 extern BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
 
 static int _bsr_open(struct block_device *bdev, fmode_t mode);
 static BSR_RELEASE_RETURN _bsr_release(struct gendisk *gd, fmode_t mode);
-
+#endif
 
 const struct block_device_operations bsr_ops = {
 	.owner =   THIS_MODULE,
@@ -109,38 +122,76 @@ static void bsr_unload(void)
 	return;
 }
 
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+static int _bsr_open(struct gendisk *gd, blk_mode_t mode)
+#else
 static int _bsr_open(struct block_device *bdev, fmode_t mode)
+#endif
 {
 	int ret;
+	
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+	ret = bsr_open(gd, mode);
+#else
 	ret = bsr_open(bdev, mode);
+#endif
 	if(!ret) {
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+		struct bsr_device *device = gd->private_data;
+#else
 		struct bsr_device *device = bdev->bd_disk->private_data;
+#endif
 		atomic_inc(&device->mounted_cnt);
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+		bsr_debug(122, BSR_LC_DRIVER, NO_OBJECT, "open gendisk:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])",
+			gd, mode, device->open_cnt, current->comm, task_pid_nr(current));
+#else
 		// BSR-1150 improve device open info log
 		bsr_debug(122, BSR_LC_DRIVER, NO_OBJECT, "open block_device:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])",
 			bdev, mode, device->open_cnt, current->comm, task_pid_nr(current));
+
+#endif
 	}		
 	return ret;
 }
 
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+static BSR_RELEASE_RETURN _bsr_release(struct gendisk *gd)
+#else 
 static BSR_RELEASE_RETURN _bsr_release(struct gendisk *gd, fmode_t mode)
+#endif
 {
 	struct bsr_device *device = gd->private_data;
 #ifndef COMPAT_BSR_RELEASE_RETURNS_VOID
+#ifndef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
 	int ret = 0;
+#endif
 #endif
 	atomic_dec(&device->mounted_cnt);
 #ifdef COMPAT_BSR_RELEASE_RETURNS_VOID
 	bsr_release(gd, mode);
 #else
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+	bsr_release(gd);
+#else
 	ret = bsr_release(gd, mode);
 #endif
+#endif
 	// BSR-1150 improve device release info log
-	bsr_debug(123, BSR_LC_DRIVER, NO_OBJECT, "release gendisk:%p, mode:%d, device->open_cnt:%d (from %s [pid:%d])", 
-		gd, mode, device->open_cnt, current->comm, task_pid_nr(current));
+	bsr_debug(123, BSR_LC_DRIVER, NO_OBJECT, "release gendisk:%p, device->open_cnt:%d (from %s [pid:%d])", 
+		gd, device->open_cnt, current->comm, task_pid_nr(current));
 
+// BSR-1376
 #ifndef COMPAT_BSR_RELEASE_RETURNS_VOID
+#ifndef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
 	return ret;
+#endif
 #endif
 }
 

@@ -110,8 +110,14 @@
 static int bsr_open(struct block_device *bdev, fmode_t mode);
 static BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
 #else // _LIN
+// BSR-1376
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+int bsr_open(struct gendisk *gd, blk_mode_t mode);
+BSR_RELEASE_RETURN bsr_release(struct gendisk *gd);
+#else
 int bsr_open(struct block_device *bdev, fmode_t mode);
 BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode);
+#endif
 #endif
 
 #ifdef _WIN
@@ -3497,10 +3503,18 @@ static int ro_open_cond(struct bsr_device *device)
 #ifdef _WIN
 static int bsr_open(struct block_device *bdev, fmode_t mode)
 #else // _LIN
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+int bsr_open(struct gendisk *gd, blk_mode_t mode)
+#else
 int bsr_open(struct block_device *bdev, fmode_t mode)
 #endif
+#endif
 {
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+	struct bsr_device *device = gd->private_data;
+#else
 	struct bsr_device *device = bdev->bd_disk->private_data;
+#endif
 	struct bsr_resource *resource = device->resource;
 	unsigned long flags;
 	int rv = 0;
@@ -3583,7 +3597,11 @@ static void open_counts(struct bsr_resource *resource, int *count_ptr)
 #ifdef _WIN
 static BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 #else // _LIN
+#ifdef COMPAT_BSR_OPEN_AND_RELEASE_PARAM_GENDISK
+BSR_RELEASE_RETURN bsr_release(struct gendisk *gd)
+#else
 BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
+#endif
 #endif
 {
 	struct bsr_device *device = gd->private_data;
