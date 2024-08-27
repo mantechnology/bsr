@@ -1,8 +1,8 @@
 #include <net/genetlink.h>
 
-void f(void)
+int f(void)
 {
 	struct sk_buff *skb = NULL;
 	struct genl_info *info = NULL;
-	int ret = genlmsg_reply(skb, info);
+	return genlmsg_reply(skb, info);
 }

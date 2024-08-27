@@ -939,19 +939,20 @@ int bsr_thread_start(struct bsr_thread *thi)
 		wake_up_process(nt);
 #endif
 		break;
-	case EXITING:
-		thi->t_state = RESTARTING;
-		if (connection)
-			bsr_info(15, BSR_LC_THREAD, connection, "Restarting %s thread (from %s [%d])",
-					thi->name, current->comm, current->pid);
-		else
-			bsr_info(16, BSR_LC_THREAD, resource, "Restarting %s thread (from %s [%d])",
-					thi->name, current->comm, current->pid);
-		/* Fall through */
-	case RUNNING:
-		/* Fall through */
-	case RESTARTING:
 	default:
+		if (thi->t_state == EXITING) {
+			thi->t_state = RESTARTING;
+			if (connection)
+				bsr_info(15, BSR_LC_THREAD, connection, "Restarting %s thread (from %s [%d])",
+				thi->name, current->comm, current->pid);
+			else
+				bsr_info(16, BSR_LC_THREAD, resource, "Restarting %s thread (from %s [%d])",
+				thi->name, current->comm, current->pid);
+		}
+	// case RUNNING:
+		/* Fall through */
+	// case RESTARTING:
+		/* Fall through */
 		spin_unlock_irqrestore(&thi->t_lock, flags);
 		break;
 	}
@@ -5016,7 +5017,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	struct bsr_device *device;
 	struct bsr_peer_device *peer_device, *tmp_peer_device;
 	struct gendisk *disk;
+#ifndef COMPAT_HAVE_BLK_ALLOC_DISK
     struct request_queue *q = NULL;
+#endif
 
 	LIST_HEAD(peer_devices);
 	LIST_HEAD(tmp);

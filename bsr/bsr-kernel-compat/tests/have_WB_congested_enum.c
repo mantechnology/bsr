@@ -6,8 +6,7 @@
    BDI_sync_congested was renamed to WB_sync_congested.
    */
 
-void foo(void)
+int foo(void)
 {
-	int a = WB_async_congested;
-	int b = WB_sync_congested;
+	return WB_async_congested + WB_sync_congested;
 }

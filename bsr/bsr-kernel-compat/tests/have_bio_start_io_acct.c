@@ -2,8 +2,7 @@
 
 #include <linux/blkdev.h>
 
-void foo(void)
+unsigned long foo(void)
 {
-	unsigned long jif;
-	jif = bio_start_io_acct(NULL);
+	return bio_start_io_acct(NULL);
 }

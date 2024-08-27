@@ -1,9 +1,7 @@
 #include <net/genetlink.h>
 
-void f(void)
+int f(void)
 {
 	struct sk_buff *skb = NULL;
-	int ret;
-
-	ret = genlmsg_multicast(skb, 0, 0);
+	return genlmsg_multicast(skb, 0, 0);
 }

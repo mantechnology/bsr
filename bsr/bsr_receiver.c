@@ -2181,15 +2181,14 @@ int w_e_reissue(struct bsr_work *w, int cancel) __releases(local)
 		bsr_queue_work(&peer_device->connection->sender_work,
 			&peer_req->w);
 		/* retry later;*/
-		/* Fall through */
+		return 0;
 	case 0:
 		/* keep worker happy and connection up */
 		return 0;
-
-	case -ENOSPC:
-		/* no other error expected, but anyways: */
-		/* Fall through */
 	default:
+		if (err == -ENOSPC) {
+			/* no other error expected, but anyways: */
+		}
 		/* forget the object,
 		 * and cause a "Network failure" */
 		spin_lock_irq(&device->resource->req_lock);
@@ -4160,11 +4159,8 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 			bsr_send_ack_rp(peer_device, P_NEG_DREPLY, p);
 			break;
 		case P_RS_THIN_REQ:
-			/* Fall through */
 		case P_RS_DATA_REQUEST:
-			/* Fall through */
 		case P_CSUM_RS_REQUEST:
-			/* Fall through */
 		case P_OV_REQUEST:
 			bsr_send_ack_rp(peer_device, P_NEG_RS_DREPLY , p);
 			break;
@@ -4214,79 +4210,6 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	p = pi->data = NULL;
 
 	switch (pi->cmd) {
-	case P_DATA_REQUEST:
-		peer_req->w.cb = w_e_end_data_req;
-		fault_type = BSR_FAULT_DT_RD;
-		/* application IO, don't bsr_rs_begin_io */
-		peer_req->flags |= EE_APPLICATION;
-		goto submit;
-
-	case P_RS_THIN_REQ:
-		/* If at some point in the future we have a smart way to
-		   find out if this data block is completely deallocated,
-		   then we would do something smarter here than reading
-		   the block... */
-		peer_req->flags |= EE_RS_THIN_REQ;
-		/* Fall through */
-	case P_RS_DATA_REQUEST:
-		// DW-1857 If P_RS_DATA_REQUEST is received, send P_RS_CANCEL unless L_SYNC_SOURCE.
-		// DW-2055 primary is always the syncsource of resync, so send the resync data.
-		// BSR-657 WFBitMapS status always sends P_RS_CANCEL packet.
-		if (peer_device->repl_state[NOW] == L_WF_BITMAP_S || 
-			(peer_device->repl_state[NOW] != L_SYNC_SOURCE && device->resource->role[NOW] != R_PRIMARY)) {
-			err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
-			/* If err is set, we will drop the connection... */
-			goto fail3;
-		}
-		peer_req->w.cb = w_e_end_rsdata_req;
-		fault_type = BSR_FAULT_RS_RD;
-		atomic_add64(peer_req->i.size, &peer_device->cur_resync_received);
-		break;
-
-	case P_OV_REPLY:
-		/* Fall through */
-	case P_CSUM_RS_REQUEST:
-		block_id = peer_req->block_id;
-		fault_type = BSR_FAULT_RS_RD;
-		di = bsr_kmalloc(sizeof(*di) + pi->size, GFP_NOIO, '42SB');
-		err = -ENOMEM;
-		if (!di)
-			goto fail2;
-
-		di->digest_size = pi->size;
-		di->digest = (((char *)di)+sizeof(struct digest_info));
-
-		peer_req->digest = di;
-		peer_req->flags |= EE_HAS_DIGEST;
-
-		err = bsr_recv_into(connection, di->digest, pi->size); 
-		if (err)
-			goto fail2;
-
-		if (pi->cmd == P_CSUM_RS_REQUEST) {
-			D_ASSERT(device, connection->agreed_pro_version >= 89);
-
-			// BSR-448 Check for io failure on the SyncTarget.
-			// BSR-791 Check only when P_CSUM_RS_REQUEST
-			if(block_id == ID_CSUM_SYNC_IO_ERROR) {
-				bsr_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
-				goto fail2;
-			}
-
-			peer_req->w.cb = w_e_end_csum_rs_req;
-			/* remember to report stats in bsr_resync_finished */
-			peer_device->use_csums = true;
-		} else if (pi->cmd == P_OV_REPLY) {
-			/* track progress, we may need to throttle */
-			atomic_add(size >> 9, &peer_device->rs_sect_in);
-			peer_req->w.cb = w_e_end_ov_reply;
-			dec_rs_pending(peer_device);
-			/* bsr_rs_begin_io done when we sent this request,
-			 * but accounting still needs to be done. */
-			goto submit_for_resync;
-		}
-		break;
-
 	case P_OV_REQUEST:
 		if (peer_device->ov_start_sector == ~(sector_t)0 &&
 		    connection->agreed_pro_version >= 90) {
@@ -4317,6 +4240,82 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 		break;
 
 	default:
+		if (pi->cmd == P_DATA_REQUEST) {
+			peer_req->w.cb = w_e_end_data_req;
+			fault_type = BSR_FAULT_DT_RD;
+			/* application IO, don't bsr_rs_begin_io */
+			peer_req->flags |= EE_APPLICATION;
+			goto submit;
+		}
+
+		if (pi->cmd == P_RS_THIN_REQ) {
+			/* If at some point in the future we have a smart way to
+			find out if this data block is completely deallocated,
+			then we would do something smarter here than reading
+			the block... */
+			peer_req->flags |= EE_RS_THIN_REQ;
+		}
+
+		if (pi->cmd == P_RS_THIN_REQ || pi->cmd == P_RS_DATA_REQUEST) {
+			// DW-1857 If P_RS_DATA_REQUEST is received, send P_RS_CANCEL unless L_SYNC_SOURCE.
+			// DW-2055 primary is always the syncsource of resync, so send the resync data.
+			// BSR-657 WFBitMapS status always sends P_RS_CANCEL packet.
+			if (peer_device->repl_state[NOW] == L_WF_BITMAP_S ||
+				(peer_device->repl_state[NOW] != L_SYNC_SOURCE && device->resource->role[NOW] != R_PRIMARY)) {
+				err = bsr_send_ack(peer_device, P_RS_CANCEL, peer_req);
+				/* If err is set, we will drop the connection... */
+				goto fail3;
+			}
+			peer_req->w.cb = w_e_end_rsdata_req;
+			fault_type = BSR_FAULT_RS_RD;
+			atomic_add64(peer_req->i.size, &peer_device->cur_resync_received);
+			break;
+		}
+
+		if (pi->cmd == P_OV_REPLY || pi->cmd == P_CSUM_RS_REQUEST) {
+			block_id = peer_req->block_id;
+			fault_type = BSR_FAULT_RS_RD;
+			di = bsr_kmalloc(sizeof(*di) + pi->size, GFP_NOIO, '42SB');
+			err = -ENOMEM;
+			if (!di)
+				goto fail2;
+
+			di->digest_size = pi->size;
+			di->digest = (((char *)di) + sizeof(struct digest_info));
+
+			peer_req->digest = di;
+			peer_req->flags |= EE_HAS_DIGEST;
+
+			err = bsr_recv_into(connection, di->digest, pi->size);
+			if (err)
+				goto fail2;
+
+			if (pi->cmd == P_CSUM_RS_REQUEST) {
+				D_ASSERT(device, connection->agreed_pro_version >= 89);
+
+				// BSR-448 Check for io failure on the SyncTarget.
+				// BSR-791 Check only when P_CSUM_RS_REQUEST
+				if (block_id == ID_CSUM_SYNC_IO_ERROR) {
+					bsr_rs_failed_io(peer_device, peer_req->i.sector, peer_req->i.size);
+					goto fail2;
+				}
+
+				peer_req->w.cb = w_e_end_csum_rs_req;
+				/* remember to report stats in bsr_resync_finished */
+				peer_device->use_csums = true;
+			}
+			else if (pi->cmd == P_OV_REPLY) {
+				/* track progress, we may need to throttle */
+				atomic_add(size >> 9, &peer_device->rs_sect_in);
+				peer_req->w.cb = w_e_end_ov_reply;
+				dec_rs_pending(peer_device);
+				/* bsr_rs_begin_io done when we sent this request,
+				* but accounting still needs to be done. */
+				goto submit_for_resync;
+			}
+			break;
+		}
+
 		BUG();
 	}
 
@@ -4451,6 +4450,7 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 	u64 ch_peer;
 	ULONG_PTR ch_self;
 	enum bsr_after_sb_p after_sb_0p;
+	bool fall_through = false; 
 
 	self = bsr_bitmap_uuid(peer_device) & UUID_PRIMARY;
 	peer = peer_device->bitmap_uuids[node_id] & UUID_PRIMARY;
@@ -4470,57 +4470,70 @@ static int bsr_asb_recover_0p(struct bsr_peer_device *peer_device) __must_hold(l
 		break;
 	case ASB_DISCONNECT:
 		break;
-	case ASB_DISCARD_YOUNGER_PRI:
-		if (self == 0 && peer == 1) {
-			rv = -2;
-			break;
-		}
-		if (self == 1 && peer == 0) {
-			rv =  2;
-			break;
-		}
-		/* Else fall through to one of the other strategies... */
-		/* Fall through */
-	case ASB_DISCARD_OLDER_PRI:
-		if (self == 0 && peer == 1) {
-			rv = 2;
-			break;
-		}
-		if (self == 1 && peer == 0) {
-			rv = -2;
-			break;
-		}
-		/* Else fall through to one of the other strategies... */
-		bsr_warn(167, BSR_LC_RESYNC_OV, peer_device, "Discard younger/older primary did not find a decision "
-			  "Using discard-least-changes instead");
-		/* Fall through */
-	case ASB_DISCARD_ZERO_CHG:
-		if (ch_peer == 0 && ch_self == 0) {
-			rv = test_bit(RESOLVE_CONFLICTS, &peer_device->connection->transport.flags)
-				? -2 : 2;
-			break;
-		} else {
-			if (ch_peer == 0) { rv =  2; break; }
-			if (ch_self == 0) { rv = -2; break; }
-		}
-		if (after_sb_0p == ASB_DISCARD_ZERO_CHG)
-			break;
-		/* Fall through */
-	case ASB_DISCARD_LEAST_CHG:
-		if	(ch_self < ch_peer)
-			rv = -2;
-		else if (ch_self > ch_peer)
-			rv =  2;
-		else /* ( ch_self == ch_peer ) */
-		     /* Well, then use something else. */
-			rv = test_bit(RESOLVE_CONFLICTS, &peer_device->connection->transport.flags)
-				? -2 : 2;
-		break;
 	case ASB_DISCARD_LOCAL:
 		rv = -2;
 		break;
 	case ASB_DISCARD_REMOTE:
-		rv =  2;
+		rv = 2;
+		break;
+	default:
+		if (after_sb_0p == ASB_DISCARD_YOUNGER_PRI) {
+			if (self == 0 && peer == 1) {
+				rv = -2;
+				break;
+			}
+			if (self == 1 && peer == 0) {
+				rv = 2;
+				break;
+			}
+			/* Else fall through to one of the other strategies... */
+			fall_through = true;
+		} else
+			fall_through = false;
+		
+		if (fall_through || after_sb_0p == ASB_DISCARD_OLDER_PRI) {
+			if (self == 0 && peer == 1) {
+				rv = 2;
+				break;
+			}
+			if (self == 1 && peer == 0) {
+				rv = -2;
+				break;
+			}
+			/* Else fall through to one of the other strategies... */
+			bsr_warn(167, BSR_LC_RESYNC_OV, peer_device, "Discard younger/older primary did not find a decision "
+				"Using discard-least-changes instead");
+			fall_through = true;
+		} else
+			fall_through = false;
+
+		if (fall_through || after_sb_0p == ASB_DISCARD_ZERO_CHG) {
+			if (ch_peer == 0 && ch_self == 0) {
+				rv = test_bit(RESOLVE_CONFLICTS, &peer_device->connection->transport.flags)
+					? -2 : 2;
+				break;
+			}
+			else {
+				if (ch_peer == 0) { rv = 2; break; }
+				if (ch_self == 0) { rv = -2; break; }
+			}
+			if (after_sb_0p == ASB_DISCARD_ZERO_CHG)
+				break;
+			fall_through = true;
+		} else
+			fall_through = false;
+
+		if (fall_through || after_sb_0p == ASB_DISCARD_LEAST_CHG) {
+			if (ch_self < ch_peer)
+				rv = -2;
+			else if (ch_self > ch_peer)
+				rv = 2;
+			else /* ( ch_self == ch_peer ) */
+				/* Well, then use something else. */
+				rv = test_bit(RESOLVE_CONFLICTS, &peer_device->connection->transport.flags)
+				? -2 : 2;
+		}
+		break;
 	}
 
 	return rv;
@@ -4542,15 +4555,10 @@ static int bsr_asb_recover_1p(struct bsr_peer_device *peer_device) __must_hold(l
 	rcu_read_unlock();
 	switch (after_sb_1p) {
 	case ASB_DISCARD_YOUNGER_PRI:
-		/* Fall through */
 	case ASB_DISCARD_OLDER_PRI:
-		/* Fall through */
 	case ASB_DISCARD_LEAST_CHG:
-		/* Fall through */
 	case ASB_DISCARD_LOCAL:
-		/* Fall through */
 	case ASB_DISCARD_REMOTE:
-		/* Fall through */
 	case ASB_DISCARD_ZERO_CHG:
 		bsr_err(26, BSR_LC_CONNECTION, device, "Error setting split-brain recovery. sb(%d)", after_sb_1p);
 		break;
@@ -4605,19 +4613,12 @@ static int bsr_asb_recover_2p(struct bsr_peer_device *peer_device) __must_hold(l
 	rcu_read_unlock();
 	switch (after_sb_2p) {
 	case ASB_DISCARD_YOUNGER_PRI:
-		/* Fall through */
 	case ASB_DISCARD_OLDER_PRI:
-		/* Fall through */
 	case ASB_DISCARD_LEAST_CHG:
-		/* Fall through */
 	case ASB_DISCARD_LOCAL:
-		/* Fall through */
 	case ASB_DISCARD_REMOTE:
-		/* Fall through */
 	case ASB_CONSENSUS:
-		/* Fall through */
 	case ASB_DISCARD_SECONDARY:
-		/* Fall through */
 	case ASB_DISCARD_ZERO_CHG:
 		bsr_err(27, BSR_LC_CONNECTION, device, "Error setting split-brain recovery. sb(%d)", after_sb_2p);
 		break;
@@ -5523,18 +5524,17 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 
 	if (hg <= -2 && /* by intention we do not use disk_state here. */
 	    device->resource->role[NOW] == R_PRIMARY && device->disk_state[NOW] >= D_CONSISTENT) {
-		switch (rr_conflict) {
-		case ASB_CALL_HELPER:
-			bsr_khelper(device, connection, "pri-lost");
-			/* Fall through */
-		case ASB_DISCONNECT:
+
+		if (rr_conflict == ASB_CALL_HELPER || rr_conflict == ASB_DISCONNECT) {
+			if (rr_conflict == ASB_CALL_HELPER)
+				bsr_khelper(device, connection, "pri-lost");
 			bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 			// BSR-1140
 			connection->last_error = C_SYNC_TARGET_PRIMARY;
 			return -1;
-		case ASB_VIOLENTLY:
+		} else if (rr_conflict == ASB_VIOLENTLY) {
 			bsr_warn(22, BSR_LC_CONNECTION, device, "Becoming SyncTarget, violating the stable-data"
-			     "assumption");
+				"assumption");
 		}
 	}
 

@@ -1,6 +1,8 @@
 #include <linux/types.h>
 
-void foo(void)
+fmode_t foo(void)
 {
 	fmode_t mode;
+	
+	return mode;
 }

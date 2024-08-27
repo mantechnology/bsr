@@ -1379,6 +1379,65 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 
 	switch (what) {
 	default:
+		if (what == READ_COMPLETED_WITH_ERROR) {
+			bsr_set_all_out_of_sync(device, req->i.sector, req->i.size);
+			bsr_report_io_error(device, req);
+			__bsr_chk_io_error(device, BSR_READ_ERROR);
+		} 
+		if (what == READ_COMPLETED_WITH_ERROR || what == READ_AHEAD_COMPLETED_WITH_ERROR) {
+			/* it is legal to fail read-ahead, no __bsr_chk_io_error in that case. */
+			mod_rq_state(req, m, peer_device, RQ_LOCAL_PENDING, RQ_LOCAL_COMPLETED);
+			break;
+		}
+
+		if (what == RESEND) {
+			/* Simply complete (local only) READs. */
+			if (!(req->rq_state[0] & RQ_WRITE) && !(req->rq_state[idx] & RQ_NET_MASK)) {
+				mod_rq_state(req, m, peer_device, RQ_COMPLETION_SUSP, 0);
+				break;
+			}
+
+			/* If RQ_NET_OK is already set, we got a P_WRITE_ACK or P_RECV_ACK
+			before the connection loss (B&C only); only P_BARRIER_ACK
+			(or the local completion?) was missing when we suspended.
+			Throwing them out of the TL here by pretending we got a BARRIER_ACK.
+			During connection handshake, we ensure that the peer was not rebooted.
+
+			Resending is only allowed on synchronous connections,
+			where all requests not yet completed to upper layers whould
+			be in the same "reorder-domain", there can not possibly be
+			any dependency between incomplete requests, and we are
+			allowed to complete this one "out-of-sequence".
+			*/
+			if (!(req->rq_state[idx] & RQ_NET_OK)) {
+				mod_rq_state(req, m, peer_device, RQ_COMPLETION_SUSP,
+					RQ_NET_QUEUED | RQ_NET_PENDING);
+				break;
+			}
+			/* else, fall through to BARRIER_ACKED */
+		}
+
+		if (what == RESEND || what == BARRIER_ACKED) {
+			/* barrier ack for READ requests does not make sense */
+			if (!(req->rq_state[0] & RQ_WRITE))
+				break;
+
+			if (req->rq_state[idx] & RQ_NET_PENDING) {
+				/* barrier came in before all requests were acked.
+				* this is bad, because if the connection is lost now,
+				* we won't be able to clean them up... */
+				bsr_err(20, BSR_LC_REQUEST, device, "FIXME, barrier came in before all requests were acked. (%p)", req);
+				mod_rq_state(req, m, peer_device, RQ_NET_PENDING, RQ_NET_OK);
+			}
+			/* Allowed to complete requests, even while suspended.
+			* As this is called for all requests within a matching epoch,
+			* we need to filter, and only set RQ_NET_DONE for those that
+			* have actually been on the wire. */
+			mod_rq_state(req, m, peer_device, RQ_COMPLETION_SUSP,
+				(req->rq_state[idx] & RQ_NET_MASK) ? RQ_NET_DONE : 0);
+			break;
+		}
+
 		bsr_err(19, BSR_LC_REQUEST, device, "Failed to modify requst status due to logic bug. event(%d)", what);
 		break;
 
@@ -1428,16 +1487,6 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 	case WRITE_COMPLETED_WITH_ERROR:
 		bsr_report_io_error(device, req);
 		__bsr_chk_io_error(device, BSR_WRITE_ERROR);
-		mod_rq_state(req, m, peer_device, RQ_LOCAL_PENDING, RQ_LOCAL_COMPLETED);
-		break;
-
-	case READ_COMPLETED_WITH_ERROR:
-		bsr_set_all_out_of_sync(device, req->i.sector, req->i.size);
-		bsr_report_io_error(device, req);
-		__bsr_chk_io_error(device, BSR_READ_ERROR);
-		/* Fall through */
-	case READ_AHEAD_COMPLETED_WITH_ERROR:
-		/* it is legal to fail read-ahead, no __bsr_chk_io_error in that case. */
 		mod_rq_state(req, m, peer_device, RQ_LOCAL_PENDING, RQ_LOCAL_COMPLETED);
 		break;
 
@@ -1640,53 +1689,6 @@ int __req_mod(struct bsr_request *req, enum bsr_req_event what,
 		BUG(); /* FIXME */
 		break;
 #endif
-
-	case RESEND:
-		/* Simply complete (local only) READs. */
-		if (!(req->rq_state[0] & RQ_WRITE) && !(req->rq_state[idx] & RQ_NET_MASK)) {
-			mod_rq_state(req, m, peer_device, RQ_COMPLETION_SUSP, 0);
-			break;
-		}
-
-		/* If RQ_NET_OK is already set, we got a P_WRITE_ACK or P_RECV_ACK
-		   before the connection loss (B&C only); only P_BARRIER_ACK
-		   (or the local completion?) was missing when we suspended.
-		   Throwing them out of the TL here by pretending we got a BARRIER_ACK.
-		   During connection handshake, we ensure that the peer was not rebooted.
-
-		   Resending is only allowed on synchronous connections,
-		   where all requests not yet completed to upper layers whould
-		   be in the same "reorder-domain", there can not possibly be
-		   any dependency between incomplete requests, and we are
-		   allowed to complete this one "out-of-sequence".
-		 */
-		if (!(req->rq_state[idx] & RQ_NET_OK)) {
-			mod_rq_state(req, m, peer_device, RQ_COMPLETION_SUSP,
-					RQ_NET_QUEUED|RQ_NET_PENDING);
-			break;
-		}
-		/* else, fall through to BARRIER_ACKED */
-		/* Fall through */
-	case BARRIER_ACKED:
-		/* barrier ack for READ requests does not make sense */
-		if (!(req->rq_state[0] & RQ_WRITE))
-			break;
-
-		if (req->rq_state[idx] & RQ_NET_PENDING) {
-			/* barrier came in before all requests were acked.
-			 * this is bad, because if the connection is lost now,
-			 * we won't be able to clean them up... */
-			bsr_err(20, BSR_LC_REQUEST, device, "FIXME, barrier came in before all requests were acked. (%p)", req);
-			mod_rq_state(req, m, peer_device, RQ_NET_PENDING, RQ_NET_OK);
-		}
-		/* Allowed to complete requests, even while suspended.
-		 * As this is called for all requests within a matching epoch,
-		 * we need to filter, and only set RQ_NET_DONE for those that
-		 * have actually been on the wire. */
-		mod_rq_state(req, m, peer_device, RQ_COMPLETION_SUSP,
-				(req->rq_state[idx] & RQ_NET_MASK) ? RQ_NET_DONE : 0);
-		break;
-
 	case DATA_RECEIVED:
 		D_ASSERT(device, req->rq_state[idx] & RQ_NET_PENDING);
 		mod_rq_state(req, m, peer_device, RQ_NET_PENDING, RQ_NET_OK|RQ_NET_DONE);

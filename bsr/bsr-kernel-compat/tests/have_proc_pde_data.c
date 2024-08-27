@@ -1,10 +1,8 @@
 #include <linux/proc_fs.h>
 
-int main(void)
+void * main(void)
 {
 	struct inode *inode = NULL;
-	void *data;
 
-	data = PDE_DATA(inode);
-	return 0;
+	return PDE_DATA(inode);
 }

@@ -3592,60 +3592,14 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 	max_passthrough_cnt = rcu_dereference(device->ldev->disk_conf)->max_passthrough_count;
 	rcu_read_unlock();
 	switch (ep) {
-	case EP_PASS_ON: /* FIXME would this be better named "Ignore"? */
-		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
-			if (bsr_ratelimit())
-				bsr_err(2, BSR_LC_IO_ERROR, device, "Failed to I/O local in %s.", where);
-			if (device->disk_state[NOW] > D_INCONSISTENT) {
-				begin_state_change_locked(device->resource, CS_HARD);
-				__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
-				end_state_change_locked(device->resource, false, __FUNCTION__);
-			}
-			break;
-		}
-		/* NOTE fall through for BSR_META_IO_ERROR or BSR_FORCE_DETACH */
-		/* Fall through */
-	case EP_DETACH:
-		/* Fall through */
-	case EP_CALL_HELPER:
-		/* Remember whether we saw a READ or WRITE error.
-		 *
-		 * Recovery of the affected area for WRITE failure is covered
-		 * by the activity log.
-		 * READ errors may fall outside that area though. Certain READ
-		 * errors can be "healed" by writing good data to the affected
-		 * blocks, which triggers block re-allocation in lower layers.
-		 *
-		 * If we can not write the bitmap after a READ error,
-		 * we may need to trigger a full sync (see w_go_diskless()).
-		 *
-		 * Force-detach is not really an IO error, but rather a
-		 * desperate measure to try to deal with a completely
-		 * unresponsive lower level IO stack.
-		 * Still it should be treated as a WRITE error.
-		 *
-		 * Meta IO error is always WRITE error:
-		 * we read meta data only once during attach,
-		 * which will fail in case of errors.
-		 */
-		if (df == BSR_FORCE_DETACH)
-			set_bit(FORCE_DETACH, &device->flags);
-		// DW-2033 Change to Failed even at Attaching
-		if (device->disk_state[NOW] > D_FAILED || device->disk_state[NOW] == D_ATTACHING) {
-			begin_state_change_locked(device->resource, CS_HARD);
-			__change_disk_state(device, D_FAILED, __FUNCTION__);
-			end_state_change_locked(device->resource, false, __FUNCTION__);
-			bsr_err(3, BSR_LC_IO_ERROR, device, "Failed to I/O local in %s. Detaching...", where);
-		}
-		break;
-	// DW-1755
-	case EP_PASSTHROUGH:	
+		// DW-1755
+	case EP_PASSTHROUGH:
 		// BSR-720 BSR-731 detach if io_error_count exceeds max_passthrough_count
-		if (df == BSR_READ_ERROR ||  df == BSR_WRITE_ERROR) {
+		if (df == BSR_READ_ERROR || df == BSR_WRITE_ERROR) {
 			if (max_passthrough_cnt && (atomic_read(&device->io_error_count) > max_passthrough_cnt))
 				do_detach = true;
 		}
-		
+
 		// DW-1814 
 		// If an error occurs in the meta volume, disk consistency can not be guaranteed and replication must be stopped in any case. 
 		if (df == BSR_FORCE_DETACH)
@@ -3665,16 +3619,66 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 			}
 		}
 		else {
-		// DW-1814 
-		// In the event of a write or read error on a clone volume, there is no action here to commit it to the failure handling mechanism.
-		// When a write error occurs in the duplicate volume, P_NEG_ACK is transmitted and the OOS is recorded and synchronized.
-		// When a read error occurs, P_NEG_RS_DREPLY is transmitted, and synchronization can be restarted for failed bits.
+			// DW-1814 
+			// In the event of a write or read error on a clone volume, there is no action here to commit it to the failure handling mechanism.
+			// When a write error occurs in the duplicate volume, P_NEG_ACK is transmitted and the OOS is recorded and synchronized.
+			// When a read error occurs, P_NEG_RS_DREPLY is transmitted, and synchronization can be restarted for failed bits.
 			if (atomic_read(&device->io_error_count) == 1)
 				bsr_err(5, BSR_LC_IO_ERROR, device, "PassThrough, Failed to %s replication-disk", (df == BSR_READ_ERROR) ? "Read" : "Write");
 		}
 
 		break;
+	default:
+		if (ep == EP_PASS_ON) /* FIXME would this be better named "Ignore"? */ {
+			if (df == BSR_READ_ERROR || df == BSR_WRITE_ERROR) {
+				if (bsr_ratelimit())
+					bsr_err(2, BSR_LC_IO_ERROR, device, "Failed to I/O local in %s.", where);
+				if (device->disk_state[NOW] > D_INCONSISTENT) {
+					begin_state_change_locked(device->resource, CS_HARD);
+					__change_disk_state(device, D_INCONSISTENT, __FUNCTION__);
+					end_state_change_locked(device->resource, false, __FUNCTION__);
+				}
+				break;
+			}
+			/* NOTE fall through for BSR_META_IO_ERROR or BSR_FORCE_DETACH */
+		}
+
+		if (ep == EP_PASS_ON || ep == EP_DETACH || ep == EP_CALL_HELPER) {
+
+			/* Remember whether we saw a READ or WRITE error.
+			*
+			* Recovery of the affected area for WRITE failure is covered
+			* by the activity log.
+			* READ errors may fall outside that area though. Certain READ
+			* errors can be "healed" by writing good data to the affected
+			* blocks, which triggers block re-allocation in lower layers.
+			*
+			* If we can not write the bitmap after a READ error,
+			* we may need to trigger a full sync (see w_go_diskless()).
+			*
+			* Force-detach is not really an IO error, but rather a
+			* desperate measure to try to deal with a completely
+			* unresponsive lower level IO stack.
+			* Still it should be treated as a WRITE error.
+			*
+			* Meta IO error is always WRITE error:
+			* we read meta data only once during attach,
+			* which will fail in case of errors.
+			*/
+			if (df == BSR_FORCE_DETACH)
+				set_bit(FORCE_DETACH, &device->flags);
+			// DW-2033 Change to Failed even at Attaching
+			if (device->disk_state[NOW] > D_FAILED || device->disk_state[NOW] == D_ATTACHING) {
+				begin_state_change_locked(device->resource, CS_HARD);
+				__change_disk_state(device, D_FAILED, __FUNCTION__);
+				end_state_change_locked(device->resource, false, __FUNCTION__);
+				bsr_err(3, BSR_LC_IO_ERROR, device, "Failed to I/O local in %s. Detaching...", where);
+			}
+			break;
+		}
+		break;
 	}
+
 }
 
 /**
