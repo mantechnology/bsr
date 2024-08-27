@@ -9368,15 +9368,19 @@ static int receive_current_uuid(struct bsr_connection *connection, struct packet
 
 	// DW-1975 If the current uuid is updated, the remaining bitmap uuid is also removed.
 	if (current_uuid == bsr_current_uuid(device)) {
-		struct bsr_device *device = peer_device->device;
-		// DW-2009 initialize the bitmap uuid only in specific condition
-		if (bsr_current_uuid(device) != 0 && device->ldev) {
-			struct bsr_peer_md *peer_md = &device->ldev->md.peers[peer_device->node_id];
-			if (peer_md->bitmap_uuid != 0) {
-				bsr_info(13, BSR_LC_UUID, peer_device, "Clear bitmap_uuid (cur_uuid:%016llX bm_uuid:%016llX)", current_uuid, peer_md->bitmap_uuid);
-				bsr_uuid_set_bitmap(peer_device, 0);
-				// BSR-785 notify uuid when bitmap_uuid is removed
-				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+		// BSR-1377 added the following conditions to avoid unnecessary bitmap uuid removal
+		if (peer_device->disk_state[NOW] > D_NEGOTIATING &&
+			peer_device->disk_state[NOW] != D_UNKNOWN) {
+			struct bsr_device *device = peer_device->device;
+			// DW-2009 initialize the bitmap uuid only in specific condition
+			if (bsr_current_uuid(device) != 0 && device->ldev) {
+				struct bsr_peer_md *peer_md = &device->ldev->md.peers[peer_device->node_id];
+				if (peer_md->bitmap_uuid != 0) {
+					bsr_info(13, BSR_LC_UUID, peer_device, "Clear bitmap_uuid (cur_uuid:%016llX bm_uuid:%016llX)", current_uuid, peer_md->bitmap_uuid);
+					bsr_uuid_set_bitmap(peer_device, 0);
+					// BSR-785 notify uuid when bitmap_uuid is removed
+					bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
+				}
 			}
 		}
 
