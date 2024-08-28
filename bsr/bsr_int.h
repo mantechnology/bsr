@@ -1379,6 +1379,11 @@ struct bsr_md {
 };
 
 struct bsr_backing_dev {
+	// BSR-1360
+#ifdef COMPAT_HAVE_BLKDEV_HANDLE
+	struct bdev_handle *backing_bdev_handle;
+	struct bdev_handle *md_bdev_handle;
+#endif
 	struct block_device *backing_bdev;
 	struct block_device *md_bdev;
 	struct bsr_md md;
@@ -4612,7 +4617,12 @@ extern int bsr_file_remove(const char *file_path, const char *filename);
 #ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
 extern int printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offset, u64 ino, unsigned d_type);
 #else
+// BSR-1360
+#ifdef COMPAT_HAVE_DIR_CONTEXT_RETURN_BOOL
+extern bool printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offset, u64 ino, unsigned d_type);
+#else
 extern int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type);
+#endif
 #endif
 extern int bsr_readdir(char * dir_path, struct backup_file_list * rlist);
 extern long bsr_mkdir(const char *pathname, umode_t mode);
