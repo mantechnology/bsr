@@ -31,6 +31,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	PVOLUME_BITMAP_BUFFER bitmap_buf = NULL;
 	char * super_block = NULL;
 	char disk_name[512] = {0};
+	bool freezed = false;
 	
 #ifndef COMPAT_HAVE_BD_SUPER
 	struct super_block *sb;
@@ -61,22 +62,30 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 #endif
 	if (bdev == NULL)
 		goto out;
-// BSR-1360
+	
 #ifdef COMPAT_HAVE_BD_SUPER
 	if(bdev->bd_super) {
 		// journal log flush
-		freeze_bdev(bdev);
-	
+		if(IS_ERR(freeze_bdev(bdev)))
+			goto close;
+		freezed = true;
 		// meta flush
-		fsync_bdev(bdev);
+		if(fsync_bdev(bdev))
+			goto close;
 		invalidate_bdev(bdev);
+	} else {
+		goto close;
 	}
 #else
 	// BSR-1360 based on kernel 6.8, bd_holder has super_block set.
 	sb = (struct super_block *)(bdev->bd_holder);
 	if(sb && (sb->s_bdev == bdev)) {
-		freeze_super(sb, FREEZE_HOLDER_KERNEL);
+		if(freeze_super(sb, FREEZE_HOLDER_KERNEL))
+			goto close;
+		freezed = true;
 		invalidate_bdev(bdev);
+	} else { 
+		goto close;
 	}
 #endif
 
@@ -114,13 +123,11 @@ close:
 #endif
 	
 #ifdef COMPAT_HAVE_BD_SUPER
-	if(bdev->bd_super) {
+	if(freezed)
 		thaw_bdev(bdev, bdev->bd_super);
-	}
 #else 
-	if(sb) {
+	if(freezed)
 		thaw_super(sb, FREEZE_HOLDER_KERNEL);
-	}
 #endif
 
 #if defined(COMPAT_HAVE_BDGRAB) || defined(COMPAT_HAVE_HD_STRUCT)
