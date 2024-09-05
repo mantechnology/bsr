@@ -434,6 +434,12 @@ static void parse_global(void)
 			m_strtoll_range(yylval.txt, '1', "cmd-timeout-long", 0, 900);
 			global_options.cmd_timeout_long = atoi(yylval.txt);
 			break;
+			// BSR-1387
+		case TK_HOSTNAME:
+			EXP(TK_STRING);
+			global_options.hostname = yylval.txt;
+			hostname = yylval.txt;
+			break;
 		case TK_USAGE_COUNT:
 			switch (yylex()) {
 			case TK_YES:
@@ -453,7 +459,7 @@ static void parse_global(void)
 			return;
 		default:
 			pe_expected("dialog-refresh | minor-count | "
-				    "disable-ip-verification");
+				    "disable-ip-verification | hostname");
 		}
 		EXP(';');
 	}

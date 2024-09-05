@@ -131,6 +131,8 @@ struct bsr_path {
 	int my_addr_len;
 	int peer_addr_len;
 	bool established; /* updated by the transport */
+	// BSR-1387
+	int disable_ip_verify;
 	
 	struct list_head list; /* paths of a connection */
 	struct list_head listener_link; /* paths waiting for an incomming connection,

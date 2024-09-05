@@ -210,6 +210,7 @@ int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
 
 	while (1) {
 		spin_lock_bh(&resource->listeners_lock);
+
 		listener = find_listener(connection, (SOCKADDR_STORAGE_EX *)addr);
 		if (!listener && new_listener) {
 			list_add(&new_listener->list, &resource->listeners);
