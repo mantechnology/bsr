@@ -57,6 +57,7 @@ void save_to_system_event(char * buf, int length, int level_index)
 }
 #endif
 
+extern wait_queue_head_t g_log_consume_wait;
 
 #ifdef _WIN
 // BSR-648
@@ -135,6 +136,8 @@ void __printk(const char * func, int index, const char * level, int category, co
 						atomic_set64(&gLogBuf.missing_count, 0);
 						bMissing = true;
 					}
+					// BSR-1386
+					wake_up(&g_log_consume_wait);
 				}
 				else {
 					// BSR-583 

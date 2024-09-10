@@ -195,6 +195,8 @@ PVOID g_consumer_thread;
 #else // _LIN
 struct task_struct *g_consumer_thread;
 #endif
+// BSR-1386
+wait_queue_head_t g_log_consume_wait;
 
 /* module parameter, defined */
 unsigned int minor_count = BSR_MINOR_COUNT_DEF;
@@ -5959,6 +5961,7 @@ int log_consumer_thread(void *unused)
 	// BSR-583
 	bool chk_complete = false;
 	LONGLONG logFileSize = 0;
+	int timeout;
 #ifdef _WIN
 	HANDLE hFile;
 	IO_STATUS_BLOCK ioStatus;
@@ -6084,7 +6087,9 @@ int log_consumer_thread(void *unused)
 				}
 
 				if (!bsr_idx_ring_consume(&gLogBuf.h, &idx)) {
-					msleep(100); // wait 100ms relative
+					// BSR-1386 wait up to 1 second
+					timeout = HZ * 1;
+					wait_event_interruptible_timeout_ex(g_log_consume_wait, (g_consumer_state != RUNNING), timeout, timeout);
 					continue;
 				}
 			}
@@ -6231,6 +6236,7 @@ void clean_logging(void)
 {
 #ifdef _WIN
 	g_consumer_state = EXITING;
+	wake_up(&g_log_consume_wait);
 	
 	if (g_consumer_thread != NULL) {
 		KeWaitForSingleObject(g_consumer_thread, Executive, KernelMode, FALSE, NULL);
@@ -6239,6 +6245,7 @@ void clean_logging(void)
 #else // _LIN
 	if (g_consumer_state != EXITING) {
 		g_consumer_state = EXITING;
+		wake_up(&g_log_consume_wait);
 		kthread_stop(g_consumer_thread);
 	}
 	g_consumer_thread = NULL;
@@ -6253,6 +6260,9 @@ void init_logging(void)
 	atomic_set64(&gLogCnt, -1);
 	g_consumer_state = EXITING;
 	g_consumer_thread = NULL;
+
+	// BSR-1386
+	init_waitqueue_head(&g_log_consume_wait);
 #ifdef _WIN
 	// BSR-578 initializing log buffer
 	memset(gLogBuf.b, 0, (LOGBUF_MAXCNT * MAX_BSRLOG_BUF));

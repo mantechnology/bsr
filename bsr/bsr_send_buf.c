@@ -736,7 +736,8 @@ int send_buf_thread(void *p)
 	wake_up(&buffering_attr->send_buf_thr_start_event);
 
 	while (!buffering_attr->send_buf_kill_event) {
-		wait_event_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
+		// BSR-1386
+		wait_event_interruptible_timeout_ex(buffering_attr->ring_buf_event, test_bit(RING_BUF_EVENT, &buffering_attr->flags), timeo, ret);
 		// BSR-750 fix potential hang when using send buffer in protocol c
 		// RING_BUF_EVENT flag setting race between send_buf_thread() and send_buf()
 		if(test_and_clear_bit(RING_BUF_EVENT, &buffering_attr->flags)) {
