@@ -299,6 +299,9 @@ extern bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_
 extern bool bsr_should_abort_listening(struct bsr_transport *transport);
 extern void bsr_path_event(struct bsr_transport *transport, struct bsr_path *path);
 
+extern bool addr_any(const SOCKADDR_STORAGE_EX *addr);
+extern bool port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2);
+
 /* bsr_receiver.c*/
 #ifdef _WIN
 extern void* bsr_alloc_pages(struct bsr_transport *, unsigned int, bool);

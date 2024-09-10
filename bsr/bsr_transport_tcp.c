@@ -701,14 +701,11 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	//int sndbuf_size, rcvbuf_size, connect_int;
 	int rcvbuf_size, connect_int; signed long long sndbuf_size;
 #ifdef _WIN	
-	char sbuf[128] = {0,};
-	char dbuf[128] = {0,};
-	SOCKADDR_IN	 addr4 = { 0, };
-	SOCKADDR_IN6 addr6 = { 0, };
-#else 
+	char sbuf[128] = { 0,};
+	char dbuf[128] = { 0, };
+#endif	
 	struct sockaddr_in addr4 = { 0, };
 	struct sockaddr_in6 addr6 = { 0, };
-#endif	
 	rcu_read_lock();
 	nc = rcu_dereference(transport->net_conf);
 	if (!nc) {
@@ -837,8 +834,9 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 			addr4.sin_family = AF_INET;
 		else
 			addr6.sin6_family = AF_INET6;
-	}
+
 		err = socket->ops->bind(socket, (my_addr.ss_family == AF_INET ? (struct sockaddr *)&addr4 : (struct sockaddr *)&addr6), path->path.my_addr_len);
+
 		if(!err)
 			bsr_info(109, BSR_LC_SOCKET, NO_OBJECT, "Unable to connect with resource settings IP and \"disable_ip_verify\" is set, attempting to connect to any interfaces.");
 	}
@@ -1405,7 +1403,9 @@ static void dtt_incoming_connection(struct sock *sock)
 	// DW-1498 Find the listener that matches the LocalAddress in resource-> listeners.
 	list_for_each_entry_ex(struct bsr_listener, listener, &resource->listeners, list) {
 		bsr_debug_conn("listener->listen_addr:%s ", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)&listener->listen_addr));
-		if (addr_and_port_equal(&listener->listen_addr, (const SOCKADDR_STORAGE_EX *)LocalAddress)) {
+		if (addr_and_port_equal(&listener->listen_addr, (const SOCKADDR_STORAGE_EX *)LocalAddress) ||
+			// BSR-1387
+			((addr_any(&listener->listen_addr) && port_equal(&listener->listen_addr, (const SOCKADDR_STORAGE_EX *)LocalAddress)))) {
 			find_listener = true;
 			break;
 		}
@@ -1560,13 +1560,9 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	int err = 0, rcvbuf_size;
 	signed long long sndbuf_size;
 	NTSTATUS status;
-	SOCKADDR_IN addr4 = {0,};
-	SOCKADDR_IN6 addr6 = {0,};
 #else // _LIN
 	int err, rcvbuf_size, addr_len;
 	signed long long sndbuf_size;
-	struct sockaddr_in addr4 = { 0, };
-	struct sockaddr_in6 addr6 = { 0, };
 #endif
 	SOCKADDR_STORAGE_EX my_addr;
 	struct dtt_listener *listener = NULL;
@@ -1645,16 +1641,14 @@ static int dtt_create_listener(struct bsr_transport *transport,
 
 	// DW-835 Bind fail issue(fix with INADDR_ANY address parameter) 
 	if(my_addr.ss_family == AF_INET) {
-		addr4.sin_family = AF_INET;
-		addr4.sin_port = *((USHORT*)my_addr.__data);
-		addr4.sin_addr.s_addr = INADDR_ANY;
-	} else {
-		addr6.sin6_family = AF_INET6;
-		addr6.sin6_port = *((USHORT*)my_addr.__data); 
-		//addr6.sin6_addr = IN6ADDR_ANY_INIT;
+		((struct sockaddr_in*)&my_addr)->sin_addr.s_addr = INADDR_ANY;
+	}
+	else {
+		memset(&((struct sockaddr_in6*)&my_addr)->sin6_addr, 0, sizeof(((struct sockaddr_in6*)&my_addr)->sin6_addr));
+		((struct sockaddr_in6*)&my_addr)->sin6_scope_id = 0;
 	}
 
-	status = Bind(s_listen, (my_addr.ss_family == AF_INET) ? (PSOCKADDR)&addr4 : (PSOCKADDR)&addr6);
+	status = Bind(s_listen, (PSOCKADDR)&my_addr);
 	
 	if (!NT_SUCCESS(status)) {
     	if(my_addr.ss_family == AF_INET) {
@@ -1676,17 +1670,15 @@ static int dtt_create_listener(struct bsr_transport *transport,
 
 	// BSR-1387 listen for all interfaces the same as Windows.
 	if(my_addr.ss_family == AF_INET) {
-		addr4.sin_family = AF_INET;
-		addr4.sin_port = *((USHORT*)my_addr.__data);
-		addr4.sin_addr.s_addr = INADDR_ANY;
+		((struct sockaddr_in*)&my_addr)->sin_addr.s_addr = INADDR_ANY;
 	}
 	else {
-		addr6.sin6_family = AF_INET6;
-		addr6.sin6_port = *((USHORT*)my_addr.__data);
-		//addr6.sin6_addr = IN6ADDR_ANY_INIT;
+		memset(&((struct sockaddr_in6*)&my_addr)->sin6_addr, 0, sizeof(((struct sockaddr_in6*)&my_addr)->sin6_addr));
+		((struct sockaddr_in6*)&my_addr)->sin6_scope_id = 0;
 	}
 
-	err = s_listen->ops->bind(s_listen, (my_addr.ss_family == AF_INET ? (struct sockaddr *)&addr4 : (struct sockaddr *)&addr6), addr_len);
+
+	err = s_listen->ops->bind(s_listen, (struct sockaddr *)&my_addr, addr_len);
 #endif
 	if (err < 0)
 		goto out;
