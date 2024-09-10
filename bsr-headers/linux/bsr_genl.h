@@ -349,7 +349,9 @@ GENL_struct(BSR_NLA_PEER_DEVICE_OPTS, 27, peer_device_conf,
 
 GENL_struct(BSR_NLA_PATH_PARMS, 28, path_parms,
 	__bin_field(1, BSR_GENLA_F_MANDATORY,	my_addr, 128)
-	__bin_field(2, BSR_GENLA_F_MANDATORY,	peer_addr, 128)
+	__bin_field(2, BSR_GENLA_F_MANDATORY, peer_addr, 128)
+	// BSR-1387
+	__u32_field_def(3, BSR_GENLA_F_MANDATORY, disable_ip_verify, 0)
 )
 
 GENL_struct(BSR_NLA_CONNECT_PARMS, 29, connect_parms,

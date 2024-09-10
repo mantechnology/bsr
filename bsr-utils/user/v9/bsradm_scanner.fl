@@ -82,6 +82,7 @@ cmd-timeout-medium	{ DP; return TK_CMD_TIMEOUT_MEDIUM;	}
 cmd-timeout-long	{ DP; return TK_CMD_TIMEOUT_LONG;	}
 syncer			{ DP; return TK_SYNCER;			}
 device			{ DP; return TK_DEVICE;			}
+hostname		{ DP; return TK_HOSTNAME;       }	/* BSR-1387 used as a hostname alias and not dynamically applied. */
 global			{ DP; return TK_GLOBAL;			}
 common			{ DP; return TK_COMMON;			}
 options			{ DP; return TK_OPTIONS;		}
