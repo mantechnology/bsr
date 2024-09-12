@@ -136,8 +136,6 @@ void __printk(const char * func, int index, const char * level, int category, co
 						atomic_set64(&gLogBuf.missing_count, 0);
 						bMissing = true;
 					}
-					// BSR-1386
-					wake_up(&g_log_consume_wait);
 				}
 				else {
 					// BSR-583 
@@ -285,6 +283,8 @@ void __printk(const char * func, int index, const char * level, int category, co
 		if (!bEventLog && g_consumer_state == RUNNING)  {
 			// BSR-583
 			bsr_idx_ring_commit(&gLogBuf.h, buf);
+			// BSR-1386
+			wake_up(&g_log_consume_wait);
 		}
 	}
 	
@@ -304,6 +304,8 @@ eventlog:
 			if (g_consumer_state == RUNNING) {
 				// BSR-583
 				bsr_idx_ring_commit(&gLogBuf.h, buf);
+				// BSR-1386
+				wake_up(&g_log_consume_wait);
 			}
 		}
 		else {
