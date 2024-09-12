@@ -164,24 +164,55 @@ static bool addr_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_
 	}
 }
 
-bool addr_and_port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2)
+// BSR-1387
+bool addr_any(const SOCKADDR_STORAGE_EX *addr)
 {
-	if (!addr_equal(addr1, addr2, NULL))
-		return false;
+	if (addr->ss_family == AF_INET6) {
+		const struct sockaddr_in6 *addr6 = (const struct sockaddr_in6 *)addr;
+#ifdef _WIN
+		if (IN6_IS_ADDR_UNSPECIFIED(&addr6->sin6_addr))
+#else // _LIN
+		if (ipv6_addr_any(&addr6->sin6_addr))
+#endif
+			return true;
 
+		return false;
+	}
+	else {
+		const struct sockaddr_in *addr4 = (const struct sockaddr_in *)addr;
+
+		if (addr4->sin_addr.s_addr == INADDR_ANY)
+			return true;
+
+		return false;
+	}
+}
+
+bool port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2)
+{
 	if (addr1->ss_family == AF_INET6) {
 		const struct sockaddr_in6 *v6a1 = (const struct sockaddr_in6 *)addr1;
 		const struct sockaddr_in6 *v6a2 = (const struct sockaddr_in6 *)addr2;
 
 		return v6a1->sin6_port == v6a2->sin6_port;
-	} else /* AF_INET, AF_SSOCKS, AF_SDP */ {
+	}
+	else /* AF_INET, AF_SSOCKS, AF_SDP */ {
 		const struct sockaddr_in *v4a1 = (const struct sockaddr_in *)addr1;
 		const struct sockaddr_in *v4a2 = (const struct sockaddr_in *)addr2;
 
 		return v4a1->sin_port == v4a2->sin_port;
 	}
+}
 
-	//return false;
+bool addr_and_port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2)
+{
+	if (!addr_equal(addr1, addr2, NULL))
+		return false;
+
+	if (!port_equal(addr1, addr2))
+		return false;
+
+	return true;
 }
 
 static struct bsr_listener *find_listener(struct bsr_connection *connection,
@@ -190,7 +221,9 @@ static struct bsr_listener *find_listener(struct bsr_connection *connection,
 	struct bsr_resource *resource = connection->resource;
 	struct bsr_listener *listener;
 	list_for_each_entry_ex(struct bsr_listener, listener, &resource->listeners, list) {
-		if (addr_and_port_equal(&listener->listen_addr, addr)) {
+		if (addr_and_port_equal(&listener->listen_addr, addr) ||
+			// BSR-1387
+			(addr_any(&listener->listen_addr) && port_equal(&listener->listen_addr, addr))) {
 			kref_get(&listener->kref);
 			return listener;
 		}
@@ -210,6 +243,7 @@ int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
 
 	while (1) {
 		spin_lock_bh(&resource->listeners_lock);
+
 		listener = find_listener(connection, (SOCKADDR_STORAGE_EX *)addr);
 		if (!listener && new_listener) {
 			list_add(&new_listener->list, &resource->listeners);
@@ -316,10 +350,15 @@ struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *listener, SOCKADDR_S
 			bsr_debug_co("[%p] path->peer:%s addr:%s ", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
 		}
 		// BSR-787 skip if path is established
-		if (addr_equal(&path->peer_addr, addr, &listener->listen_addr) && !path->established)
+		if ((addr_equal(&path->peer_addr, addr, &listener->listen_addr) ||
+			// BSR-1387
+			addr_any(&listener->listen_addr)) && 
+			!path->established)
 			return path;
 #else // _LIN
-		if (addr_equal(&path->peer_addr, addr, &listener->listen_addr))
+		if (addr_equal(&path->peer_addr, addr, &listener->listen_addr) ||
+			// BSR-1387
+			addr_any(&listener->listen_addr))
 			return path;
 #endif
 		
