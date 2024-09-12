@@ -94,6 +94,7 @@
 #endif
 
 char *progname;
+unsigned int disable_ip_verify = 0;
 
 /* for parsing of messages */
 static struct nlattr *global_attrs[128];
@@ -446,6 +447,8 @@ struct bsr_cmd commands[] = {
 	 .bsr_args = (struct bsr_argument[]) {
 		{ "local-addr", T_my_addr, conv_addr },
 		{ "remote-addr", T_peer_addr, conv_addr },
+		// BSR-1387 add "disable-ip-verification", which is the global config
+		{ "disable-ip-verify", T_disable_ip_verify, conv_u32 },
 		{ } },
 	 .ctx = &path_cmd_ctx,
 	 .summary = "Add a path (endpoint address pair) where a peer host should be reachable." },
@@ -1034,6 +1037,10 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc, bool is_p
 	}
 #ifdef _WIN
 	else {
+		// BSR-1387
+		if (disable_ip_verify)
+			return;
+
 		// BSR-1002 bsr uses the alias as the default for ipv6 link-local
 		// BSR-1057
 		if (!is_adapter_ip_addr(*address)) {
@@ -1820,6 +1827,14 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			rv = OTHER_ERROR;
 			goto error;
 		}
+	}
+
+	// BSR-1387 prepare for the options.
+	for (i = optind, ad = cm->bsr_args; ad && ad->name; i++) {
+		if (!strncmp(ad->name, "disable-ip-verify", 17)) {
+			disable_ip_verify = m_strtoll(argv[i], 1);
+		}
+		ad++;
 	}
 
 	for (i = optind, ad = cm->bsr_args; ad && ad->name; i++) {

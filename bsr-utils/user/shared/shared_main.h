@@ -107,6 +107,8 @@ struct d_globals
 	int minor_count;
 	int dialog_refresh;
 	enum usage_count_type usage_count;
+	// BSR-1387
+	char *hostname;
 };
 
 #define IFI_HADDR 8

@@ -4685,7 +4685,7 @@ static enum bsr_ret_code
 adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 {
 	struct bsr_transport *transport = &adm_ctx->connection->transport;
-	struct nlattr *my_addr = NULL, *peer_addr = NULL;
+	struct nlattr *my_addr = NULL, *peer_addr = NULL, *disable_ip_verify;
 	struct bsr_path *path;
 	enum bsr_ret_code retcode;
 	int err;
@@ -4698,6 +4698,7 @@ adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 	}
 	my_addr = nested_attr_tb[__nla_type(T_my_addr)];
 	peer_addr = nested_attr_tb[__nla_type(T_peer_addr)];
+	disable_ip_verify = nested_attr_tb[__nla_type(T_disable_ip_verify)];
 
 	retcode = check_path_usable(adm_ctx, my_addr, peer_addr);
 	if (retcode != ERR_NO)
@@ -4711,6 +4712,8 @@ adm_add_path(struct bsr_config_context *adm_ctx,  struct genl_info *info)
 	memcpy(&path->my_addr, nla_data(my_addr), path->my_addr_len);
 	path->peer_addr_len = nla_len(peer_addr);
 	memcpy(&path->peer_addr, nla_data(peer_addr), path->peer_addr_len);
+	// BSR-1387
+	path->disable_ip_verify = *(__u32 *)nla_data(disable_ip_verify);
 
 	kref_init(&path->kref);
 

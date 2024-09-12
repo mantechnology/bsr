@@ -701,9 +701,11 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	//int sndbuf_size, rcvbuf_size, connect_int;
 	int rcvbuf_size, connect_int; signed long long sndbuf_size;
 #ifdef _WIN	
-	char sbuf[128] = {0,};
-	char dbuf[128] = {0,};
+	char sbuf[128] = { 0,};
+	char dbuf[128] = { 0, };
 #endif	
+	struct sockaddr_in addr4 = { 0, };
+	struct sockaddr_in6 addr6 = { 0, };
 	rcu_read_lock();
 	nc = rcu_dereference(transport->net_conf);
 	if (!nc) {
@@ -727,7 +729,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	peer_addr = path->path.peer_addr;
 
 	what = "sock_create_kern";
-#ifdef _WSK_SOCKETCONNECT // DW-1007 replace wskconnect with wsksocketconnect for VIP source addressing problem	
+#ifdef _WIN // DW-1007 replace wskconnect with wsksocketconnect for VIP source addressing problem	
 
 	socket = kzalloc(sizeof(struct socket), 0, 'D1SB');
 	if (!socket) {
@@ -738,21 +740,17 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	socket->sk_linux_attr = 0;
 	err = 0;
 
-#ifdef _WIN
 	socket->sk_state = WSK_DISCONNECTED; 
-#endif
  
 	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '35SB');
 	if (!socket->sk_linux_attr) {
 		err = -ENOMEM;
 		goto out;
 	}
-	socket->sk_linux_attr->sk_rcvtimeo =
-	socket->sk_linux_attr->sk_sndtimeo = connect_int * HZ;
+	socket->sk_linux_attr->sk_rcvtimeo = socket->sk_linux_attr->sk_sndtimeo = connect_int * HZ;
 	dtt_setbufsize(socket, sndbuf_size, rcvbuf_size);
 
 	what = "create-connect";
-
 	if (my_addr.ss_family == AF_INET6) {
 		bsr_debug(86, BSR_LC_SOCKET, NO_OBJECT,"dtt_try_connect: Connecting: %s -> %s", get_ip6(sbuf, sizeof(sbuf), (struct sockaddr_in6*)&my_addr), get_ip6(dbuf, sizeof(dbuf), (struct sockaddr_in6*)&peer_addr));
 	} else {
@@ -760,6 +758,20 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	}
 
 	socket->sk = CreateSocketConnect(socket, SOCK_STREAM, IPPROTO_TCP, (PSOCKADDR)&my_addr, (PSOCKADDR)&peer_addr, &status, &dispatchDisco, (PVOID*)socket);
+
+	// BSR-1387 if the resource setting IP is not local, connect to all interfaces when setting "disable_ip_verify".
+	if (path->path.disable_ip_verify && (status == STATUS_INVALID_ADDRESS_COMPONENT)) {
+		// DW-835 Bind fail issue(fix with INADDR_ANY address parameter) 
+		if (my_addr.ss_family == AF_INET) 
+			addr4.sin_family = AF_INET;
+		else 
+			addr6.sin6_family = AF_INET6;
+
+		socket->sk = CreateSocketConnect(socket, SOCK_STREAM, IPPROTO_TCP, (my_addr.ss_family == AF_INET ? (PSOCKADDR)&addr4 : (PSOCKADDR)&addr6), (PSOCKADDR)&peer_addr, &status, &dispatchDisco, (PVOID*)socket);
+		if (NT_SUCCESS(status))
+			bsr_info(109, BSR_LC_SOCKET, NO_OBJECT, "Unable to connect with resource settings IP and \"disable_ip_verify\" is set, attempting to connect to any interfaces.");
+	}
+
 
 	if (!NT_SUCCESS(status)) {
 		err = status;
@@ -793,40 +805,7 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 			}
 		}
 	}
-
-	// _WSK_SOCKETCONNECT
-#else 
-
-#ifdef _WIN
-	socket = kzalloc(sizeof(struct socket), 0, 'D1SB');
-	if (!socket) {
-		err = -ENOMEM; 
-		goto out;
-	}
-	sprintf(socket->name, "conn_sock\0");
-	socket->sk_linux_attr = 0;
-	err = 0;
 	
-#ifdef _WIN
-	if (my_addr.ss_family == AF_INET6) {
-		socket->sk = CreateSocket(AF_INET6, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
-	} else {
-		socket->sk = CreateSocket(AF_INET, SOCK_STREAM, IPPROTO_TCP, NULL, NULL, WSK_FLAG_CONNECTION_SOCKET);
-	}
-#endif
-
-	if (socket->sk == NULL) {
-		err = -1;
-		goto out;
-	}
-
-	socket->sk_linux_attr = kzalloc(sizeof(struct sock), 0, '45SB');
-	if (!socket->sk_linux_attr) {
-		err = -ENOMEM;
-		goto out;
-	}
-	socket->sk_linux_attr->sk_rcvtimeo =
-		socket->sk_linux_attr->sk_sndtimeo = connect_int * HZ;
 #else // _LIN
 	err = sock_create_kern(&init_net, my_addr.ss_family, SOCK_STREAM, IPPROTO_TCP, &socket);
 	if (err < 0) {
@@ -834,9 +813,8 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 		goto out;
 	}
 
-	socket->sk->sk_rcvtimeo =
-	socket->sk->sk_sndtimeo = connect_int * HZ;
-#endif
+	socket->sk->sk_rcvtimeo = socket->sk->sk_sndtimeo = connect_int * HZ;
+
 	dtt_setbufsize(socket, sndbuf_size, rcvbuf_size);
 
 	/* explicitly bind to the configured IP as source IP
@@ -847,61 +825,32 @@ static int dtt_try_connect(struct bsr_transport *transport, struct dtt_path *pat
 	*  a free one dynamically.
 	*/
 	what = "bind before connect";
-#ifdef _WIN
-	// DW-835 Bind fail issue(fix with INADDR_ANY address parameter) 
-	if(my_addr.ss_family == AF_INET ) {
-		LocalAddressV4.sin_family = AF_INET;
-		LocalAddressV4.sin_addr.s_addr = INADDR_ANY;
-		LocalAddressV4.sin_port = HTONS(0);
-	} else {
-		//AF_INET6
-		LocalAddressV6.sin6_family = AF_INET6;
-		//LocalAddressV6.sin6_addr.s_addr = IN6ADDR_ANY_INIT;
-		LocalAddressV6.sin6_port = HTONS(0); 
-	}
-	status = Bind(socket->sk, (my_addr.ss_family == AF_INET) ? (PSOCKADDR)&LocalAddressV4 : (PSOCKADDR)&LocalAddressV6 );
-	if (!NT_SUCCESS(status)) {
-		bsr_err(26, BSR_LC_SOCKET, NO_OBJECT,"Bind() failed with status 0x%08X ", status);
-		err = -EINVAL;
-		goto out;
-	}
-#else // _LIN
+
 	err = socket->ops->bind(socket, (struct sockaddr *) &my_addr, path->path.my_addr_len);
-#endif
-	if (err < 0)
+	// BSR-1387
+	if(path->path.disable_ip_verify && (err == -EADDRNOTAVAIL)) {
+		// DW-835 Bind fail issue(fix with INADDR_ANY address parameter) 
+		if (my_addr.ss_family == AF_INET) 
+			addr4.sin_family = AF_INET;
+		else
+			addr6.sin6_family = AF_INET6;
+
+		err = socket->ops->bind(socket, (my_addr.ss_family == AF_INET ? (struct sockaddr *)&addr4 : (struct sockaddr *)&addr6), path->path.my_addr_len);
+
+		if(!err)
+			bsr_info(109, BSR_LC_SOCKET, NO_OBJECT, "Unable to connect with resource settings IP and \"disable_ip_verify\" is set, attempting to connect to any interfaces.");
+	}
+
+	if(err < 0) 
 		goto out;
 
 	/* connect may fail, peer not yet available.
 	 * stay C_CONNECTING, don't go Disconnecting! */
 	what = "connect";
-#ifdef _WIN
-	status = Connect(socket->sk, (struct sockaddr *) &peer_addr);
-	if (!NT_SUCCESS(status)) {
-		err = status;
-		switch (status) {
-		case STATUS_CONNECTION_REFUSED: err = -ECONNREFUSED; break;
-		case STATUS_INVALID_DEVICE_STATE: err = -EAGAIN; break;
-		case STATUS_NETWORK_UNREACHABLE: err = -ENETUNREACH; break;
-		case STATUS_HOST_UNREACHABLE: err = -EHOSTUNREACH; break;
-		default: err = -EINVAL; break;
-		}
-	} else {
-		if (status == STATUS_TIMEOUT) { 
-			err = -ETIMEDOUT; 
-		} else { 
-			if (status == 0) {
-				err = 0;
-			} else {
-				err = -EINVAL;
-			}
-		}
-	}
-#else // _LIN
 	err = socket->ops->connect(socket, (struct sockaddr *) &peer_addr,
 				   path->path.peer_addr_len, 0);
-#endif
 	
-#endif 	// _WSK_SOCKETCONNECT end
+#endif 	
 
 	if (err < 0) {
 		switch (err) {
@@ -1454,7 +1403,9 @@ static void dtt_incoming_connection(struct sock *sock)
 	// DW-1498 Find the listener that matches the LocalAddress in resource-> listeners.
 	list_for_each_entry_ex(struct bsr_listener, listener, &resource->listeners, list) {
 		bsr_debug_conn("listener->listen_addr:%s ", get_ip4(buf, sizeof(buf), (struct sockaddr_in*)&listener->listen_addr));
-		if (addr_and_port_equal(&listener->listen_addr, (const SOCKADDR_STORAGE_EX *)LocalAddress)) {
+		if (addr_and_port_equal(&listener->listen_addr, (const SOCKADDR_STORAGE_EX *)LocalAddress) ||
+			// BSR-1387
+			((addr_any(&listener->listen_addr) && port_equal(&listener->listen_addr, (const SOCKADDR_STORAGE_EX *)LocalAddress)))) {
 			find_listener = true;
 			break;
 		}
@@ -1609,8 +1560,6 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	int err = 0, rcvbuf_size;
 	signed long long sndbuf_size;
 	NTSTATUS status;
-	SOCKADDR_IN ListenV4Addr = {0,};
-	SOCKADDR_IN6 ListenV6Addr = {0,};
 #else // _LIN
 	int err, rcvbuf_size, addr_len;
 	signed long long sndbuf_size;
@@ -1691,18 +1640,15 @@ static int dtt_create_listener(struct bsr_transport *transport,
 #ifdef _WIN
 
 	// DW-835 Bind fail issue(fix with INADDR_ANY address parameter) 
-	if(my_addr.ss_family == AF_INET ) {
-		ListenV4Addr.sin_family = AF_INET;
-		ListenV4Addr.sin_port = *((USHORT*)my_addr.__data);
-		ListenV4Addr.sin_addr.s_addr = INADDR_ANY;
-	} else {
-		//AF_INET6
-		ListenV6Addr.sin6_family = AF_INET6;
-		ListenV6Addr.sin6_port = *((USHORT*)my_addr.__data); 
-		//ListenV6Addr.sin6_addr = IN6ADDR_ANY_INIT;
+	if(my_addr.ss_family == AF_INET) {
+		((struct sockaddr_in*)&my_addr)->sin_addr.s_addr = INADDR_ANY;
+	}
+	else {
+		memset(&((struct sockaddr_in6*)&my_addr)->sin6_addr, 0, sizeof(((struct sockaddr_in6*)&my_addr)->sin6_addr));
+		((struct sockaddr_in6*)&my_addr)->sin6_scope_id = 0;
 	}
 
-	status = Bind(s_listen, (my_addr.ss_family == AF_INET) ? (PSOCKADDR)&ListenV4Addr : (PSOCKADDR)&ListenV6Addr);
+	status = Bind(s_listen, (PSOCKADDR)&my_addr);
 	
 	if (!NT_SUCCESS(status)) {
     	if(my_addr.ss_family == AF_INET) {
@@ -1721,6 +1667,16 @@ static int dtt_create_listener(struct bsr_transport *transport,
 #else // _LIN
 	addr_len = addr->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6)
 		: sizeof(struct sockaddr_in);
+
+	// BSR-1387 listen for all interfaces the same as Windows.
+	if(my_addr.ss_family == AF_INET) {
+		((struct sockaddr_in*)&my_addr)->sin_addr.s_addr = INADDR_ANY;
+	}
+	else {
+		memset(&((struct sockaddr_in6*)&my_addr)->sin6_addr, 0, sizeof(((struct sockaddr_in6*)&my_addr)->sin6_addr));
+		((struct sockaddr_in6*)&my_addr)->sin6_scope_id = 0;
+	}
+
 
 	err = s_listen->ops->bind(s_listen, (struct sockaddr *)&my_addr, addr_len);
 #endif

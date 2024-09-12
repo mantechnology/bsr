@@ -131,6 +131,8 @@ struct bsr_path {
 	int my_addr_len;
 	int peer_addr_len;
 	bool established; /* updated by the transport */
+	// BSR-1387
+	int disable_ip_verify;
 	
 	struct list_head list; /* paths of a connection */
 	struct list_head listener_link; /* paths waiting for an incomming connection,
@@ -296,6 +298,9 @@ extern struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *, SOCKADDR_ST
 extern bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream stream);
 extern bool bsr_should_abort_listening(struct bsr_transport *transport);
 extern void bsr_path_event(struct bsr_transport *transport, struct bsr_path *path);
+
+extern bool addr_any(const SOCKADDR_STORAGE_EX *addr);
+extern bool port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2);
 
 /* bsr_receiver.c*/
 #ifdef _WIN

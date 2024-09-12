@@ -66,6 +66,9 @@ struct d_globals global_options = {
 	.cmd_timeout_long = CMD_TIMEOUT_LONG_DEF, // DW-817 wrong initialization.
 	.dialog_refresh = 1,
 	.usage_count = UC_ASK,
+	// BSR-1387
+	.disable_ip_verification = 0,
+	.hostname = NULL,
 };
 
 void chld_sig_hand(int __attribute((unused)) unused)

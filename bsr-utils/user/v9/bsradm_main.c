@@ -1315,8 +1315,9 @@ static void add_setup_options(char **argv, int *argcp, const struct context_def 
 	int argc = *argcp;
 
 	STAILQ_FOREACH(b_opt, &backend_options, link) {
-		if (is_valid_backend_option(b_opt->name, context_def))
+		if (is_valid_backend_option(b_opt->name, context_def)) {
 			argv[NA(argc)] = b_opt->name;
+		}
 	}
 	*argcp = argc;
 }
@@ -2085,6 +2086,9 @@ static int adm_path(const struct cfg_ctx *ctx)
 
 	argv[NA(argc)] = ssprintf_addr(path->my_address);
 	argv[NA(argc)] = ssprintf_addr(path->connect_to);
+
+	// BSR-1387
+	argv[NA(argc)] = ssprintf("%d", global_options.disable_ip_verification);
 
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = 0;

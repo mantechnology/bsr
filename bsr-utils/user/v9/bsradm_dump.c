@@ -123,6 +123,8 @@ void dump_global_info()
 		printI("dialog-refresh %i;\n", global_options.dialog_refresh);
 	if (global_options.usage_count != UC_ASK)
 		printI("usage-count %s;\n", yes_no_ask[global_options.usage_count]);
+	if (global_options.hostname)
+		printI("hostname %s;\n", global_options.hostname);
 	--indent;
 	printI("}\n\n");
 }
@@ -418,7 +420,10 @@ static void dump_global_info_xml()
 		       global_options.minor_count);
 	if (global_options.dialog_refresh != 1)
 		printI("<dialog-refresh refresh=\"%i\"/>\n",
-		       global_options.dialog_refresh);
+		global_options.dialog_refresh);
+	if (global_options.hostname)
+		printI("<hostname hostname=\"%s\"/>\n",
+		global_options.dialog_refresh);
 	--indent;
 	printI("</global>\n");
 }
