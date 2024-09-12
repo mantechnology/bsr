@@ -374,8 +374,16 @@ struct p_protocol {
 	uint32_t two_primaries;
 
               /* Since protocol version 87 and higher. */
+	// BSR-1360
+#ifdef __STDC_VERSION__
+#if __STDC_VERSION__ >= 199901L
+	char integrity_alg[];
+#else
 	char integrity_alg[0];
-
+#endif
+#else 
+	char integrity_alg[0];
+#endif
 } __packed;
 
 #define UUID_FLAG_DISCARD_MY_DATA 		(1 << 0)

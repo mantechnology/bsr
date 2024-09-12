@@ -612,14 +612,22 @@ slashes:
 #ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
 int printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offset, u64 ino, unsigned d_type)
 #else
+#ifdef COMPAT_HAVE_DIR_CONTEXT_RETURN_BOOL
+bool printdir(struct dir_context *ctx, const char *name, int namelen, loff_t offset, u64 ino, unsigned d_type)
+#else
 int printdir(void *buf, const char *name, int namelen, loff_t offset, u64 ino, unsigned int d_type)
+#endif
 #endif
 {
 	struct backup_file_list *rlist =
 #ifdef COMPAT_HAVE_DIR_CONTEXT_PARAMS
 		container_of(ctx, struct backup_file_list, ctx);
 #else
+#ifdef COMPAT_HAVE_DIR_CONTEXT_RETURN_BOOL
+		container_of(ctx, struct backup_file_list, ctx);
+#else
 		(struct backup_file_list *)buf;
+#endif
 #endif
 		
 	int err = 0;
@@ -700,9 +708,13 @@ long bsr_mkdir(const char *pathname, umode_t mode)
 		return PTR_ERR(dentry);
 #ifdef COMPAT_VFS_MKDIR_HAS_NS_PARAMS
 	err = vfs_mkdir(&init_user_ns, d_inode(path.dentry), dentry, mode);
-
+#else
+// BSR-1360
+#ifdef COMPAT_VFS_MKDIR_HAS_MNT_IDMAP
+	err = vfs_mkdir(&nop_mnt_idmap, d_inode(path.dentry), dentry, mode);
 #else
 	err = vfs_mkdir(d_inode(path.dentry), dentry, mode);
+#endif
 #endif
 	done_path_create(&path, dentry);
 #else // old kernel (version < 3.1)

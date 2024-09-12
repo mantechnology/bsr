@@ -422,6 +422,7 @@ typedef unsigned __bitwise__ fmode_t;
 #ifndef COMPAT_HAVE_BLKDEV_GET_BY_PATH
 // BSR-1376
 #ifndef COMPAT_HAVE_BLKDEV_GET_BY_PATH_4_PARAMS
+#ifndef COMPAT_HAVE_BLKDEV_HANDLE
 /* see kernel 2.6.37,
  * d4d7762 block: clean up blkdev_get() wrappers and their users
  * e525fd8 block: make blkdev_get/put() handle exclusive access
@@ -489,8 +490,13 @@ static inline int bsr_blkdev_put(struct block_device *bdev, fmode_t mode)
 #define FMODE_EXCL 0
 #endif
 #endif
+#else
+#ifndef FMODE_EXCL
+#define FMODE_EXCL 0
+#endif
 #endif
 
+#endif
 
 #define bsr_bio_uptodate(bio) bio_flagged(bio, BIO_UPTODATE)
 
@@ -2000,7 +2006,12 @@ static int random32()
 #endif
 static inline u32 prandom_u32(void)
 {
+// BSR-1360
+#ifdef COMPAT_HAVE_GET_RANDOM_U32
+	return get_random_u32();
+#else
     return random32();
+#endif
 }
 #endif
 
@@ -2533,6 +2544,9 @@ static inline int bsr_unlink(struct inode *dir, struct dentry *dentry)
 {
 #if defined(COMPAT_VFS_UNLINK_HAS_NS_PARAMS)
 		return vfs_unlink(&init_user_ns, dir, dentry, NULL);
+// BSR-1360
+#elif defined(COMPAT_VFS_UNLINK_HAS_IDMAP_PARAMS)
+		return vfs_unlink(&nop_mnt_idmap, dir, dentry, NULL);
 #elif defined(COMPAT_VFS_UNLINK_HAS_2_PARAMS)
 		return vfs_unlink(dir, dentry);
 #else
@@ -2550,10 +2564,19 @@ static inline int bsr_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct renamedata rd = {
 			.old_dir	= old_dir,
 			.old_dentry	= old_dentry,
+			// BSR-1360
+#ifdef COMPAT_HAVE_STRUCT_RENAMEDATA_USED_MNT_PARAMS
 			.old_mnt_userns  = mnt_user_ns(old_mnt),
+#else
+			.old_mnt_idmap = old_mnt->mnt_idmap,
+#endif
 			.new_dir	= new_dir,
 			.new_dentry	= new_dentry,
+#ifdef COMPAT_HAVE_STRUCT_RENAMEDATA_USED_MNT_PARAMS
 			.new_mnt_userns  = mnt_user_ns(new_mnt),
+#else
+			.new_mnt_idmap = new_mnt->mnt_idmap,
+#endif
 			.delegated_inode = &delegated_inode,
 	};
 	return vfs_rename(&rd);
