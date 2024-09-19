@@ -2088,7 +2088,8 @@ static int adm_path(const struct cfg_ctx *ctx)
 	argv[NA(argc)] = ssprintf_addr(path->connect_to);
 
 	// BSR-1387
-	argv[NA(argc)] = ssprintf("%d", global_options.disable_ip_verification);
+	if (!strncmp(ctx->cmd->name, "new-path", 8)) 
+		argv[NA(argc)] = ssprintf("%d", global_options.disable_ip_verification);
 
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
 	argv[NA(argc)] = 0;
