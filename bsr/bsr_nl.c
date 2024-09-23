@@ -1446,6 +1446,7 @@ retry:
 			struct bsr_peer_device *peer_device;
 			u64 im;
 			bool younger_primary = false; // Add a younger_primary variable to create a new UUID if the condition is met.
+			bool all_peer_uptodate = true;
 
 			// If secondary node was promoted from Uptodate state under the following conditions, 
 			// it is hard to distinguish younger primary.
@@ -1464,6 +1465,12 @@ retry:
 						break; 
 					}
 				}
+
+				// BSR-1354 
+				if ((peer_device->disk_state[NOW] != D_UP_TO_DATE) || 
+					(peer_device->connection->cstate[NOW] != C_CONNECTED)) {
+					all_peer_uptodate = false;
+				}
 			} 
 
 			if (forced) {
@@ -1479,8 +1486,13 @@ retry:
 				// BSR-433 set UUID_FLAG_NEW_DATAGEN when sending new current UUID
 				bsr_uuid_new_current(device, false, true, true, __FUNCTION__);
 			else {
-				bsr_info(25, BSR_LC_UUID, device, "set UUID creation flag due to promotion");
-				set_bit(NEW_CUR_UUID, &device->flags);
+				// BSR-1354 if all nodes are connected and the disk state is uptodate, do not set NEW_CUR_UUID flag.
+				if (all_peer_uptodate) {
+					bsr_info(41, BSR_LC_UUID, device, "all nodes are connected and up to date");
+				} else {
+					bsr_info(25, BSR_LC_UUID, device, "set UUID creation flag due to promotion");
+					set_bit(NEW_CUR_UUID, &device->flags);
+				}
 			}
 
 			// DW-1154 set UUID_PRIMARY when promote a resource to primary role.
