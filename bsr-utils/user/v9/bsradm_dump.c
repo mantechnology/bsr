@@ -422,8 +422,8 @@ static void dump_global_info_xml()
 		printI("<dialog-refresh refresh=\"%i\"/>\n",
 		global_options.dialog_refresh);
 	if (global_options.hostname)
-		printI("<hostname hostname=\"%s\"/>\n",
-		global_options.dialog_refresh);
+		printI("<hostname alias=\"%s\"/>\n",
+		global_options.hostname);
 	--indent;
 	printI("</global>\n");
 }
