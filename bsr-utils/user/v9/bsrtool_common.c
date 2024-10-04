@@ -815,12 +815,118 @@ FILE *bsr_open_log()
 	return fp;
 }
 
+
+// BSR-1378
+#ifdef _WIN
+#include <tlhelp32.h>
+#include <psapi.h>  
+
+int get_parent_pid(int pid)
+{
+	HANDLE hSnapshot;
+	PROCESSENTRY32 pe32;
+	int ppid = 0;
+
+	hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+	if (hSnapshot == INVALID_HANDLE_VALUE) {
+		return 0;
+	}
+
+	pe32.dwSize = sizeof(PROCESSENTRY32);
+
+	if (Process32First(hSnapshot, &pe32)) {
+		do {
+			if (pe32.th32ProcessID == pid) {
+				ppid = pe32.th32ParentProcessID; 
+				break;
+			}
+		} while (Process32Next(hSnapshot, &pe32));
+	}
+
+	CloseHandle(hSnapshot);
+	return ppid;
+}
+
+void get_process_name_by_pid(DWORD pid, char *name, size_t size)
+{
+	HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+
+	if (hProcess != NULL) {
+		if (GetModuleFileNameExA(hProcess, NULL, name, size)) {
+			char *p = strrchr(name, '\\');
+			if (p != NULL) {
+				strcpy(name, p + 1);
+			}
+		}
+		CloseHandle(hProcess);
+	}
+}
+
+#else
+void get_process_name_by_pid(pid_t pid, char *name, size_t size) 
+{
+	char path[1024];
+	FILE *f;
+
+	snprintf(path, sizeof(path), "/proc/%d/comm", pid);
+	f = fopen(path, "r");
+	if (f) {
+		if (fgets(name, size, f) != NULL) {
+			name[strcspn(name, "\n")] = '\0';
+		}
+		fclose(f);
+	}
+	else {
+		perror("get_process_name_by_pid, fopen");
+		exit(1);
+	}
+}
+
+pid_t get_parent_pid(pid_t pid) 
+{
+	char path[1024], buffer[1024];
+	FILE *f;
+	pid_t ppid = -1;
+
+	snprintf(path, sizeof(path), "/proc/%d/status", pid);
+	f = fopen(path, "r");
+	if (f) {
+		while (fgets(buffer, sizeof(buffer), f)) {
+			if (strncmp(buffer, "PPid:", 5) == 0) {
+				sscanf(buffer + 5, "%d", &ppid);
+				break;
+			}
+		}
+		fclose(f);
+	}
+	else {
+		perror("fopen");
+		exit(1);
+	}
+
+	return ppid;
+}
+#endif
+// BSR-1378
+#define MAX_PARENT_PID_COUNT 10
+
 long bsr_log_format(char* b, const char* func, int line, enum cli_log_level level)
 {
 	long offset = 0;
 	time_t t = time(NULL);
 	struct tm tm = *localtime(&t);
 	int pid;
+	char process_name[1024];
+	int ppid;
+	int end_ppid;
+	int parent_cnt = 0;
+	int i = 0;
+	int ppids[MAX_PARENT_PID_COUNT] = { 0, };
+#ifdef _WIN
+	end_ppid = 0;
+#else
+	end_ppid = 1;
+#endif
 
 	offset = snprintf(b, 512, "%04d/%02d/%02d %02d:%02d:%02d ",
 		tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -845,7 +951,34 @@ long bsr_log_format(char* b, const char* func, int line, enum cli_log_level leve
 #ifdef _WIN
 	// BSR-1109 The PID obtained by cygwin on windows requires an additional call to the following functions.
 	pid = cygwin_internal(CW_CYGWIN_PID_TO_WINPID, pid);
+	ppid = get_parent_pid(pid);
+#else
+	ppid = getppid();
 #endif
+
+	// BSR-1378 prints parent and grandparent processes. Up to 10
+	if (ppid != end_ppid)
+		offset += snprintf(b + offset, 512 - offset, "[ppids:");
+
+	while (ppid != end_ppid) {
+		parent_cnt++;
+		get_process_name_by_pid(ppid, process_name, sizeof(process_name));
+		offset += snprintf(b + offset, 512 - offset, "%s(%d)", process_name, ppid);
+		ppid = get_parent_pid(ppid);
+
+		// BSR-1378 stop when duplicate pids are found.
+		for (i = 0; i < parent_cnt; i++) {
+			if (ppid == ppids[i]) {
+				ppid = end_ppid;
+				break;
+			}
+		}
+
+		if (ppid != end_ppid && parent_cnt < MAX_PARENT_PID_COUNT)
+			offset += snprintf(b + offset, 512 - offset, ",");
+		else
+			offset += snprintf(b + offset, 512 - offset, "]");
+	}
 
 	// BSR-622
 	offset += snprintf(b + offset, 512 - offset, "[pid:%d][func:%s][line:%d][cmd:%s] ", pid, func, line, ((lcmd == NULL) ? "NULL" : lcmd));
