@@ -60,8 +60,6 @@ extern enum bsr_state_rv end_state_change_locked(struct bsr_resource *, bool loc
 
 extern void abort_prepared_state_change(struct bsr_resource *);
 extern void clear_remote_state_change(struct bsr_resource *resource);
-// DW-1894
-extern void clear_remote_state_change_without_lock(struct bsr_resource *resource);
 
 // DW-1073
 // DW-1257
