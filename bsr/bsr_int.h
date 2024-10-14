@@ -1622,6 +1622,9 @@ struct bsr_resource {
 	struct twopc_reply twopc_reply;
 	struct timer_list twopc_timer;
 	struct bsr_work twopc_work;
+	// DW-1204 twopc is for disconnecting.
+	// BSR-1369
+	bool twopc_prepare_disconnecting;
 	wait_queue_head_t twopc_wait;
 	struct twopc_resize {
 		int dds_flags;            /* from prepare phase */
