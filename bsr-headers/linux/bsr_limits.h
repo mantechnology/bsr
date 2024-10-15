@@ -321,6 +321,9 @@
 #define BSR_CSUMS_AFTER_CRASH_ONLY_DEF 0
 #define BSR_AUTO_PROMOTE_DEF	0 // BSR-465 auto-promote disable
 
+// BSR-1392
+#define BSR_PERSIST_ROLE_DEF 0
+
 // DW-1249 auto-start by svc
 #define BSR_SVC_AUTO_UP_DEF 1
 // BSR-593 auto-down by svc

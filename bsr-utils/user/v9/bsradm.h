@@ -355,6 +355,8 @@ extern struct adm_cmd proxy_conn_down_cmd;
 extern struct adm_cmd proxy_conn_up_cmd;
 extern struct adm_cmd proxy_conn_plugins_cmd;
 extern struct adm_cmd proxy_reconf_cmd;
+// BSR-1392
+extern struct adm_cmd apply_persist_role_cmd;
 
 struct d_name *find_backend_option(const char *opt_name);
 extern int adm_create_md(const struct cfg_ctx *);

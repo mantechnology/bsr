@@ -422,6 +422,9 @@ static struct adm_cmd proxy_down_cmd = {"proxy-down", adm_proxy_down, ACF2_PROXY
 /*  */ struct adm_cmd new_minor_cmd = {"new-minor", adm_new_minor, &device_options_ctx, ACF4_ADVANCED};
 /*  */ struct adm_cmd del_minor_cmd = { "del-minor", adm_bsrsetup, ACF1_MINOR_ONLY.show_in_usage = 4, .disk_required = 0, };
 
+// BSR-1392
+/*  */ struct adm_cmd apply_persist_role_cmd = { "apply-persist-role", adm_bsrsetup, ACF1_RESNAME.takes_long = 1 };
+
 static struct adm_cmd khelper01_cmd = {"before-resync-target", adm_khelper, ACF3_RES_HANDLER};
 static struct adm_cmd khelper02_cmd = {"after-resync-target", adm_khelper, ACF3_RES_HANDLER};
 static struct adm_cmd khelper03_cmd = {"before-resync-source", adm_khelper, ACF3_RES_HANDLER};
@@ -530,6 +533,9 @@ struct adm_cmd *cmds[] = {
 	&new_resource_cmd,
 	&new_minor_cmd,
 	&del_minor_cmd,
+
+	// BSR-1392
+	&apply_persist_role_cmd,
 
 	&khelper01_cmd,
 	&khelper02_cmd,
@@ -2375,6 +2381,9 @@ static int adm_up(const struct cfg_ctx *ctx)
 		if (vol->disk)
 			schedule_deferred_cmd(&attach_cmd, &tmp_ctx, CFG_DISK);
 	}
+
+	// BSR-1392
+	schedule_deferred_cmd(&apply_persist_role_cmd, ctx, CFG_DISK);
 
 	return 0;
 }

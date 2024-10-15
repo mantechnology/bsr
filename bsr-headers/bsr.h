@@ -429,6 +429,9 @@ enum mdf_flag {
 	MDF_LAST_PRIMARY = 1 << 16,
 	// DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.
 	MDF_IO_ERROR = 1 << 17,				
+	// BSR-1392 it is set when the user executes the promotion command, and is clear when the demotion command is executed.
+	// and when the corresponding flag is set, it will be promoted when the command "bsrsetup apply-persist-role" is executed.
+	MDF_WAS_PRIMARY = 1 << 18,
 };
 
 enum mdf_peer_flag {
