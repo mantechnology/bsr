@@ -680,24 +680,8 @@ static int bsr_recv(struct bsr_connection *connection, void **buf, size_t size, 
 		bsr_info(16, BSR_LC_SOCKET, connection, "Data stream socket shut down due to peer");
 	}
 
-	if (rv != (int)size) {
-		change_cstate_ex(connection, C_BROKEN_PIPE, CS_HARD);		
-		// BSR-894 if the connection is terminated due to an error during disconnecting twopc prepare, change the disk state to the outdated state.
-#ifdef _WIN 
-		if (rv == -ECONNRESET) {
-			if (test_bit(PRIMARY_DISCONNECT_EXPECTED, &connection->flags)) {
-				struct bsr_resource *resource = connection->resource;
-				unsigned long irq_flags;
-				
-				begin_state_change(resource, &irq_flags, flags);
-				__outdate_myself(resource);
-				end_state_change(resource, &irq_flags, __FUNCTION__);
-
-				clear_bit(PRIMARY_DISCONNECT_EXPECTED, &connection->flags);
-			}
-		}
-#endif
-	}
+	if (rv != (int)size)
+		change_cstate_ex(connection, C_BROKEN_PIPE, CS_HARD);
 out:
 	return rv;
 }
@@ -7234,8 +7218,6 @@ enum csc_rv {
 	CSC_QUEUE,
 	CSC_TID_MISS,
 	CSC_MATCH,
-	// DW-1894
-	CSC_UPDATE = CSC_MATCH,
 };
 
 static enum csc_rv
@@ -7258,14 +7240,6 @@ check_concurrent_transactions(struct bsr_resource *resource, struct bsr_connecti
 			return CSC_QUEUE;
 		}
 	} else if (new_r->initiator_node_id > ongoing->initiator_node_id) {
-		// DW-1894 if the old request is disconnected, remove it and process the new request.
-		if (ongoing->is_disconnect && new_r->tid != ongoing->tid) {
-			bsr_info(4, BSR_LC_TWOPC, resource, "[TWOPC] CSC_UPDATE. new initiator_node_id (%d), new tid (%u)",
-				new_r->initiator_node_id, new_r->tid);
-			del_timer(&resource->twopc_timer);
-			clear_remote_state_change_without_lock(resource);
-			return CSC_UPDATE;
-		}
 		bsr_info(5, BSR_LC_TWOPC, resource, "[TWOPC] CSC_REJECT. new initiator_node_id (%d), on going initiator_node_id (%d)",
 					new_r->initiator_node_id, ongoing->initiator_node_id);
 
@@ -9737,13 +9711,6 @@ void conn_disconnect(struct bsr_connection *connection)
 	bsr_transport_shutdown(connection, CLOSE_CONNECTION);
 	bsr_drop_unsent(connection);
 
-	// DW-1894 remove incomplete requests.
-	if (resource->twopc_reply.initiator_node_id == (int)connection->peer_node_id) {
-		del_timer(&resource->twopc_timer);
-		clear_remote_state_change(resource);
-	}
-
-
 	/* Wait for current activity to cease.  This includes waiting for
 	* peer_request queued to the submitter workqueue. */
 #ifdef _WIN
@@ -10494,18 +10461,31 @@ void twopc_connection_down(struct bsr_connection *connection)
 #ifdef _LIN
 	assert_spin_locked(&resource->req_lock);
 #endif
-	if (resource->twopc_reply.initiator_node_id != -1 &&
-	    test_bit(TWOPC_PREPARED, &connection->flags)) {
-		set_bit(TWOPC_NO, &connection->flags);
-		if (cluster_wide_reply_ready(resource)) {
-			int my_node_id = resource->res_opts.node_id;
-			if (resource->twopc_reply.initiator_node_id == my_node_id) {
-				wake_up(&resource->state_wait);
-			} else if (resource->twopc_work.cb == NULL) {
+	if (resource->twopc_reply.initiator_node_id != -1) {
+		// BSR-894 if the connection is terminated due to an error during disconnecting twopc prepare, change the disk state to the outdated state.
+#ifdef _WIN 
+		if (test_and_clear_bit(PRIMARY_DISCONNECT_EXPECTED, &connection->flags))
+			__outdate_myself(resource);
+#endif
+		if (test_bit(TWOPC_PREPARED, &connection->flags)) {
+			set_bit(TWOPC_NO, &connection->flags);
+			if (cluster_wide_reply_ready(resource)) {
+				int my_node_id = resource->res_opts.node_id;
+				if (resource->twopc_reply.initiator_node_id == my_node_id)
+					wake_up(&resource->state_wait);
+			}
+			else if (resource->twopc_work.cb == NULL) {
 				/* in case the timeout timer was not quicker in queuing the work... */
 				resource->twopc_work.cb = nested_twopc_work;
 				bsr_queue_work(&resource->work, &resource->twopc_work);
 			}
+		} 
+		// BSR-1369 if disconnect on another node is not completed, it will be treated as an interruption rather than a timeout.
+		else if (resource->twopc_reply.is_disconnect &&
+			resource->twopc_reply.initiator_node_id != resource->res_opts.node_id) {
+			del_timer(&resource->queued_twopc_timer);
+			resource->twopc_work.cb = abort_nested_twopc_work;
+			bsr_queue_work(&resource->work, &resource->twopc_work);
 		}
 	}
 }

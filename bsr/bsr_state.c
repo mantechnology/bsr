@@ -887,11 +887,6 @@ void clear_remote_state_change(struct bsr_resource *resource) {
 	spin_unlock_irqrestore(&resource->req_lock, irq_flags);
 }
 
-// DW-1894
-void clear_remote_state_change_without_lock(struct bsr_resource *resource) {
-	__clear_remote_state_change(resource);
-}
-
 static union bsr_state bsr_get_resource_state(struct bsr_resource *resource, enum which_state which)
 {
 	union bsr_state rv = { {
@@ -4237,8 +4232,7 @@ bool cluster_wide_reply_ready(struct bsr_resource *resource)
 	return ready;
 }
 
-static enum bsr_state_rv get_cluster_wide_reply(struct bsr_resource *resource,
-struct change_context *context, bool bDisconnecting)
+static enum bsr_state_rv get_cluster_wide_reply(struct bsr_resource *resource, struct change_context *context)
 {
 	struct bsr_connection *connection, *failed_by = NULL;
 	enum bsr_state_rv rv = SS_CW_SUCCESS;
@@ -4253,7 +4247,8 @@ struct change_context *context, bool bDisconnecting)
 		if (test_bit(TWOPC_NO, &connection->flags)) {
 			// BSR-797 if a connection error occurs during connection termination twopc processing, TOWPC_NO is ignored..
 			// this is because when all nodes are terminated at the same time, the other node is terminated first during the twopc process and causes an error.
-			if (!(bDisconnecting && 
+			// BSR-1369
+			if (!(resource->twopc_prepare_disconnecting &&
 				connection->cstate[NOW] <= C_TEAR_DOWN && connection->cstate[NOW] >= C_TIMEOUT)) {
 				failed_by = connection;
 				rv = SS_CW_FAILED_BY_PEER;
@@ -4484,8 +4479,6 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 	struct bsr_connection *connection, *target_connection = NULL;
 	enum bsr_state_rv rv;
 	u64 reach_immediately;
-	// DW-1204 twopc is for disconnecting.
-	bool bDisconnecting = false;
     ULONG_PTR start_time;
 	bool have_peers;
 
@@ -4628,6 +4621,8 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 	resource->remote_state_change = true;
 	resource->twopc_parent_nodes = 0;
 	resource->twopc_type = TWOPC_STATE_CHANGE;
+	// BSR-1369
+	resource->twopc_prepare_disconnecting = false;
 	reply->initiator_node_id = resource->res_opts.node_id;
 	reply->target_node_id = context->target_node_id;
 	reply->primary_nodes = 0;
@@ -4641,8 +4636,9 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 	} else if (context->mask.conn == conn_MASK && context->val.conn == C_DISCONNECTING) {
 		reply->target_reachable_nodes = NODE_MASK(context->target_node_id);
 		reply->reachable_nodes &= ~reply->target_reachable_nodes;
-		// DW-1204 this twopc is for disconnecting.
-		bDisconnecting = true;
+		// DW-1204 this twopc is for disconnecting.        
+		// BSR-1369
+		resource->twopc_prepare_disconnecting = true;
 	} else {
 		reply->target_reachable_nodes = reply->reachable_nodes;
 	}
@@ -4658,7 +4654,7 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 								cluster_wide_reply_ready(resource),
 								twopc_timeout(resource), t);
         if (t) {
-			rv = get_cluster_wide_reply(resource, context, bDisconnecting);
+			rv = get_cluster_wide_reply(resource, context);
 			bsr_info(36, BSR_LC_TWOPC, resource, "[TWOPC:%u] target_node_id(%d) get_cluster_wide_reply (%d) ",
 						reply->tid,
 						context->target_node_id, 
@@ -4735,8 +4731,8 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 		}
 	}
 	
-	// DW-1204 sending twopc prepare needs to wait crowded send buffer, takes too much time. no more retry.
-	if (bDisconnecting 
+	// DW-1204 sending twopc prepare needs to wait crowded send buffer, takes too much time. no more retry.    
+	if (resource->twopc_prepare_disconnecting
 		&& (rv == SS_TIMEOUT || rv == SS_CONCURRENT_ST_CHG))	// DW-1705 set C_DISCONNECT when the result value is SS_CONCURRENT_ST_CHG
 		 
 	{
@@ -4777,9 +4773,12 @@ change_cluster_wide_state(bool (*change)(struct change_context *, enum change_ph
 
 
 	// DW-1204 twopc prepare has been sent, I must send twopc commit also, need to flush send buffer.
-	if (bDisconnecting &&
-		target_connection)
+	if (resource->twopc_prepare_disconnecting && target_connection)
 		set_bit(DISCONNECT_FLUSH, &target_connection->transport.flags);
+
+	// BSR-1369
+	if (resource->twopc_prepare_disconnecting)
+		resource->twopc_prepare_disconnecting = false;
 
 	if (rv >= SS_SUCCESS)
 		bsr_info(39, BSR_LC_TWOPC, resource, "Committing cluster-wide state change %u (%ums) (%u->%d)",
@@ -4901,7 +4900,7 @@ retry:
 									cluster_wide_reply_ready(resource),
 									twopc_timeout(resource), t);
 		if (t)
-			rv = get_cluster_wide_reply(resource, NULL, false);
+			rv = get_cluster_wide_reply(resource, NULL);
 		else
 			rv = SS_TIMEOUT;
 
@@ -5069,7 +5068,7 @@ int nested_twopc_work(struct bsr_work *work, int cancel)
 
 	UNREFERENCED_PARAMETER(cancel);
 
-	rv = get_cluster_wide_reply(resource, NULL, false);
+	rv = get_cluster_wide_reply(resource, NULL);
 	if (rv >= SS_SUCCESS)
 		cmd = P_TWOPC_YES;
 	else if (rv == SS_CONCURRENT_ST_CHG)
