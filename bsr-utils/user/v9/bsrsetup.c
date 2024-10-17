@@ -403,6 +403,10 @@ struct bsr_cmd commands[] = {
 	{"secondary", CTX_RESOURCE, BSR_ADM_SECONDARY, NO_PAYLOAD, F_CONFIG_CMD,
 	 .summary = "Change the role of a node in a resource to secondary." },
 
+	// BSR-1392
+	{"apply-persist-role", CTX_RESOURCE, BSR_ADM_APPLY_PERSIST_ROLE, NO_PAYLOAD, F_CONFIG_CMD,
+	 .summary = "Apply role of a resource previously." },
+
 	{"attach", CTX_MINOR, BSR_ADM_ATTACH, BSR_NLA_DISK_CONF,
 		F_CONFIG_CMD,
 	 .bsr_args = (struct bsr_argument[]) {

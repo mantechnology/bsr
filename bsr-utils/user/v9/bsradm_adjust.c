@@ -1178,5 +1178,8 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 		}
 	}
 
+	// BSR-1392
+	schedule_deferred_cmd(&apply_persist_role_cmd, ctx, CFG_DISK);
+
 	return 0;
 }
