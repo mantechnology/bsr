@@ -3168,6 +3168,10 @@ bool bsr_stable_sync_source_present(struct bsr_peer_device *except_peer_device, 
 		if (peer_device == except_peer_device)
 			continue;
 
+		// BSR-1393
+		if (peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)
+			continue;
+
 		repl_state = peer_device->repl_state[which];
 
 		if (repl_state >= L_ESTABLISHED && repl_state < L_AHEAD) {
@@ -3306,6 +3310,11 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 				bsr_repl_str(replState), authoritative);
 			return false;
 		}
+		// BSR-1393
+		if (peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) {
+			bsr_info(244, BSR_LC_RESYNC_OV, peer_device, "Unable to set to SyncTarget because the peer node is target only.");
+			return false;
+		}
 	}
 	else if (side == L_SYNC_SOURCE || side == L_VERIFY_S) {
 		if (!bsr_device_stable_ex(device, &authoritative, which, locked)) {
@@ -3318,6 +3327,12 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 			bsr_info(137, BSR_LC_RESYNC_OV, peer_device, "SyncTarget is unstable and not authorized node, can not be %s, uuid_flags(%llx), authoritative(%llx)",
 				bsr_repl_str(replState), peer_device->uuid_flags, peer_device->uuid_authoritative_nodes);
 			return false;			
+		}
+
+		// BSR-1393
+		if (device->resource->node_opts.target_only) {
+			bsr_info(245, BSR_LC_RESYNC_OV, peer_device, "The locale node cannot be SyncSource because it is target only.");
+			return false;
 		}
 	}
 
@@ -3339,6 +3354,17 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	enum bsr_repl_state repl_state;
 	int r;
 	ULONG_PTR last_reconnect_jif = 0;
+
+	// BSR-1393
+	if (side == L_SYNC_TARGET && (peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)) {
+		bsr_err(239, BSR_LC_RESYNC_OV, peer_device, "Unable to start resync because target-only is set on the peer node.");
+		goto clear_flag;
+	}
+
+	if (side == L_SYNC_SOURCE && (device->resource->node_opts.target_only)) {
+		bsr_err(240, BSR_LC_RESYNC_OV, peer_device, "Unable to start resync because target-only is set on the local node.");
+		goto clear_flag;
+	}
 
 	spin_lock_irq(&device->resource->req_lock);
 	repl_state = peer_device->repl_state[NOW];

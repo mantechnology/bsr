@@ -406,6 +406,7 @@ GENL_struct(BSR_NLA_NODE_OPTS, 36, node_opts,
 	__flg_field_def(1, 0 /* OPTIONAL */, svc_auto_up, BSR_SVC_AUTO_UP_DEF)			// DW-1249 auto-start by svc
 	__flg_field_def(2, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
 	__str_field_def(3, BSR_GENLA_F_MANDATORY, node_name, SHARED_SECRET_MAX) // BSR-859
+	__flg_field_def(4, 0 /* OPTIONAL */, target_only, BSR_TARGET_ONLY_DEF) // BSR-1393
 )
 
 // BSR-734

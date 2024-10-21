@@ -1204,9 +1204,18 @@ retry:
 		/* Detect dead peers as soon as possible.  */
 
 		rcu_read_lock();
-		for_each_connection_rcu(connection, resource)
+		for_each_connection_rcu(connection, resource) {
+			// BSR-1393 The target-only setup node can only be promoted when the connection status with all nodes is standalone.
+			if (resource->node_opts.target_only &&
+				connection->cstate[NOW] != C_STANDALONE) {
+				rv = SS_TARGET_ONLY;
+			}
 			request_ping(connection);
+		}
 		rcu_read_unlock();
+		if (rv == SS_TARGET_ONLY)
+			goto out;
+
 	} else /* (role == R_SECONDARY) */ {
 		if (start_new_tl_epoch(resource)) {
 			struct bsr_connection *connection;
@@ -1608,6 +1617,8 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 #endif
 		}
 		else if (retcode == SS_TARGET_DISK_TOO_SMALL)
+			goto fail;
+		else if (retcode == SS_TARGET_ONLY)
 			goto fail;
 
 #ifdef _WIN
@@ -4667,9 +4678,16 @@ int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
 #endif
 		// DW-1574 Returns an error message to the user in the disconnecting status
 		// Disconnecting status will soon change the standalone status
-		if (cstate == C_DISCONNECTING){
+		if (cstate == C_DISCONNECTING) {
 			retcode = ERR_NET_CONFIGURED;
 		}
+		goto out;
+	}
+
+	// BSR-1393 target-only set node cannot connect to another node in the promoted state.
+	if (connection->resource->node_opts.target_only &&
+		connection->resource->role[NOW] == R_PRIMARY) {
+		retcode = ERR_PEER_TARGET_ONLY;
 		goto out;
 	}
 
@@ -5356,6 +5374,7 @@ int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info)
 	enum bsr_ret_code retcode;
 	struct node_opts node_opts;
 	int err;
+	bool old_target_only = false;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
@@ -5372,6 +5391,13 @@ int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 	}
 
+	if (adm_ctx.resource->role[NOW] == R_PRIMARY) {
+		if (node_opts.target_only) {
+			retcode = ERR_LOCAL_TARGET_ONLY;
+			goto fail;
+		}
+	}
+
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 
 	// BSR-859 notify by event when setting node name
@@ -5380,8 +5406,34 @@ int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info)
 		notify_node_info(NULL, 0, adm_ctx.resource, NULL, node_opts.node_name, BSR_NODE_INFO, NOTIFY_CHANGE);
 		mutex_unlock(&notification_mutex);
 	}
-
+	old_target_only = adm_ctx.resource->node_opts.target_only;
 	adm_ctx.resource->node_opts = node_opts;
+
+	// BSR-1393
+	if (old_target_only != node_opts.target_only) {
+		struct bsr_connection *connection;
+		struct bsr_peer_device *peer_device;
+		int vnr;
+		u64 im;
+
+		for_each_connection_ref(connection, im, adm_ctx.resource) {
+			idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+				bsr_send_uuids(peer_device, 0, 0, NOW);
+				if (!old_target_only) {
+					// BSR-1393 If resync when setting target-only, stop it.
+					if (peer_device->repl_state[NOW] == L_SYNC_SOURCE ||
+						peer_device->repl_state[NOW] == L_PAUSED_SYNC_S) {
+						unsigned long irq_flags;
+
+						begin_state_change(adm_ctx.resource, &irq_flags, CS_HARD);
+						__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
+						end_state_change(adm_ctx.resource, &irq_flags, __FUNCTION__);
+					}	
+				}
+			}
+		}
+	}
+
 	mutex_unlock(&adm_ctx.resource->adm_mutex);
 
 fail:
@@ -5515,7 +5567,11 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 
 	if (sync_from_peer_device) {
-		retcode = invalidate_resync(sync_from_peer_device);
+		// BSR-1393
+		if (sync_from_peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)
+			retcode = ERR_PEER_TARGET_ONLY;
+		else
+			retcode = invalidate_resync(sync_from_peer_device);
 	} else {
 		int retry = 3;
 		do {
@@ -5533,7 +5589,15 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 				}
 
 				peer_device = conn_peer_device(connection, device->vnr);
-				retcode = invalidate_resync(peer_device);
+
+				// BSR-1393
+				if (peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) {
+					if (!success)
+						retcode = ERR_PEER_TARGET_ONLY;
+				}
+				else
+					retcode = invalidate_resync(peer_device);
+
 				if (retcode >= SS_SUCCESS)
 				// DW-907 implicitly request to get synced to all peers, as a way of hedging first source node put out.
 				{
@@ -5612,6 +5676,12 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 
 	if (!get_ldev(device)) {
 		retcode = ERR_NO_DISK;
+		goto out;
+	}
+
+	// BSR-1393
+	if (resource->node_opts.target_only) {
+		retcode = ERR_LOCAL_TARGET_ONLY;
 		goto out;
 	}
 

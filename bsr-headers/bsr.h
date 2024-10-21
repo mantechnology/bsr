@@ -242,6 +242,9 @@ enum bsr_ret_code {
 	ERR_VERIFY_NOT_RUNNING = 177,
 	// BSR-1064
 	ERR_VOL_LOCK_ACQUISITION_TIMEOUT = 178,
+	// BSR-1393
+	ERR_LOCAL_TARGET_ONLY = 179,
+	ERR_PEER_TARGET_ONLY = 180,
 	/* insert new ones above this line */
 	AFTER_LAST_ERR_CODE
 };
@@ -412,8 +415,9 @@ enum bsr_state_rv {
 	SS_BARRIER_ACK_PENDING_TIMEOUT = -30,
 	// BSR-988
 	SS_RESYNC_REPLY_DATA_PENDING_TIMEOUT = -31,
-	SS_AFTER_LAST_ERROR = -32,    /* Keep this at bottom */
-
+	// BSR-1393
+	SS_TARGET_ONLY = -32,
+	SS_AFTER_LAST_ERROR = -33,    /* Keep this at bottom */
 };
 
 #define SHARED_SECRET_MAX 64

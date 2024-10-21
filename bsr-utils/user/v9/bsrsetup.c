@@ -722,6 +722,9 @@ static const char *error_messages[] = {
 	EM(ERR_VERIFY_NOT_RUNNING) = "Since verify is not running, it cannot be stopped.",
 	// BSR-1064
 	EM(ERR_VOL_LOCK_ACQUISITION_TIMEOUT) = "Failed due to timeout on volume lock acquisition. Please try the command again.",
+	// BSR-1393
+	EM(ERR_LOCAL_TARGET_ONLY) = "Failed because the local node is set to target-only.",
+	EM(ERR_PEER_TARGET_ONLY) = "Failed because the peer node is set to target-only.",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 
