@@ -111,6 +111,7 @@ void dump_global_info()
 	    && !global_options.disable_ip_verification
 	    && global_options.dialog_refresh == 1
 	    && global_options.usage_count == UC_ASK
+		&& !global_options.hostname
 	    && !verbose)
 		return;
 	printI("global {\n");
@@ -409,6 +410,7 @@ static void dump_global_info_xml()
 {
 	if (!global_options.minor_count
 	    && !global_options.disable_ip_verification
+		&& !global_options.hostname
 	    && global_options.dialog_refresh == 1)
 		return;
 	printI("<global>\n");
