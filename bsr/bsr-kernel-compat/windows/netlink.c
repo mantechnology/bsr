@@ -49,6 +49,8 @@ extern int bsr_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
+// BSR-1392
+extern int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info);
 /* .dumpit */
 extern int bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info);
 
@@ -91,6 +93,7 @@ static struct genl_ops bsr_genl_ops[] = {
 { .doit = bsr_adm_outdate, .flags = 0x01, .cmd = BSR_ADM_OUTDATE, .policy = bsr_tla_nl_policy, },
 { .doit = bsr_adm_get_timeout_type, .flags = 0x01, .cmd = BSR_ADM_GET_TIMEOUT_TYPE, .policy = bsr_tla_nl_policy, },
 { .doit = bsr_adm_down, .flags = 0x01, .cmd = BSR_ADM_DOWN, .policy = bsr_tla_nl_policy, },
+{ .doit = bsr_adm_apply_persist_role, .flags = 0x01, .cmd = BSR_ADM_APPLY_PERSIST_ROLE, .policy = bsr_tla_nl_policy, },
 { .dumpit = bsr_adm_dump_resources, .cmd = BSR_ADM_GET_RESOURCES, .policy = bsr_tla_nl_policy, },
 { .dumpit = bsr_adm_dump_devices, .done = bsr_adm_dump_devices_done, .cmd = BSR_ADM_GET_DEVICES, .policy = bsr_tla_nl_policy, },
 { .dumpit = bsr_adm_dump_connections, .done = bsr_adm_dump_connections_done, .cmd = BSR_ADM_GET_CONNECTIONS, .policy = bsr_tla_nl_policy, },

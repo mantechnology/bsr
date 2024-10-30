@@ -97,6 +97,8 @@ int bsr_adm_suspend_io(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_resume_io(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_outdate(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_resource_opts(struct sk_buff *skb, struct genl_info *info);
+// BSR-1392
+int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info);
 // BSR-718
 int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
@@ -1563,6 +1565,66 @@ bool wait_until_vol_ctl_mutex_is_used(struct bsr_resource *resource)
 	return true;
 }
 
+int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
+{
+	struct bsr_config_context adm_ctx;
+	enum bsr_state_rv retcode;
+	int vnr;
+	struct bsr_device * device;
+	bool promote = false;
+
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
+	if (!adm_ctx.reply_skb)
+		return retcode;
+
+	mutex_lock(&adm_ctx.resource->adm_mutex);
+	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
+
+	if (adm_ctx.resource->res_opts.persist_role) {
+		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+			if (bsr_md_test_flag(device, MDF_WAS_PRIMARY)) {
+				promote = true;
+				break;
+			}
+		}
+
+		if (promote) {
+			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+				if (D_DISKLESS == device->disk_state[NOW]) {
+					retcode = SS_IS_DISKLESS;
+					goto fail;
+				}
+			}
+
+			retcode = bsr_set_role(adm_ctx.resource, R_PRIMARY, false, NULL);
+
+			if (retcode >= SS_SUCCESS) {
+				set_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
+#ifdef _WIN
+				adm_ctx.resource->bPreSecondaryLock = FALSE;
+#endif
+			}
+			else if (retcode == SS_TARGET_DISK_TOO_SMALL)
+				goto fail;
+
+#ifdef _WIN
+			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+				PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
+				if (pvext)
+					SetBsrlockIoBlock(pvext, FALSE);
+			}
+#endif
+		}
+	}
+
+fail:
+	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
+	mutex_unlock(&adm_ctx.resource->adm_mutex);
+	bsr_adm_finish(&adm_ctx, info, (enum bsr_ret_code)retcode);
+
+	return 0;
+}
+
 int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 {
 	struct bsr_config_context adm_ctx;
@@ -1621,14 +1683,18 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		else if (retcode == SS_TARGET_ONLY)
 			goto fail;
 
-#ifdef _WIN
 		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+#ifdef _WIN
 			PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 			if (pvext)
 				SetBsrlockIoBlock(pvext, FALSE);
-		}
 #endif
-	} else {
+			// BSR-1392
+			bsr_md_set_flag(device, MDF_WAS_PRIMARY);
+			bsr_md_sync(device);
+		}
+	}
+	else {
 #ifdef _WIN_MVFL
 #ifdef _WIN_MULTI_VOLUME        
 		retcode = SS_SUCCESS;
@@ -1687,8 +1753,6 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			}
 		}
 #else
-		int vnr;
-		struct bsr_device * device;
 		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
 			if (D_DISKLESS == device->disk_state[NOW]) {
 				retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);				
@@ -1716,12 +1780,17 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 #endif
 #else
-	retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
+		retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
 #endif
-		if (retcode >= SS_SUCCESS)
+		if (retcode >= SS_SUCCESS) {
 			clear_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
+			// BSR-1392
+			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+				bsr_md_clear_flag(device, MDF_WAS_PRIMARY);
+				bsr_md_sync(device);
+			}
+		}
 	}
-
 fail:
 	// DW-1317
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);

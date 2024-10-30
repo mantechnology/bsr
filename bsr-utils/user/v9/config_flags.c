@@ -1155,6 +1155,8 @@ struct context_def resource_options_ctx = {
 		{ "accelbuf-size", NUMERIC(accelbuf_size, ACCELBUF_SIZE), .unit = "bytes" },
 		// BSR-1145 accelbuf sets the applied write size because it aims to improve the local write performance of small unit writes
 		{ "max-accelbuf-blk-size", NUMERIC(max_accelbuf_blk_size, MAX_ACCELBUF_BLK_SIZE), .unit = "bytes" },
+		// BSR-1392
+		{ "persist-role", BOOLEAN(persist_role, PERSIST_ROLE) }, 
 		{ } },
 };
 
