@@ -3331,7 +3331,7 @@ bool bsr_inspect_resync_side(struct bsr_peer_device *peer_device, enum bsr_repl_
 
 		// BSR-1393
 		if (device->resource->node_opts.target_only) {
-			bsr_info(245, BSR_LC_RESYNC_OV, peer_device, "The locale node cannot be SyncSource because it is target only.");
+			bsr_info(245, BSR_LC_RESYNC_OV, peer_device, "The local node cannot be SyncSource because it is target only.");
 			return false;
 		}
 	}
