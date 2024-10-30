@@ -1164,7 +1164,9 @@ struct context_def resource_options_ctx = {
     /* DW-1249 auto-start by svc */		\
 	{ "svc-auto-up", BOOLEAN(svc_auto_up, SVC_AUTO_UP) },	\
 	/* BSR-593 auto-down by svc */		\
-	{ "svc-auto-down", BOOLEAN(svc_auto_down, SVC_AUTO_DOWN) }
+	{ "svc-auto-down", BOOLEAN(svc_auto_down, SVC_AUTO_DOWN) }, \
+	/* BSR-1393 */						\
+	{ "target-only", BOOLEAN(target_only, TARGET_ONLY) }
 // BSR-718 move svc-auto-xxx option to node option
 struct context_def node_options_ctx = {
 	NLA_POLICY(node_opts),

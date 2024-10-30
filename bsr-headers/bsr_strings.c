@@ -145,6 +145,8 @@ static const char * const __error_messages[] = {
 	[-SS_BARRIER_ACK_PENDING_TIMEOUT] = "Failed to set secondary role due to barrier ack pending timeout(10s). Retry to demote first(bsradm secondary r0). if demote timeout continues, disconnect and demote forcibly.",
 	// BSR-988
 	[-SS_RESYNC_REPLY_DATA_PENDING_TIMEOUT] = "Failed to set secondary role due to resync reply data pending timeout(10s). Retry to demote first(drbdadm secondary r0). if demote timeout continues, disconnect and demote forcibly.",
+	// BSR-1393
+	[-SS_TARGET_ONLY] = "Failed because target-only is set.",
 };
 
 struct state_names bsr_error_messages = {

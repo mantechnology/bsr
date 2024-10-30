@@ -1967,6 +1967,10 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 	if(bsr_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN))
 		uuid_flags |= UUID_FLAG_INIT_SYNCT_BEGIN;
 
+	// BSR-1393
+	if (device->resource->node_opts.target_only)
+		uuid_flags |= UUID_FLAG_TARGET_ONLY;
+
 	p->uuid_flags = cpu_to_be64(uuid_flags);
 
 	put_ldev(__FUNCTION__, device);

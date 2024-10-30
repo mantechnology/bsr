@@ -329,6 +329,9 @@
 // BSR-593 auto-down by svc
 #define BSR_SVC_AUTO_DOWN_DEF 1
 
+// BSR-1393
+#define BSR_TARGET_ONLY_DEF 0
+
 #define BSR_NR_REQUESTS_MIN	4
 // DW-836 
 #define BSR_NR_REQUESTS_DEF	1000
