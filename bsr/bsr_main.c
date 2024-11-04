@@ -6990,6 +6990,10 @@ static u64 rotate_current_into_bitmap(struct bsr_device *device, u64 weak_nodes,
 			do_it = do_it || (peer_device->repl_state[NOW] == L_AHEAD);
 
 
+			// BSR-1403 if you are connected to a target-only peer node, set bitmap uuid if bitmap uuid on the target-only node and current uuid on the local node are the same.
+			if ((peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) && (peer_device->connection->cstate[NOW] == C_CONNECTED) &&
+				(bsr_current_uuid(device) & ~UUID_PRIMARY) == (peer_device->bitmap_uuids[device->ldev->md.node_id] & ~UUID_PRIMARY))
+				do_it = true;
 		} else {
 			do_it = true;
 		}
