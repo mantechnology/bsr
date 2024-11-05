@@ -2070,7 +2070,9 @@ static void sanitize_state(struct bsr_resource *resource)
 				peer_disk_state[NEW] >= D_CONSISTENT && peer_device->uuids_received &&
 				peer_device->uuid_flags & UUID_FLAG_STABLE &&
 				// BSR-1393 Check not only the status, but also uuid, oos.
-				peer_device->current_uuid == bsr_current_uuid(device) && !peer_device->comm_bm_set && !peer_device->dirty_bits &&
+				// BSR-1404
+				(peer_device->current_uuid & ~UUID_PRIMARY) == (bsr_current_uuid(device) & ~UUID_PRIMARY) &&
+				!peer_device->comm_bm_set && !peer_device->dirty_bits &&
 				(repl_state[OLD] < L_ESTABLISHED ||
 				peer_device->uuid_flags & UUID_FLAG_GOT_STABLE ||
 				peer_disk_state[OLD] == D_OUTDATED))
