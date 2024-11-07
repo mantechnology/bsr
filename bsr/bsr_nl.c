@@ -1570,6 +1570,7 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_config_context adm_ctx;
 	enum bsr_state_rv retcode;
 	int vnr;
+	struct bsr_resource * resource;
 	struct bsr_device * device;
 	bool promote = false;
 
@@ -1577,49 +1578,61 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 	if (!adm_ctx.reply_skb)
 		return retcode;
 
-	mutex_lock(&adm_ctx.resource->adm_mutex);
-	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
+	resource = adm_ctx.resource;
 
-	if (adm_ctx.resource->res_opts.persist_role) {
-		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+	mutex_lock(&resource->adm_mutex);
+	mutex_lock(&resource->vol_ctl_mutex);
+
+	if (resource->res_opts.persist_role) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (bsr_md_test_flag(device, MDF_WAS_PRIMARY)) {
+				// BSR-1411
+				if (resource->node_opts.target_only) {
+					bsr_md_clear_flag(device, MDF_WAS_PRIMARY);
+					bsr_md_sync(device);
+				}
 				promote = true;
-				break;
 			}
+		}
+		// BSR-1411
+		if (resource->node_opts.target_only && promote) {
+			bsr_info(93, BSR_LC_ETC, resource, "The target-only is set and will not be promoted.");
+			promote = false;
 		}
 
 		if (promote) {
-			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 				if (D_DISKLESS == device->disk_state[NOW]) {
 					retcode = SS_IS_DISKLESS;
 					goto fail;
 				}
 			}
 
-			retcode = bsr_set_role(adm_ctx.resource, R_PRIMARY, false, NULL);
+			retcode = bsr_set_role(resource, R_PRIMARY, false, NULL);
 
 			if (retcode >= SS_SUCCESS) {
-				set_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
+				set_bit(EXPLICIT_PRIMARY, &resource->flags);
 #ifdef _WIN
-				adm_ctx.resource->bPreSecondaryLock = FALSE;
+				resource->bPreSecondaryLock = FALSE;
 #endif
 			}
 			else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 				goto fail;
 
 #ifdef _WIN
-			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 				PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 				if (pvext)
 					SetBsrlockIoBlock(pvext, FALSE);
 			}
 #endif
+			bsr_info(94, BSR_LC_ETC, resource, "Promoted due to persist-role setting.");
 		}
 	}
 
 fail:
-	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
-	mutex_unlock(&adm_ctx.resource->adm_mutex);
+	mutex_unlock(&resource->vol_ctl_mutex);
+	mutex_unlock(&resource->adm_mutex);
 	bsr_adm_finish(&adm_ctx, info, (enum bsr_ret_code)retcode);
 
 	return 0;
@@ -1689,9 +1702,12 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			if (pvext)
 				SetBsrlockIoBlock(pvext, FALSE);
 #endif
-			// BSR-1392
-			bsr_md_set_flag(device, MDF_WAS_PRIMARY);
-			bsr_md_sync(device);
+			// BSR-1411
+			if (!adm_ctx.resource->node_opts.target_only) {
+				// BSR-1392
+				bsr_md_set_flag(device, MDF_WAS_PRIMARY);
+				bsr_md_sync(device);
+			}
 		}
 	}
 	else {
@@ -5482,8 +5498,19 @@ int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info)
 	if (old_target_only != node_opts.target_only) {
 		struct bsr_connection *connection;
 		struct bsr_peer_device *peer_device;
+		struct bsr_device *device;
 		int vnr;
 		u64 im;
+
+		// BSR-1411
+		if (node_opts.target_only) {
+			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+				if (bsr_md_test_flag(device, MDF_WAS_PRIMARY)) {
+					bsr_md_clear_flag(device, MDF_WAS_PRIMARY);
+					bsr_md_sync(device);
+				}
+			}
+		}
 
 		for_each_connection_ref(connection, im, adm_ctx.resource) {
 			idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
