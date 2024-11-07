@@ -9804,6 +9804,13 @@ void conn_disconnect(struct bsr_connection *connection)
 	bsr_transport_shutdown(connection, CLOSE_CONNECTION);
 	bsr_drop_unsent(connection);
 
+	// BSR-1410 abort another node's incomplete twopc
+	if (resource->twopc_reply.initiator_node_id == (int)connection->peer_node_id) {
+		del_timer(&resource->queued_twopc_timer);
+		resource->twopc_work.cb = abort_nested_twopc_work;
+		bsr_queue_work(&resource->work, &resource->twopc_work);
+	}
+
 	/* Wait for current activity to cease.  This includes waiting for
 	* peer_request queued to the submitter workqueue. */
 #ifdef _WIN
