@@ -5778,6 +5778,7 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	// BSR-1393
 	if (resource->node_opts.target_only) {
 		retcode = ERR_LOCAL_TARGET_ONLY;
+		put_ldev(__FUNCTION__, device);
 		goto out;
 	}
 
