@@ -857,6 +857,9 @@ static void resolv6(const char *name, struct sockaddr_in6 *addr)
 
 	err = getaddrinfo(name, 0, &hints, &res);
 	if (err) {
+		// BSR-1415
+		if (disable_ip_verify)
+			return;
 		CLI_ERRO_LOG_STDERR(false, "getaddrinfo %s: %s", name, gai_strerror(err));
 		exit(20);
 	}
@@ -1044,10 +1047,6 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc, bool is_p
 	}
 #ifdef _WIN
 	else {
-		// BSR-1387
-		if (disable_ip_verify)
-			return;
-
 		// BSR-1002 bsr uses the alias as the default for ipv6 link-local
 		// BSR-1057
 		if (!is_adapter_ip_addr(*address)) {
@@ -1121,6 +1120,8 @@ static int sockaddr_from_str(struct sockaddr_storage *storage, const char *str, 
 
 		memset(sin6, 0, sizeof(*sin6));
 		resolv6(address, sin6);
+		// BSR-1415
+		sin6->sin6_family = af;
 		sin6->sin6_port = htons(port);
 		// BSR-1002
 		free(release_to);
