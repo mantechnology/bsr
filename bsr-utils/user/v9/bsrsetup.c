@@ -909,6 +909,9 @@ static bool is_adapter_ip_addr(const char* address)
 	char host[NI_MAXHOST];
 	struct ifaddrs *ifaddr, *ifa;
 	int s;
+	int len = strstr(address, "%") - address;
+	bool exists = false;
+
 	if (getifaddrs(&ifaddr) < 0) {
 		CLI_ERRO_LOG(false, true, "error %s", __FUNCTION__);
 		exit(20);
@@ -925,11 +928,26 @@ static bool is_adapter_ip_addr(const char* address)
 		}
 
 		if (0 == strcmp(address, host)) {
-			CLI_INFO_LOG(false, "found adapter (%s), address (%s)", ifa->ifa_name, host);
+			CLI_INFO_LOG(false, "found adapter (%s), host (%s), address (%s)", ifa->ifa_name, host, address);
 			return true;
+		}
+
+		if (len && 0 == strncmp(address, host, len)) {
+			CLI_INFO_LOG(false, "found adapter (%s), host (%s), address (%s)", ifa->ifa_name, host, address);
+			exists = true;
 		}
 	}
 	freeifaddrs(ifaddr);
+
+	// BSR-1415
+	if (!exists) {
+		if (disable_ip_verify)
+			return true;
+		CLI_ERRO_LOG(false, true, "%s does not exist.", address);
+		exit(20);
+	}
+
+
 	return false;
 }
 
@@ -940,6 +958,7 @@ static void scope_id_from_alias_to_index(const char* scopeId, char **address, bo
 	char ifindex_str[32] = { 0, };
 	wchar_t* scopeId_w;
 	int len;
+	bool exists = false;
 
 	len = mbstowcs(NULL, scopeId, 0);
 	if (len != -1) {
@@ -987,6 +1006,7 @@ static void scope_id_from_alias_to_index(const char* scopeId, char **address, bo
 						memset(scopeId, 0, strlen(ifindex_str) + 1);
 						memcpy(scopeId, ifindex_str, strlen(ifindex_str));
 					}
+					exists = true;
 				}
 				else {
 					CLI_INFO_LOG(false, "no matching aliases found, (%s)", scopeId);
@@ -1005,6 +1025,14 @@ static void scope_id_from_alias_to_index(const char* scopeId, char **address, bo
 	}
 	else {
 		CLI_ERRO_LOG(false, true, "failed to get multi-byte size, (%s)", scopeId);
+		exit(20);
+	}
+
+	// BSR-1415
+	if (!exists) {
+		if (disable_ip_verify)
+			return true;
+		CLI_ERRO_LOG(false, true, "index not found for alias, (%s)", scopeId);
 		exit(20);
 	}
 }
