@@ -292,7 +292,7 @@ extern void bsr_print_transports_loaded(struct seq_file *seq);
 // DW-1498
 extern bool addr_and_port_equal(const SOCKADDR_STORAGE_EX *addr1, const SOCKADDR_STORAGE_EX *addr2);
 extern int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
-	int(*create_fn)(struct bsr_transport *, const struct sockaddr *, struct bsr_listener **));
+	int(*create_fn)(struct bsr_transport *, const struct sockaddr *, struct bsr_listener **, bool));
 extern void bsr_put_listener(struct bsr_path *path);
 extern struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *, SOCKADDR_STORAGE_EX *);
 extern bool bsr_stream_send_timed_out(struct bsr_transport *transport, enum bsr_stream stream);

@@ -232,7 +232,7 @@ static struct bsr_listener *find_listener(struct bsr_connection *connection,
 }
 
 int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
-	int(*create_listener)(struct bsr_transport *, const struct sockaddr *addr, struct bsr_listener **))
+	int(*create_listener)(struct bsr_transport *, const struct sockaddr *addr, struct bsr_listener **, bool))
 {
 	struct bsr_connection *connection =
 		container_of(transport, struct bsr_connection, transport);
@@ -265,7 +265,7 @@ int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
 		if (listener)
 			return 0;
 
-		err = create_listener(transport, addr, &new_listener);
+		err = create_listener(transport, addr, &new_listener, path->disable_ip_verify);
 		if (err) {
 			if (err == -EADDRINUSE && ++tries < 3) {
 				schedule_timeout_uninterruptible(HZ / 20);
