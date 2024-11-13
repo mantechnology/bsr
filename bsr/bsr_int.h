@@ -520,6 +520,7 @@ static const char * const __log_category_names[] = {
 	[BSR_LC_VERIFY] = "VERIFY",
 	[BSR_LC_OUT_OF_SYNC] = "OUT OF SYNC",
 	[BSR_LC_ETC] = "ETC",
+	[BSR_LC_REF] = "REF",
 };
 
 
