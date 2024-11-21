@@ -7022,7 +7022,9 @@ static u64 initial_resync_nodes(struct bsr_device *device)
 	u64 nodes = 0;
 
 	for_each_peer_device(peer_device, device) {
-		if (peer_device->disk_state[NOW] == D_INCONSISTENT &&
+		if ((peer_device->disk_state[NOW] == D_INCONSISTENT || 
+			// BSR-1425 added uuid update conditions for when peer nodes have target-only nodes during forced promotion
+			((bsr_current_uuid(device) & ~UUID_PRIMARY) == UUID_JUST_CREATED && peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)) &&
 		    peer_device->repl_state[NOW] == L_ESTABLISHED)
 			nodes |= NODE_MASK(peer_device->node_id);
 	}
