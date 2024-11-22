@@ -4839,7 +4839,7 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 	*rule_nr = 20;
 	if (self == UUID_JUST_CREATED) {
 		// BSR-1425
-		if (device->resource->role[NOW] == R_PRIMARY && peer_device->uuids_received == UUID_FLAG_TARGET_ONLY) 
+		if (device->resource->role[NOW] == R_PRIMARY && peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) 
 			return -1000;
 		bsr_info(190, BSR_LC_RESYNC_OV, device, "The local UUID is in the Initialization state. rule(%d), res(-3)", *rule_nr);
 		return -3;
