@@ -90,12 +90,13 @@ void dt_print_v9_uuids(const uint64_t* uuid, unsigned int mdf_flags, unsigned in
 	       mdf_flags & MDF_AL_CLEAN ? 1 : 0,
 	       mdf_flags & MDF_AL_DISABLED ? 1 : 0);	
 
-	printf(":%d:%d:%d:%d:%d\n",
+	printf(":%d:%d:%d:%d:%d:%d\n",
 	       mdf_peer_flags & MDF_PEER_CONNECTED ? 1 : 0,
 	       mdf_peer_flags & MDF_PEER_OUTDATED ? 1 : 0,
 		   mdf_peer_flags & MDF_PEER_FENCING ? 1 : 0, 
 		   mdf_peer_flags & MDF_PEER_FULL_SYNC ? 1 : 0,
-		   mdf_flags & MDF_LAST_PRIMARY ? 1 : 0 // DW-1291 provide LastPrimary Information.
+		   mdf_flags & MDF_LAST_PRIMARY ? 1 : 0, // DW-1291 provide LastPrimary Information.
+		   mdf_flags & MDF_WAS_PRIMARY ? 1: 0 // BSR-1392
 		   );
 }
 
@@ -106,23 +107,24 @@ void dt_pretty_print_v9_uuids(const uint64_t* uuid, unsigned int mdf_flags, unsi
 "       +--<  Current data generation UUID  >-\n"
 "       |               +--<  Bitmap's base data generation UUID  >-\n"
 "       |               |                 +--<  younger history UUID  >-\n"
-"       |               |                 |         +-<  older history  >-\n"
-"       V               V                 V         V\n");
+"       |               |                 |                 +-<  older history  >-\n"
+"       V               V                 V                 V\n");
 	dt_print_v9_uuids(uuid, mdf_flags, mdf_peer_flags);
 
 	printf(
 		"                                                                    ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^\n"
-		"                                      -<  Data consistency flag  >--+ | | | | | | | | | |\n"
-		"                             -<  Data was/is currently up-to-date  >--+ | | | | | | | | |\n"
-		"                                  -<  Node was/is currently primary  >--+ | | | | | | | |\n"
-		" -<  This node was a crashed primary, and has not seen its peer since  >--+ | | | | | | |\n"
-		"             -<  The activity-log was applied, the disk can be attached  >--+ | | | | | |\n"
-		"        -<  The activity-log was disabled, peer is completely out of sync  >--+ | | | | |\n"
-		"                                        -<  Node was/is currently connected  >--+ | | | |\n"
-		"                            -<  The peer's disk was out-dated or inconsistent  >--+ | | |\n"
-		"                               -<   A fence policy other the dont-care was used  >--+ | |\n"
-		"                -<  Node was in the progress of marking all blocks as out of sync  >--+ |\n"
-		"                                                     -<  Node was/is a Last Primary  >--+\n" // DW-1291 provide LastPrimary Information.
+		"                                      -<  Data consistency flag  >--+ | | | | | | | | | | |\n"
+		"                             -<  Data was/is currently up-to-date  >--+ | | | | | | | | | |\n"
+		"                                  -<  Node was/is currently primary  >--+ | | | | | | | | |\n"
+		" -<  This node was a crashed primary, and has not seen its peer since  >--+ | | | | | | | |\n"
+		"             -<  The activity-log was applied, the disk can be attached  >--+ | | | | | | |\n"
+		"        -<  The activity-log was disabled, peer is completely out of sync  >--+ | | | | | |\n"
+		"                                        -<  Node was/is currently connected  >--+ | | | | |\n"
+		"                            -<  The peer's disk was out-dated or inconsistent  >--+ | | | |\n"
+		"                               -<   A fence policy other the dont-care was used  >--+ | | |\n"
+		"                -<  Node was in the progress of marking all blocks as out of sync  >--+ | |\n"
+		"                                                     -<  Node was/is a Last Primary  >--+ |\n" // DW-1291 provide LastPrimary Information.
+		"                       -<  Promotion status at the time of recent resource activation  >--+\n" // BSR-1392
 		"\n");
 }
 

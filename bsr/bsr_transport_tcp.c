@@ -1553,7 +1553,8 @@ WSK_CLIENT_LISTEN_DISPATCH dispatch = {
 
 static int dtt_create_listener(struct bsr_transport *transport,
 			       const struct sockaddr *addr,
-			       struct bsr_listener **ret_listener)
+			       struct bsr_listener **ret_listener,
+				   bool disable_ip_verify)
 {
 #ifdef _WIN
 	//int err = 0, sndbuf_size, rcvbuf_size; 
@@ -1640,29 +1641,36 @@ static int dtt_create_listener(struct bsr_transport *transport,
 #ifdef _WIN
 
 	// DW-835 Bind fail issue(fix with INADDR_ANY address parameter) 
-	if(my_addr.ss_family == AF_INET) {
+	if (my_addr.ss_family == AF_INET) {
 		((struct sockaddr_in*)&my_addr)->sin_addr.s_addr = INADDR_ANY;
-	}
-	else {
-		memset(&((struct sockaddr_in6*)&my_addr)->sin6_addr, 0, sizeof(((struct sockaddr_in6*)&my_addr)->sin6_addr));
-		((struct sockaddr_in6*)&my_addr)->sin6_scope_id = 0;
-	}
+	} 
 
 	status = Bind(s_listen, (PSOCKADDR)&my_addr);
 	
 	if (!NT_SUCCESS(status)) {
-    	if(my_addr.ss_family == AF_INET) {
-			bsr_err(31, BSR_LC_SOCKET, NO_OBJECT, "Failed to create listener due to failure to socket bind. err(0x%x) %02X.%02X.%02X.%02X:0x%X%X", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5], (UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
-    	} else {
-			bsr_err(32, BSR_LC_SOCKET, NO_OBJECT, "Failed to create listener due to failure to socket bind. err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],
-																		(UCHAR)my_addr.__data[6],(UCHAR)my_addr.__data[7], (UCHAR)my_addr.__data[8],(UCHAR)my_addr.__data[9],
-																		(UCHAR)my_addr.__data[10],(UCHAR)my_addr.__data[11], (UCHAR)my_addr.__data[12],(UCHAR)my_addr.__data[13],
-																		(UCHAR)my_addr.__data[14],(UCHAR)my_addr.__data[15],(UCHAR)my_addr.__data[16],(UCHAR)my_addr.__data[17],
-																		(UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
-    	}
-		err = -1;
-        goto out;
-    }
+		// BSR-1415 listen as any only if you don't check IP.
+		if (my_addr.ss_family == AF_INET6 && disable_ip_verify) {
+			memset(&((struct sockaddr_in6*)&my_addr)->sin6_addr, 0, sizeof(((struct sockaddr_in6*)&my_addr)->sin6_addr));
+			((struct sockaddr_in6*)&my_addr)->sin6_scope_id = 0;
+
+			status = Bind(s_listen, (PSOCKADDR)&my_addr);
+		}
+
+		if (!NT_SUCCESS(status)) {
+			if (my_addr.ss_family == AF_INET) {
+				bsr_err(31, BSR_LC_SOCKET, NO_OBJECT, "Failed to create listener due to failure to socket bind. err(0x%x) %02X.%02X.%02X.%02X:0x%X%X", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5], (UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
+			}
+			else {
+				bsr_err(32, BSR_LC_SOCKET, NO_OBJECT, "Failed to create listener due to failure to socket bind. err(0x%x) [%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X]:0x%X%X", status, (UCHAR)my_addr.__data[2], (UCHAR)my_addr.__data[3], (UCHAR)my_addr.__data[4], (UCHAR)my_addr.__data[5],
+					(UCHAR)my_addr.__data[6], (UCHAR)my_addr.__data[7], (UCHAR)my_addr.__data[8], (UCHAR)my_addr.__data[9],
+					(UCHAR)my_addr.__data[10], (UCHAR)my_addr.__data[11], (UCHAR)my_addr.__data[12], (UCHAR)my_addr.__data[13],
+					(UCHAR)my_addr.__data[14], (UCHAR)my_addr.__data[15], (UCHAR)my_addr.__data[16], (UCHAR)my_addr.__data[17],
+					(UCHAR)my_addr.__data[0], (UCHAR)my_addr.__data[1]);
+			}
+			err = -1;
+			goto out;
+		}
+	}
 
 #else // _LIN
 	addr_len = addr->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6)
@@ -1671,14 +1679,19 @@ static int dtt_create_listener(struct bsr_transport *transport,
 	// BSR-1387 listen for all interfaces the same as Windows.
 	if(my_addr.ss_family == AF_INET) {
 		((struct sockaddr_in*)&my_addr)->sin_addr.s_addr = INADDR_ANY;
-	}
-	else {
-		memset(&((struct sockaddr_in6*)&my_addr)->sin6_addr, 0, sizeof(((struct sockaddr_in6*)&my_addr)->sin6_addr));
-		((struct sockaddr_in6*)&my_addr)->sin6_scope_id = 0;
-	}
-
+	} 
 
 	err = s_listen->ops->bind(s_listen, (struct sockaddr *)&my_addr, addr_len);
+
+	if (err) {
+		// BSR-1415 listen as any only if you don't check IP.
+		if (my_addr.ss_family == AF_INET6 && disable_ip_verify) {
+			memset(&((struct sockaddr_in6*)&my_addr)->sin6_addr, 0, sizeof(((struct sockaddr_in6*)&my_addr)->sin6_addr));
+			((struct sockaddr_in6*)&my_addr)->sin6_scope_id = 0;
+
+			err = s_listen->ops->bind(s_listen, (struct sockaddr *)&my_addr, addr_len);
+		}
+	}
 #endif
 	if (err < 0)
 		goto out;

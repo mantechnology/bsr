@@ -409,6 +409,9 @@ struct p_protocol {
 // BSR-1056 set when requesting a send of uuid to a relative node.
 #define UUID_FLAG_SEND_IT_TO_ME			(1 << 15)
 
+// BSR-1393
+#define UUID_FLAG_TARGET_ONLY			(1 << 16)
+
 
 struct p_uuids {
 	uint64_t current_uuid;

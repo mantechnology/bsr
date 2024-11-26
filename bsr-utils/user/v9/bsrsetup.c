@@ -403,6 +403,10 @@ struct bsr_cmd commands[] = {
 	{"secondary", CTX_RESOURCE, BSR_ADM_SECONDARY, NO_PAYLOAD, F_CONFIG_CMD,
 	 .summary = "Change the role of a node in a resource to secondary." },
 
+	// BSR-1392
+	{"apply-persist-role", CTX_RESOURCE, BSR_ADM_APPLY_PERSIST_ROLE, NO_PAYLOAD, F_CONFIG_CMD,
+	 .summary = "Apply role of a resource previously." },
+
 	{"attach", CTX_MINOR, BSR_ADM_ATTACH, BSR_NLA_DISK_CONF,
 		F_CONFIG_CMD,
 	 .bsr_args = (struct bsr_argument[]) {
@@ -722,6 +726,9 @@ static const char *error_messages[] = {
 	EM(ERR_VERIFY_NOT_RUNNING) = "Since verify is not running, it cannot be stopped.",
 	// BSR-1064
 	EM(ERR_VOL_LOCK_ACQUISITION_TIMEOUT) = "Failed due to timeout on volume lock acquisition. Please try the command again.",
+	// BSR-1393
+	EM(ERR_LOCAL_TARGET_ONLY) = "Failed because the local node is set to target-only.",
+	EM(ERR_PEER_TARGET_ONLY) = "Failed because the peer node is set to target-only.",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 
@@ -850,6 +857,9 @@ static void resolv6(const char *name, struct sockaddr_in6 *addr)
 
 	err = getaddrinfo(name, 0, &hints, &res);
 	if (err) {
+		// BSR-1415
+		if (disable_ip_verify)
+			return;
 		CLI_ERRO_LOG_STDERR(false, "getaddrinfo %s: %s", name, gai_strerror(err));
 		exit(20);
 	}
@@ -893,15 +903,71 @@ static unsigned long resolv(const char* name)
 
 #ifdef _WIN
 #include <ifaddrs.h>
+
+static bool convert_if_alias_to_scope_id(char **address, const char *ifa_name)
+{
+	NET_LUID interfaceLuid;
+	GUID guid;
+
+	int result = sscanf(ifa_name, "{%8lx-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx}",
+		&guid.Data1, &guid.Data2, &guid.Data3,
+		&guid.Data4[0], &guid.Data4[1], &guid.Data4[2], &guid.Data4[3],
+		&guid.Data4[4], &guid.Data4[5], &guid.Data4[6], &guid.Data4[7]);
+
+	if (result == 11) {
+		NET_IFINDEX ifindex = 0;
+		char ifindex_str[32] = { 0, };
+		wchar_t alias_w[IF_MAX_STRING_SIZE + 1] = { 0, };
+
+		if ((NO_ERROR == ConvertInterfaceGuidToLuid(&guid, &interfaceLuid)) && 
+			(NO_ERROR == ConvertInterfaceLuidToIndex(&interfaceLuid, &ifindex)) &&
+			(NO_ERROR == ConvertInterfaceLuidToAlias(&interfaceLuid, alias_w, IF_MAX_STRING_SIZE + 1))) {
+			char alias[IF_MAX_STRING_SIZE + 1] = { 0, };
+			char *scope_id = strrchr(*address, '%');
+
+			wcstombs(alias, alias_w, sizeof(alias));
+			scope_id++;
+
+			if (0 == strcmp(scope_id, alias)) {
+				// if the interface has the same alias, change the alias to scope id.
+				sprintf(ifindex_str, "%d", ifindex);
+				if (strlen(scope_id) <= strlen(ifindex_str)) {
+					char *addr_new = (char*)calloc(strlen(*address) + strlen(ifindex_str) + 1, sizeof(char));
+					if (addr_new) {
+						memcpy(addr_new, *address, strlen(*address));
+						free(*address);
+						*address = addr_new;
+						scope_id = strrchr(*address, '%');
+						scope_id++;
+						memcpy(scope_id, ifindex_str, strlen(ifindex_str) + 1);
+					} else {
+						CLI_ERRO_LOG(false, true, "failed to allocate address, size is %d", (strlen(*address) + strlen(ifindex_str) + 1) * sizeof(char));
+						return false;
+					}
+				} else {
+					memset(scope_id, 0, strlen(ifindex_str) + 1);
+					memcpy(scope_id, ifindex_str, strlen(ifindex_str));
+				}
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 // BSR-1057 verify that the specified address has the same address locally.
-static bool is_adapter_ip_addr(const char* address)
+static bool is_if_addr(char **address)
 {
 	char host[NI_MAXHOST];
 	struct ifaddrs *ifaddr, *ifa;
 	int s;
+	int len = strstr(*address, "%") - *address;
+	bool exists = false;
+
 	if (getifaddrs(&ifaddr) < 0) {
 		CLI_ERRO_LOG(false, true, "error %s", __FUNCTION__);
-		exit(20);
+		return false;
 	}
 	memset(host, 0, sizeof(host));
 	for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
@@ -911,92 +977,24 @@ static bool is_adapter_ip_addr(const char* address)
 		if (s != 0) {
 			CLI_ERRO_LOG(false, true, "getnameinfo() failed: %s", gai_strerror(s));
 			freeifaddrs(ifaddr);
-			exit(20);
+			return false;
 		}
 
-		if (0 == strcmp(address, host)) {
-			CLI_INFO_LOG(false, "found adapter (%s), address (%s)", ifa->ifa_name, host);
+		if (0 == strcmp(*address, host) ||
+			// BSR-1424 if only the address of an interface is the same, verify the alias of that interface.
+			(0 == strncmp(*address, host, len) && convert_if_alias_to_scope_id(address, ifa->ifa_name))) {
+			CLI_INFO_LOG(false, "found interface (%s), host (%s), address (%s)", ifa->ifa_name, host, *address);
+			freeifaddrs(ifaddr);
 			return true;
 		}
 	}
 	freeifaddrs(ifaddr);
+
+	if (disable_ip_verify)
+		return true;
+
+	CLI_ERRO_LOG(false, true, "%s does not exist.", *address);
 	return false;
-}
-
-static void scope_id_from_alias_to_index(const char* scopeId, char **address, bool *re_alloc)
-{
-	NET_LUID interfaceLuid;
-	NET_IFINDEX ifindex = 0;
-	char ifindex_str[32] = { 0, };
-	wchar_t* scopeId_w;
-	int len;
-
-	len = mbstowcs(NULL, scopeId, 0);
-	if (len != -1) {
-		scopeId_w = (LPWSTR)malloc(sizeof(wchar_t) * (len + 1));
-		if (scopeId_w) {
-			if (-1 != mbstowcs(scopeId_w, scopeId, (len + 1))) {
-				if ((NO_ERROR == ConvertInterfaceAliasToLuid(scopeId_w, &interfaceLuid)) &&
-					(NO_ERROR == ConvertInterfaceLuidToIndex(&interfaceLuid, &ifindex))) {
-
-					// BSR-1057
-					wchar_t alias_w[IF_MAX_STRING_SIZE + 1];
-					
-					memset(alias_w, 0, sizeof(alias_w));
-					
-					if (NO_ERROR == ConvertInterfaceLuidToAlias(&interfaceLuid, alias_w, IF_MAX_STRING_SIZE + 1)) {
-						if (0 != wcscmp(scopeId_w, alias_w)) {
-							CLI_ERRO_LOG(false, true, "failed to find alias corresponding to scope id (%s)", scopeId);
-							exit(20);
-						}
-					} else {
-						CLI_ERRO_LOG(false, true, "failed to luid to alias (%s)", scopeId);
-						exit(20);
-					}
-
-					// BSR-1002 set to the index corresponding to the alias.
-					sprintf(ifindex_str, "%d", ifindex);
-					CLI_INFO_LOG(false, "matching aliases found, (%s => %s)", scopeId, ifindex_str);
-					if (strlen(scopeId) <= strlen(ifindex_str)) {
-						char *addr_new = (char*)calloc(strlen(*address) + strlen(ifindex_str) + 1, sizeof(char));
-						if (addr_new) {
-							memcpy(addr_new, *address, strlen(*address));
-							free(*address);
-							*address = addr_new;
-							*re_alloc = true;
-							scopeId = strrchr(*address, '%');
-							scopeId++;
-							memcpy(scopeId, ifindex_str, strlen(ifindex_str) + 1);
-						}
-						else {
-							CLI_ERRO_LOG(false, true, "failed to allocate address, size is %d", (strlen(*address) + strlen(ifindex_str) + 1) * sizeof(char));
-							exit(20);
-						}
-					}
-					else {
-						memset(scopeId, 0, strlen(ifindex_str) + 1);
-						memcpy(scopeId, ifindex_str, strlen(ifindex_str));
-					}
-				}
-				else {
-					CLI_INFO_LOG(false, "no matching aliases found, (%s)", scopeId);
-				}
-			}
-			else {
-				CLI_ERRO_LOG(false, true, "failed to convert to multi-byte, (%s)", scopeId);
-				exit(20);
-			}
-			free(scopeId_w);
-		}
-		else {
-			CLI_ERRO_LOG(false, true, "failed to allocate scope id, size is %d", (sizeof(wchar_t) * len + 1));
-			exit(20);
-		}
-	}
-	else {
-		CLI_ERRO_LOG(false, true, "failed to get multi-byte size, (%s)", scopeId);
-		exit(20);
-	}
 }
 
 #endif
@@ -1037,16 +1035,10 @@ static void split_ipv6_addr(char **address, int *port, bool *re_alloc, bool is_p
 	}
 #ifdef _WIN
 	else {
-		// BSR-1387
-		if (disable_ip_verify)
-			return;
-
 		// BSR-1002 bsr uses the alias as the default for ipv6 link-local
 		// BSR-1057
-		if (!is_adapter_ip_addr(*address)) {
-			scopeId++;
-			scope_id_from_alias_to_index(scopeId, address, re_alloc);
-		}
+		if (!is_if_addr(address))
+			exit(20);
 	}
 #endif
 }
@@ -1114,6 +1106,8 @@ static int sockaddr_from_str(struct sockaddr_storage *storage, const char *str, 
 
 		memset(sin6, 0, sizeof(*sin6));
 		resolv6(address, sin6);
+		// BSR-1415
+		sin6->sin6_family = af;
 		sin6->sin6_port = htons(port);
 		// BSR-1002
 		free(release_to);

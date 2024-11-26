@@ -232,7 +232,7 @@ static struct bsr_listener *find_listener(struct bsr_connection *connection,
 }
 
 int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
-	int(*create_listener)(struct bsr_transport *, const struct sockaddr *addr, struct bsr_listener **))
+	int(*create_listener)(struct bsr_transport *, const struct sockaddr *addr, struct bsr_listener **, bool))
 {
 	struct bsr_connection *connection =
 		container_of(transport, struct bsr_connection, transport);
@@ -265,7 +265,7 @@ int bsr_get_listener(struct bsr_transport *transport, struct bsr_path *path,
 		if (listener)
 			return 0;
 
-		err = create_listener(transport, addr, &new_listener);
+		err = create_listener(transport, addr, &new_listener, path->disable_ip_verify);
 		if (err) {
 			if (err == -EADDRINUSE && ++tries < 3) {
 				schedule_timeout_uninterruptible(HZ / 20);
@@ -334,7 +334,8 @@ extern char * get_ip6(char *buf, size_t len, struct sockaddr_in6 *sockaddr);
 //struct bsr_waiter *bsr_find_waiter_by_addr(struct bsr_listener *listener, SOCKADDR_STORAGE_EX *addr)
 struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *listener, SOCKADDR_STORAGE_EX *addr)
 {
-	struct bsr_path *path;
+	struct bsr_path *path = NULL;
+	struct bsr_path *maybe_nat_path = NULL; 
 
 	// DW-1481 fix listener->list's NULL dereference, sanity check 
 	if(!addr || !listener || (listener->list.next == NULL) ) {
@@ -349,20 +350,22 @@ struct bsr_path *bsr_find_path_by_addr(struct bsr_listener *listener, SOCKADDR_S
 		} else {
 			bsr_debug_co("[%p] path->peer:%s addr:%s ", KeGetCurrentThread(), get_ip4(sbuf, sizeof(sbuf), (struct sockaddr_in*)&path->peer_addr), get_ip4(dbuf, sizeof(dbuf), (struct sockaddr_in*)addr));
 		}
-		// BSR-787 skip if path is established
-		if ((addr_equal(&path->peer_addr, addr, &listener->listen_addr) ||
-			// BSR-1387
-			addr_any(&listener->listen_addr)) && 
-			!path->established)
-			return path;
-#else // _LIN
-		if (addr_equal(&path->peer_addr, addr, &listener->listen_addr) ||
-			// BSR-1387
-			addr_any(&listener->listen_addr))
-			return path;
 #endif
-		
+		// BSR-787 skip if path is established
+		if (!path->established) {
+			if (addr_equal(&path->peer_addr, addr, &listener->listen_addr))
+				return path;
+			// BSR-1387
+			// BSR-1400 if disable_ip_verify is set for NAT support, return it when path does not have the same IP.
+			// because this code is the same as a temporary code, you will need to improve the resource settings options for future NAT support before removing them.
+			if (addr_any(&listener->listen_addr) && path->disable_ip_verify)
+				maybe_nat_path = path;
+		}
 	}
+
+	// BSR-1400
+	if (maybe_nat_path)
+		return maybe_nat_path;
 
 	return NULL;
 }

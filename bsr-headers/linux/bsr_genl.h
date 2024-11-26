@@ -152,6 +152,8 @@ GENL_struct(BSR_NLA_RESOURCE_OPTS, 4, res_opts,
 	__u64_field_def(16, BSR_GENLA_F_MANDATORY, accelbuf_size, BSR_ACCELBUF_SIZE_DEF)
 	// BSR-1145
 	__u64_field_def(17, BSR_GENLA_F_MANDATORY, max_accelbuf_blk_size, BSR_MAX_ACCELBUF_BLK_SIZE_DEF)
+	// BSR-1392
+	__flg_field_def(18, BSR_GENLA_F_MANDATORY, persist_role, BSR_PERSIST_ROLE_DEF)
 )
 
 GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
@@ -406,6 +408,7 @@ GENL_struct(BSR_NLA_NODE_OPTS, 36, node_opts,
 	__flg_field_def(1, 0 /* OPTIONAL */, svc_auto_up, BSR_SVC_AUTO_UP_DEF)			// DW-1249 auto-start by svc
 	__flg_field_def(2, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
 	__str_field_def(3, BSR_GENLA_F_MANDATORY, node_name, SHARED_SECRET_MAX) // BSR-859
+	__flg_field_def(4, 0 /* OPTIONAL */, target_only, BSR_TARGET_ONLY_DEF) // BSR-1393
 )
 
 // BSR-734
@@ -699,3 +702,10 @@ GENL_notification(
 	BSR_PEER_NODE_INFO, 56, events,
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
 	GENL_tla_expected(BSR_NLA_NODE_INFO, BSR_F_REQUIRED))
+
+// BSR-1392
+GENL_op(
+	BSR_ADM_APPLY_PERSIST_ROLE, 57,
+	GENL_doit(bsr_adm_apply_persist_role),
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_SET_ROLE_PARMS, BSR_F_REQUIRED))

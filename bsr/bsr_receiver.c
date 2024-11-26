@@ -4839,12 +4839,18 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 
 	*rule_nr = 20;
 	if (self == UUID_JUST_CREATED) {
+		// BSR-1425
+		if (device->resource->role[NOW] == R_PRIMARY && peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) 
+			return -1000;
 		bsr_info(190, BSR_LC_RESYNC_OV, device, "The local UUID is in the Initialization state. rule(%d), res(-3)", *rule_nr);
 		return -3;
 	}
 
 	*rule_nr = 30;
 	if (peer == UUID_JUST_CREATED) {
+		// BSR-1425
+		if (connection->peer_role[NOW] == R_PRIMARY && device->resource->node_opts.target_only)
+			return -1000;
 		bsr_info(191, BSR_LC_RESYNC_OV, device, "The peer UUID is in the Initialization state. rule(%d), res(3)", *rule_nr);
 		return 3;
 	}
@@ -5040,9 +5046,26 @@ static int bsr_handshake(struct bsr_peer_device *peer_device,
 		log_handshake(peer_device);
 
 	hg = bsr_uuid_compare(peer_device, rule_nr, peer_node_id);
+
 	if (hg && !always_verbose)
 		log_handshake(peer_device);
 	spin_unlock_irq(&device->ldev->md.uuid_lock);
+
+	// BSR-1393 reset rule_nr depending on target-only setting. (local target-only : 200, peer target-only : -200) 
+	if (hg >= 1 && hg <= 4) {
+		if (device->resource->node_opts.target_only) {
+			bsr_info(238, BSR_LC_RESYNC_OV, device, "but, it does not set syncsource because the local node is target-only. res(200), rule(%d)",  *rule_nr);
+			// BSR-1408 returns the uuid comparison result due to target-only as hg(result) rather than rule_nr.
+			return 200;
+		}
+	}
+	else if (hg <= -1 && hg >= -4) {
+		if (peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) {
+			bsr_info(237, BSR_LC_RESYNC_OV, device, "but, it does not set synctarget because the peer node is target-only. res(-200), rule(%d)", *rule_nr);
+			// BSR-1408
+			return -200;
+		}
+	}
 
 	if (hg || always_verbose)
 		bsr_info(75, BSR_LC_RESYNC_OV, peer_device, "uuid_compare(%d) by rule %d", hg, *rule_nr);
@@ -5113,7 +5136,9 @@ static int bitmap_mod_after_handshake(struct bsr_peer_device *peer_device, int h
 		bsr_resume_io(device);
 #endif
 
-	} else if (abs(hg) >= 3) {
+	} else if (abs(hg) >= 3
+		// BSR-1408
+		&& abs(hg) != 200) {
 		if (hg == -3 &&
 		    bsr_current_uuid(device) == UUID_JUST_CREATED &&
 			// DW-1449 check stable sync source policy first, returning here is supposed to mean other resync is going to be started. (or violates stable sync source policy)
@@ -5154,6 +5179,13 @@ static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_d
 {
 	enum bsr_role role = peer_device->device->resource->role[NOW];
 	enum bsr_repl_state rv;
+	
+	// BSR-1393
+	// BSR-1408
+	if (abs(hg) == 200) {
+		rv = L_ESTABLISHED;
+		return rv;
+	}
 
 	if (hg == 1 || hg == -1) {
 		if (role == R_PRIMARY || peer_role == R_PRIMARY) {
@@ -5229,7 +5261,7 @@ static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_d
 
 static void disk_states_to_goodness(struct bsr_device *device,
 				    enum bsr_disk_state peer_disk_state,
-				    int *hg, int rule_nr)
+						ULONG_PTR peer_uuid_flags, int *hg, int rule_nr)
 {
 	enum bsr_disk_state disk_state = device->disk_state[NOW];
 	bool p = false;
@@ -5254,9 +5286,13 @@ static void disk_states_to_goodness(struct bsr_device *device,
 		p = true;
 	}
 
-	if (p)
-		bsr_info(81, BSR_LC_RESYNC_OV, device, "Becoming sync %s due to disk states.",
-			  *hg > 0 ? "source" : "target");
+	if (p) {
+		// BSR-1393
+		if (!(device->resource->node_opts.target_only || (peer_uuid_flags & UUID_FLAG_TARGET_ONLY))) {
+			bsr_info(81, BSR_LC_RESYNC_OV, device, "Becoming sync %s due to disk states.",
+				*hg > 0 ? "source" : "target");
+		}
+	}
 }
 
 // DW-1014 if we determined not to do sync in spite of existing out-of-sync, check couple of more states.
@@ -5327,10 +5363,18 @@ static void various_states_to_goodness(struct bsr_device *device,
 		spin_unlock_irq(&device->ldev->md.uuid_lock);
 	}
 out:
-	if (*hg)
-		bsr_info(84, BSR_LC_RESYNC_OV, device, "Becoming sync %s due to %s.",
-		*hg > 0 ? "source" : "target",
-		syncReason == 1 ? "role" : syncReason == 2 ? "disk states" : "unknown reason");
+	if (*hg) {
+		// BSR-1393
+		if (*hg > 0 && device->resource->node_opts.target_only) {
+			*hg = 0;
+		} else if (*hg < 0 && peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) {
+			*hg = 0;
+		} else {
+			bsr_info(84, BSR_LC_RESYNC_OV, device, "Becoming sync %s due to %s.",
+				*hg > 0 ? "source" : "target",
+				syncReason == 1 ? "role" : syncReason == 2 ? "disk states" : "unknown reason");
+		}
+	}
 }
 
 
@@ -5341,11 +5385,12 @@ static enum bsr_repl_state bsr_attach_handshake(struct bsr_peer_device *peer_dev
 
 	hg = bsr_handshake(peer_device, &rule_nr, &peer_node_id, true);
 
+	// BSR-1393
 	if (hg < -4 || hg > 4)
 		return -1;
 
 	bitmap_mod_after_handshake(peer_device, hg, peer_node_id);
-	disk_states_to_goodness(peer_device->device, peer_disk_state, &hg, rule_nr);
+	disk_states_to_goodness(peer_device->device, peer_disk_state, peer_device->uuid_flags, &hg, rule_nr);
 
 	return goodness_to_repl_state(peer_device, peer_device->connection->peer_role[NOW], peer_disk_state, hg);
 }
@@ -5383,7 +5428,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		if (device->resource->role[NOW] == R_PRIMARY)
 			bsr_info(233, BSR_LC_RESYNC_OV, device, "Resynchronization state is not set based on disk state because uuid was received during promotion.");
 	} else {
-		disk_states_to_goodness(device, peer_disk_state, &hg, rule_nr);
+		disk_states_to_goodness(device, peer_disk_state, peer_device->uuid_flags, &hg, rule_nr);
 		// DW-1014 to trigger sync when hg is 0 and oos exists, check more states as long as 'disk_states_to_goodness' doesn't cover all situations.
 		various_states_to_goodness(device, peer_device, peer_disk_state, peer_role, &hg);
 	}
@@ -6380,16 +6425,19 @@ static void bsr_resync(struct bsr_peer_device *peer_device,
 	hg = bsr_handshake(peer_device, &rule_nr, &peer_node_id, reason == DISKLESS_PRIMARY);
 
 	if (!hg && reason == AFTER_UNSTABLE) {
-		disk_states_to_goodness(peer_device->device, peer_device->disk_state[NOW], &hg, rule_nr);
+		disk_states_to_goodness(peer_device->device, peer_device->disk_state[NOW], peer_device->uuid_flags, &hg, rule_nr);
 		various_states_to_goodness(peer_device->device, peer_device, peer_device->disk_state[NOW], peer_device->connection->peer_role[NOW], &hg);
 	}
 
 	new_repl_state = hg < -4 || hg > 4 ? -1 : goodness_to_repl_state(peer_device, peer_role, peer_device->disk_state[NOW], hg);
 
 	if (new_repl_state == -1) {
-		bsr_info(87, BSR_LC_RESYNC_OV, peer_device, "Disconnecting the connection as an unexpected result of the handshake. repl state(%d)", new_repl_state);
-		// DW-1360 destroy connection for conflicted data.
-		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+		// BSR-1393
+		if (abs(hg) != 200) {
+			bsr_info(87, BSR_LC_RESYNC_OV, peer_device, "Disconnecting the connection as an unexpected result of the handshake. repl state(%d)", new_repl_state);
+			// DW-1360 destroy connection for conflicted data.
+			change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+		}
 		return;
 	} else if (new_repl_state != L_ESTABLISHED) {
 		bitmap_mod_after_handshake(peer_device, hg, peer_node_id);
@@ -6398,7 +6446,9 @@ static void bsr_resync(struct bsr_peer_device *peer_device,
 	}
 	peer_disk_state = peer_device->disk_state[NOW];
 	if (new_repl_state == L_ESTABLISHED && peer_disk_state >= D_CONSISTENT &&
-		peer_device->device->disk_state[NOW] == D_OUTDATED) {
+		peer_device->device->disk_state[NOW] == D_OUTDATED &&
+		// BSR-1393 Check not only the status, but also uuid, oos.
+		(peer_device->current_uuid == bsr_current_uuid(peer_device->device) && !peer_device->comm_bm_set && !peer_device->dirty_bits)) {
 		/* No resync with up-to-date peer -> I should be consistent or up-to-date as well.
 		   Note: Former unstable (but up-to-date) nodes become consistent for a short
 		   time after loosing their primary peer. Therefore consider consistent here
@@ -6438,9 +6488,14 @@ static void bsr_resync_authoritative(struct bsr_peer_device *peer_device, enum b
 	hg = bsr_handshake(peer_device, &rule_nr, &peer_node_id, false);
 
 	if (abs(hg) >= 100)	{
-		bsr_err(92, BSR_LC_RESYNC_OV, peer_device, "Can not start resync due to unexpected handshake result(%d)", hg);
-		// DW-1360 destroy connection for conflicted data.
-		change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+		// BSR-1408
+		if (abs(hg) == 200) {
+			bsr_err(243, BSR_LC_RESYNC_OV, peer_device, "Unable to start resync because the target only property is set. hg(%d), rule(%d)", hg, rule_nr);
+		} else {
+			bsr_err(92, BSR_LC_RESYNC_OV, peer_device, "Can not start resync due to unexpected handshake result(%d)", hg);
+			// DW-1360 destroy connection for conflicted data.
+			change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+		}
 		return;
 	}
 
@@ -6621,13 +6676,18 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 	u64 bitmap_uuids_mask;
 	struct bsr_peer_md *peer_md = NULL;
 	struct bsr_device *device;
-
+	// BSR-1393
+	bool old_target_only = false; 
+	bool new_target_only = false;
 
 	peer_device = conn_peer_device(connection, pi->vnr);
 	if (!peer_device)
 		return config_unknown_volume(connection, pi);
 
 	device = peer_device->device;
+
+	// BSR-1393
+	old_target_only = peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY;
 
 	peer_device->current_uuid = be64_to_cpu(p->current_uuid);
 	peer_device->dirty_bits = be64_to_cpu(p->dirty_bits);
@@ -6636,6 +6696,9 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 	peer_device->uuid_authoritative_nodes = (p->uuid_flags & UUID_FLAG_STABLE) ? 0 : be64_to_cpu(p->node_mask);
 
 	peer_device->uuid_flags = be64_to_cpu(p->uuid_flags);
+	// BSR-1393
+	new_target_only = peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY;
+	
 	bitmap_uuids_mask = be64_to_cpu(p->bitmap_uuids_mask);
 	if (bitmap_uuids_mask & ~(NODE_MASK(BSR_PEERS_MAX) - 1))
 		return -EIO;
@@ -6764,10 +6827,23 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 		}
 	}
 
-	// BSR-863
-	if (connection->agreed_pro_version >= 115 && !err) {
-		bsr_send_uuid_ack(connection);
+	// BSR-1393 when target-only is released,send UUID_FLAG_AUTHORITATIVE to see if it is resync.
+	if (old_target_only && !new_target_only)
+		bsr_send_uuids(peer_device, UUID_FLAG_AUTHORITATIVE, 0, NOW);
+	else if (!old_target_only && new_target_only) {
+		// BSR-1393 stop resync when target-only is set on the syncsource node.
+		if (peer_device->repl_state[NOW] == L_SYNC_TARGET || peer_device->repl_state[NOW] == L_PAUSED_SYNC_T) {
+			unsigned long irq_flags;
+
+			begin_state_change(device->resource, &irq_flags, CS_HARD);
+			__change_repl_state(peer_device, L_ESTABLISHED, __FUNCTION__);
+			end_state_change(device->resource, &irq_flags, __FUNCTION__);
+		}
 	}
+
+	// BSR-863
+	if (connection->agreed_pro_version >= 115 && !err)
+		bsr_send_uuid_ack(connection);
 
 	return err;
 }
@@ -8184,7 +8260,9 @@ static void try_to_get_resynced(struct bsr_device *device)
 		if (peer_device->disk_state[NOW] == D_UP_TO_DATE) {
 			hg = bsr_uuid_compare(peer_device, &rule_nr, &peer_node_id);
 			bsr_info(3, BSR_LC_STATE, peer_device, "uuid_compare(%d) by rule %d", hg, rule_nr);
-			if (hg <= 0 && hg > best_hg) {
+			if (hg <= 0 && hg > best_hg
+				// BSR-1393
+				&& !(peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)) {
 				best_hg = hg;
 				best_peer_device = peer_device;
 			}
@@ -8518,8 +8596,9 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		if (consider_resync)
 			clear_bit(CONSIDER_RESYNC, &peer_device->flags);
 	}
-	if (new_disk_state != D_MASK)
+	if (new_disk_state != D_MASK) {
 		__change_disk_state(device, new_disk_state, __FUNCTION__);
+	}
 	if (device->disk_state[NOW] != D_NEGOTIATING)
 		__change_repl_state_and_auto_cstate(peer_device, new_repl_state, __FUNCTION__);
 	if (connection->peer_role[NOW] == R_UNKNOWN || peer_state.role == R_SECONDARY)
@@ -9217,6 +9296,7 @@ static int receive_peer_dagtag(struct bsr_connection *connection, struct packet_
 	s64 dagtag_offset;
 	int vnr = 0; 
 	enum bsr_state_rv rv;
+	bool is_peer_target_only = false;
 
 	lost_peer = bsr_get_connection_by_node_id(resource, be32_to_cpu(p->node_id));
 	if (!lost_peer)
@@ -9231,6 +9311,9 @@ static int receive_peer_dagtag(struct bsr_connection *connection, struct packet_
 	}
 
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
+		// BSR-1393 The corresponding logic is the processing for 1:2 connections and further modifications are required for subsequent 1:3 connections.
+		if (peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)
+			is_peer_target_only = true;
 		if (peer_device->repl_state[NOW] > L_ESTABLISHED)
 			goto out;
 		if (peer_device->current_uuid != bsr_current_uuid(peer_device->device))
@@ -9240,13 +9323,29 @@ static int receive_peer_dagtag(struct bsr_connection *connection, struct packet_
 	/* Need to wait until the other receiver thread has called the
 	   cleanup_unacked_peer_requests() function */
 	wait_event(resource->state_wait,
-		   lost_peer->cstate[NOW] <= C_UNCONNECTED || lost_peer->cstate[NOW] == C_CONNECTING);
+		lost_peer->cstate[NOW] <= C_UNCONNECTED || lost_peer->cstate[NOW] == C_CONNECTING);
 
 	dagtag_offset = (s64)lost_peer->last_dagtag_sector - (s64)be64_to_cpu(p->dagtag);
-	if (dagtag_offset > 0)
+	if (dagtag_offset > 0) {
+		// BSR-1393 It should be the sync source, but does not start resync because target-only is set
+		if (resource->node_opts.target_only) {
+			bsr_info(241, BSR_LC_RESYNC_OV, connection, "It is set as the syncsource node during reconciliation resync, but does not proceed because target-only is set.last_dgtag(%lld)", (s64)lost_peer->last_dagtag_sector);
+			goto out;
+		}
 		new_repl_state = L_WF_BITMAP_S;
-	else if (dagtag_offset < 0)
+	}
+	else if (dagtag_offset < 0) {
+		// BSR-1393 The sync target must be set, but target-only is set on the peer node, so set the disk state to outdate without starting resync.
+		if (is_peer_target_only) {
+			unsigned long irq_flags;
+			bsr_info(242, BSR_LC_RESYNC_OV, connection, "Set the disk state to 'outdate' during reconciliation resync without proceeding because target-only is set on peer node.last_dgtag(%lld)", (s64)lost_peer->last_dagtag_sector);
+			begin_state_change(resource, &irq_flags, CS_VERBOSE);
+			__change_disk_states(resource, D_OUTDATED);
+			rv = end_state_change(resource, &irq_flags, __FUNCTION__);
+			goto out;
+		}
 		new_repl_state = L_WF_BITMAP_T;
+	}
 	else
 		new_repl_state = L_ESTABLISHED;
 
@@ -9710,6 +9809,13 @@ void conn_disconnect(struct bsr_connection *connection)
 
 	bsr_transport_shutdown(connection, CLOSE_CONNECTION);
 	bsr_drop_unsent(connection);
+
+	// BSR-1410 abort another node's incomplete twopc
+	if (resource->twopc_reply.initiator_node_id == (int)connection->peer_node_id) {
+		del_timer(&resource->queued_twopc_timer);
+		resource->twopc_work.cb = abort_nested_twopc_work;
+		bsr_queue_work(&resource->work, &resource->twopc_work);
+	}
 
 	/* Wait for current activity to cease.  This includes waiting for
 	* peer_request queued to the submitter workqueue. */
@@ -10482,7 +10588,7 @@ void twopc_connection_down(struct bsr_connection *connection)
 		} 
 		// BSR-1369 if disconnect on another node is not completed, it will be treated as an interruption rather than a timeout.
 		else if (resource->twopc_reply.is_disconnect &&
-			resource->twopc_reply.initiator_node_id != resource->res_opts.node_id) {
+			resource->twopc_reply.initiator_node_id != (int)resource->res_opts.node_id) {
 			del_timer(&resource->queued_twopc_timer);
 			resource->twopc_work.cb = abort_nested_twopc_work;
 			bsr_queue_work(&resource->work, &resource->twopc_work);

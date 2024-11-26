@@ -520,6 +520,7 @@ static const char * const __log_category_names[] = {
 	[BSR_LC_VERIFY] = "VERIFY",
 	[BSR_LC_OUT_OF_SYNC] = "OUT OF SYNC",
 	[BSR_LC_ETC] = "ETC",
+	[BSR_LC_REF] = "REF",
 };
 
 
@@ -532,7 +533,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 42
 #define BSR_LC_REQUEST_MAX_INDEX 38
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 236
+#define BSR_LC_RESYNC_OV_MAX_INDEX 245
 #define BSR_LC_REPLICATION_MAX_INDEX 33
 #define BSR_LC_CONNECTION_MAX_INDEX 35
 #define BSR_LC_UUID_MAX_INDEX 41
@@ -551,6 +552,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_VERIFY_MAX_INDEX 20
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
 #define BSR_LC_ETC_MAX_INDEX 92
+#define BSR_LC_REF_MAX_INDEX 2
 
 
 #define BUG_ON_INT16_OVER(_value) DEBUG_BUG_ON(INT16_MAX < _value)
@@ -4173,7 +4175,7 @@ static inline void put_ldev(const char* caller, struct bsr_device *device)
 	 * while state still D_FAILED, will then see D_DISKLESS in the
 	 * condition below and calling into destroy, where he must not, yet. */
 	int i = atomic_dec_return(&device->local_cnt);
-
+	bsr_debug(2, BSR_LC_REF, device, "%s => put_ldev(dec), current count %d", caller, atomic_read(&device->local_cnt));
 	/* This may be called from some endio handler,
 	 * so we must not sleep here. */
 
@@ -4205,6 +4207,7 @@ static inline int _get_ldev_if_state(const char* caller, struct bsr_device *devi
 		return 0;
 
 	atomic_inc(&device->local_cnt);
+	bsr_debug(1, BSR_LC_REF, device, "%s => get_ldev(inc), current count %d", caller, atomic_read(&device->local_cnt));
 	io_allowed = (device->disk_state[NOW] >= mins);
 	if (!io_allowed)
 		put_ldev(caller, device);

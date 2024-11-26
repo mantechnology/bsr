@@ -242,6 +242,9 @@ enum bsr_ret_code {
 	ERR_VERIFY_NOT_RUNNING = 177,
 	// BSR-1064
 	ERR_VOL_LOCK_ACQUISITION_TIMEOUT = 178,
+	// BSR-1393
+	ERR_LOCAL_TARGET_ONLY = 179,
+	ERR_PEER_TARGET_ONLY = 180,
 	/* insert new ones above this line */
 	AFTER_LAST_ERR_CODE
 };
@@ -412,8 +415,9 @@ enum bsr_state_rv {
 	SS_BARRIER_ACK_PENDING_TIMEOUT = -30,
 	// BSR-988
 	SS_RESYNC_REPLY_DATA_PENDING_TIMEOUT = -31,
-	SS_AFTER_LAST_ERROR = -32,    /* Keep this at bottom */
-
+	// BSR-1393
+	SS_TARGET_ONLY = -32,
+	SS_AFTER_LAST_ERROR = -33,    /* Keep this at bottom */
 };
 
 #define SHARED_SECRET_MAX 64
@@ -429,6 +433,9 @@ enum mdf_flag {
 	MDF_LAST_PRIMARY = 1 << 16,
 	// DW-1843 since the io_error_count of the device structure is initialized when down, it is saved as an mdf flag to hold the value.
 	MDF_IO_ERROR = 1 << 17,				
+	// BSR-1392 it is set when the user executes the promotion command, and is clear when the demotion command is executed.
+	// and when the corresponding flag is set, it will be promoted when the command "bsrsetup apply-persist-role" is executed.
+	MDF_WAS_PRIMARY = 1 << 18,
 };
 
 enum mdf_peer_flag {

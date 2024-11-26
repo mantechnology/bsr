@@ -57,11 +57,11 @@ static const char * const g_log_category_str[] = {
 	"LRU", "REQUEST", "PEER_REQUEST", "RESYNC_OV", "REPLICATION", 
 	"CONNECTION", "UUID", "TWOPC", "THREAD", "SEND_BUFFER", "STATE", 
 	"SOCKET", "DRIVER", "NETLINK", "GENL", "PROTOCOL", "MEMORY", "LOG", 
-	"LATENCY", "VERIFY", "OUT_OF_SYNC", "ETC" };
+	"LATENCY", "VERIFY", "OUT_OF_SYNC", "ETC", "REF" };
 #endif
 
 #define LOG_DEFAULT_MAX_LEVEL 8
-#define LOG_CATEGORY_MAX 26
+#define LOG_CATEGORY_MAX 27
 
 
 // DW-2008 move here from bsr_window.h
@@ -127,6 +127,7 @@ enum BSR_LOG_CATEGORY
 	BSR_LC_VERIFY,
 	BSR_LC_OUT_OF_SYNC,
 	BSR_LC_ETC,
+	BSR_LC_REF,
 };
 
 // BSR-654 The default values are those excluding latency, verifi, and out of sync.
@@ -137,7 +138,7 @@ enum BSR_LOG_CATEGORY
 									(1 << BSR_LC_THREAD) | (1 << BSR_LC_SEND_BUFFER) | (1 << BSR_LC_STATE) | \
 									(1 << BSR_LC_SOCKET) | (1 << BSR_LC_DRIVER) | (1 << BSR_LC_NETLINK) | \
 									(1 << BSR_LC_GENL) | (1 << BSR_LC_PROTOCOL) | (1 << BSR_LC_MEMORY) | \
-									(1 << BSR_LC_LOG) | (1 << BSR_LC_ETC))
+									(1 << BSR_LC_LOG) | (1 << BSR_LC_ETC)) | (1 << BSR_LC_REF)
 // | (1 << BSR_LC_LATENCY) | (1 << BSR_LC_VERIFY) | (1 << BSR_LC_OUT_OF_SYNC) 
 
 

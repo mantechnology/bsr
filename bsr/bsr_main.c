@@ -1970,6 +1970,10 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 	if(bsr_md_test_peer_flag(peer_device, MDF_PEER_INIT_SYNCT_BEGIN))
 		uuid_flags |= UUID_FLAG_INIT_SYNCT_BEGIN;
 
+	// BSR-1393
+	if (device->resource->node_opts.target_only)
+		uuid_flags |= UUID_FLAG_TARGET_ONLY;
+
 	p->uuid_flags = cpu_to_be64(uuid_flags);
 
 	put_ldev(__FUNCTION__, device);
@@ -6999,6 +7003,10 @@ static u64 rotate_current_into_bitmap(struct bsr_device *device, u64 weak_nodes,
 			do_it = do_it || (peer_device->repl_state[NOW] == L_AHEAD);
 
 
+			// BSR-1403 if you are connected to a target-only peer node, set bitmap uuid if bitmap uuid on the target-only node and current uuid on the local node are the same.
+			if ((peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) && (peer_device->connection->cstate[NOW] == C_CONNECTED) &&
+				(bsr_current_uuid(device) & ~UUID_PRIMARY) == (peer_device->bitmap_uuids[device->ldev->md.node_id] & ~UUID_PRIMARY))
+				do_it = true;
 		} else {
 			do_it = true;
 		}
@@ -7027,7 +7035,9 @@ static u64 initial_resync_nodes(struct bsr_device *device)
 	u64 nodes = 0;
 
 	for_each_peer_device(peer_device, device) {
-		if (peer_device->disk_state[NOW] == D_INCONSISTENT &&
+		if ((peer_device->disk_state[NOW] == D_INCONSISTENT || 
+			// BSR-1425 added uuid update conditions for when peer nodes have target-only nodes during forced promotion
+			((bsr_current_uuid(device) & ~UUID_PRIMARY) == UUID_JUST_CREATED && peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)) &&
 		    peer_device->repl_state[NOW] == L_ESTABLISHED)
 			nodes |= NODE_MASK(peer_device->node_id);
 	}

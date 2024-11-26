@@ -1155,6 +1155,8 @@ struct context_def resource_options_ctx = {
 		{ "accelbuf-size", NUMERIC(accelbuf_size, ACCELBUF_SIZE), .unit = "bytes" },
 		// BSR-1145 accelbuf sets the applied write size because it aims to improve the local write performance of small unit writes
 		{ "max-accelbuf-blk-size", NUMERIC(max_accelbuf_blk_size, MAX_ACCELBUF_BLK_SIZE), .unit = "bytes" },
+		// BSR-1392
+		{ "persist-role", BOOLEAN(persist_role, PERSIST_ROLE) }, 
 		{ } },
 };
 
@@ -1162,7 +1164,9 @@ struct context_def resource_options_ctx = {
     /* DW-1249 auto-start by svc */		\
 	{ "svc-auto-up", BOOLEAN(svc_auto_up, SVC_AUTO_UP) },	\
 	/* BSR-593 auto-down by svc */		\
-	{ "svc-auto-down", BOOLEAN(svc_auto_down, SVC_AUTO_DOWN) }
+	{ "svc-auto-down", BOOLEAN(svc_auto_down, SVC_AUTO_DOWN) }, \
+	/* BSR-1393 */						\
+	{ "target-only", BOOLEAN(target_only, TARGET_ONLY) }
 // BSR-718 move svc-auto-xxx option to node option
 struct context_def node_options_ctx = {
 	NLA_POLICY(node_opts),
