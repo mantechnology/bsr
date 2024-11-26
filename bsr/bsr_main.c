@@ -6580,7 +6580,8 @@ static int check_activity_log_stripe_size(struct bsr_device *device,
 	/* both not set: default to old fixed size activity log */
 	if (al_stripes == 0 && al_stripe_size_4k == 0) {
 		al_stripes = 1;
-		al_stripe_size_4k = (32768 >> 9)/8;
+		// BSR-1423 
+		al_stripe_size_4k = (327680 >> 9) / 8;
 	}
 
 	/* some paranoia plausibility checks */
@@ -6665,10 +6666,12 @@ static int check_offsets_and_sizes(struct bsr_device *device,
 	if (in_core->meta_dev_idx >= 0) {
 		// DW-1335
 		if (in_core->md_size_sect != (256 << 20 >> 9)
-		||  in_core->al_offset != (4096 >> 9)
-		||  in_core->bm_offset != (4096 >> 9) + (32768 >> 9)
-		||  in_core->al_stripes != 1
-		||  in_core->al_stripe_size_4k != (32768 >> 12))
+			|| in_core->al_offset != (4096 >> 9)
+			// BSR-1423 change to the default al_stripe_size_4k size
+			|| in_core->bm_offset != (4096 >> 9) + (327680 >> 9)
+			|| in_core->al_stripes != 1
+			// BSR-1423 
+			|| in_core->al_stripe_size_4k != (327680 >> 12))
 			goto err;
 	}
 
