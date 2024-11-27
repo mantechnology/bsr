@@ -8051,7 +8051,8 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 {
 	PVOLUME_BITMAP_BUFFER pVbb = NULL;
 	PVOLUME_BITMAP_BUFFER pBsrBitmap = NULL;
-	ULONG ulConvertedBitmapSize = 0;
+	// BSR-1328
+	LONGLONG ulConvertedBitmapSize = 0;
 	ULONGLONG ullTotalCluster = 0;
 	ULONG ulBytesPerCluster = 0;
 
@@ -8081,7 +8082,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 		else {
 			// Convert gotten bitmap into 4kb unit cluster bitmap.
 			ullTotalCluster = (ullTotalCluster * ulBytesPerCluster) / ulBsrBitmapUnit;
-			ulConvertedBitmapSize = (ULONG)(ullTotalCluster / BITS_PER_BYTE);
+			ulConvertedBitmapSize = (LONGLONG)(ullTotalCluster / BITS_PER_BYTE);
 
 			if (bsr_bm_bits(device) != ullTotalCluster)
 				bsr_info(231, BSR_LC_RESYNC_OV, device, "The bitmap size of the file system and BSR does not match. bsr(%llu), fs(%llu)", bsr_bm_bits(device), ullTotalCluster);
@@ -8091,7 +8092,7 @@ PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulB
 			pBsrBitmap = (PVOLUME_BITMAP_BUFFER)bsr_kvmalloc(sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize, GFP_ATOMIC|__GFP_NOWARN);
 #endif
 			if (NULL == pBsrBitmap) {
-				bsr_err(54, BSR_LC_MEMORY, device, "Failed to get bsr bitmap due to failure to allocated %d size memory for converted bitmap", (sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize));
+				bsr_err(54, BSR_LC_MEMORY, device, "Failed to get bsr bitmap due to failure to allocated %lld size memory for converted bitmap", (sizeof(VOLUME_BITMAP_BUFFER) + ulConvertedBitmapSize));
 				break;
 			}
 
