@@ -2812,6 +2812,9 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	bsr_free_peer_req(peer_req);
 	peer_req = NULL;
 
+	// BSR-1399
+	verify_progress(peer_device, sector, size, true);
+
 	// BSR-997
 	if (!is_skipped) {
 		if (!eq)
@@ -2819,7 +2822,6 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 		else
 			ov_out_of_sync_print(peer_device, false);
 
-		verify_progress(peer_device, sector, size, true);
 		err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, size,
 				eq ? ID_IN_SYNC : ID_OUT_OF_SYNC);
 		
