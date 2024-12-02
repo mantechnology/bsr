@@ -5643,6 +5643,9 @@ static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
 	int res = 0;
 
 	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
+	// BSR-1427 check that the peer node is in a stable state.
+	if (!bsr_inspect_resync_side(peer_device, L_SYNC_TARGET, NOW, false))
+		return SS_CW_FAILED_BY_PEER;
 
 	rv = change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_T, CS_SERIALIZE);
 
