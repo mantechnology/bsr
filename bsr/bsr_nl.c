@@ -6877,6 +6877,19 @@ int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	peer_device = adm_ctx.peer_device;
 	device = peer_device->device;
 
+
+	// BSR-1412
+	if (device->resource->node_opts.target_only) {
+		retcode = ERR_LOCAL_TARGET_ONLY;
+		goto out;
+	}
+
+	if (!bsr_inspect_resync_side(peer_device, L_VERIFY_S, NOW, false)) {
+		retcode = ERR_NODE_UNSTABLE;
+		goto out;
+	}
+
+
 	/* resume from last known position, if possible */
 	parms.ov_start_sector = peer_device->ov_start_sector;
 	parms.ov_stop_sector = ULLONG_MAX;

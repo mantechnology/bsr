@@ -245,6 +245,8 @@ enum bsr_ret_code {
 	// BSR-1393
 	ERR_LOCAL_TARGET_ONLY = 179,
 	ERR_PEER_TARGET_ONLY = 180,
+	// BSR-1412
+	ERR_NODE_UNSTABLE = 181,
 	/* insert new ones above this line */
 	AFTER_LAST_ERR_CODE
 };

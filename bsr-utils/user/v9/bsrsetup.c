@@ -729,6 +729,8 @@ static const char *error_messages[] = {
 	// BSR-1393
 	EM(ERR_LOCAL_TARGET_ONLY) = "Failed because the local node is set to target-only.",
 	EM(ERR_PEER_TARGET_ONLY) = "Failed because the peer node is set to target-only.",
+	// BSR-1412
+	EM(ERR_NODE_UNSTABLE) = "Failed because it is node unstable",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 
