@@ -6488,6 +6488,14 @@ static void bsr_resync_authoritative(struct bsr_peer_device *peer_device, enum b
 	hg = bsr_handshake(peer_device, &rule_nr, &peer_node_id, false);
 
 	if (abs(hg) >= 100)	{
+		// BSR-1430
+		struct bsr_device *device = peer_device->device;
+		if (hg == -200 && peer_device->device->resource->role[NOW] == R_PRIMARY) {
+			bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+			peer_device->connection->last_error = C_SYNC_TARGET_PRIMARY;;
+			change_cstate_ex(peer_device->connection, C_DISCONNECTING, CS_HARD);
+		}
+
 		// BSR-1408
 		if (abs(hg) == 200) {
 			bsr_err(243, BSR_LC_RESYNC_OV, peer_device, "Unable to start resync because the target only property is set. hg(%d), rule(%d)", hg, rule_nr);
@@ -6601,14 +6609,6 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 			if (hg == -3 || hg == -2) {
 				struct bsr_resource *resource = device->resource;
 				unsigned long irq_flags;
-
-				// BSR-1430
-				if (hg == -2 && resource->role[NOW] == R_PRIMARY) {
-					bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
-					peer_device->connection->last_error = C_SYNC_TARGET_PRIMARY;;
-					put_ldev(__FUNCTION__, device);
-					return -EOPNOTSUPP;
-				}
 
 				begin_state_change(resource, &irq_flags, CS_VERBOSE);
 				if (device->disk_state[NEW] > D_OUTDATED)
