@@ -5510,7 +5510,9 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		}
 	} 
 	// BSR-735 when executing discard-my-data, if peer is primary, it becomes SyncTarget even if it is not split-brain.
-	else if ((hg <= -2 || hg >= 2) &&
+	else if ((hg <= -2 || hg >= 2 ||
+		// BSR-1430 the target-only setup node must also operate in accordance with the applicable conditions.
+		hg == -200) &&
 		(device->resource->role[NOW] == R_PRIMARY || connection->peer_role[NOW] == R_PRIMARY)) {
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags)) {
 			if (connection->peer_role[NOW] == R_PRIMARY && !(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
