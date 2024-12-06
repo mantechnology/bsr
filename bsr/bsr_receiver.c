@@ -5504,9 +5504,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		}
 	} 
 	// BSR-735 when executing discard-my-data, if peer is primary, it becomes SyncTarget even if it is not split-brain.
-	else if ((hg <= -2 || hg >= 2 ||
-		// BSR-1430 the target-only setup node must also operate in accordance with the applicable conditions.
-		hg == -200) &&
+	else if ((hg <= -2 || hg >= 2) &&
 		(device->resource->role[NOW] == R_PRIMARY || connection->peer_role[NOW] == R_PRIMARY)) {
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags)) {
 			if (connection->peer_role[NOW] == R_PRIMARY && !(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
@@ -5552,9 +5550,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		return -1;
 	}
 
-	if ((hg <= -2 
-		// BSR-1430
-		|| hg == -200) && /* by intention we do not use disk_state here. */
+	if (hg <= -2 && /* by intention we do not use disk_state here. */
 	    device->resource->role[NOW] == R_PRIMARY && device->disk_state[NOW] >= D_CONSISTENT) {
 		switch (rr_conflict) {
 		case ASB_CALL_HELPER:
@@ -6606,6 +6602,14 @@ static int __receive_uuids(struct bsr_peer_device *peer_device, u64 node_mask)
 				struct bsr_resource *resource = device->resource;
 				unsigned long irq_flags;
 
+				// BSR-1430
+				if (hg == -2 && resource->role[NOW] == R_PRIMARY) {
+					bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
+					peer_device->connection->last_error = C_SYNC_TARGET_PRIMARY;;
+					put_ldev(__FUNCTION__, device);
+					return -EOPNOTSUPP;
+				}
+
 				begin_state_change(resource, &irq_flags, CS_VERBOSE);
 				if (device->disk_state[NEW] > D_OUTDATED)
 					__change_disk_state(device, D_OUTDATED, __FUNCTION__);
@@ -6758,7 +6762,10 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 	peer_device->uuids_received = true;
 
 	err = __receive_uuids(peer_device, be64_to_cpu(p->node_mask));
-
+	if (err == -EOPNOTSUPP) {
+		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+		return err;
+	}
 	// DW-1306 to avoid race with removing flag in sanitize_state(Linux bsr commit:7d60f61). with got stable flag, need resync after unstable to be triggered.
 	if (be64_to_cpu(p->uuid_flags) & UUID_FLAG_GOT_STABLE &&
 		// DW-891
