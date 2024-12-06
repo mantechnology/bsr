@@ -4901,6 +4901,11 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 	*rule_nr = 50;
 	peer = peer_device->bitmap_uuids[node_id] & ~UUID_PRIMARY;
 	if (self == peer) {
+		// BSR-1430
+		if (device->resource->role[NOW] == R_PRIMARY && peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY) {
+			bsr_info(246, BSR_LC_RESYNC_OV, device, "The local UUID and the relative bitmap UUID are the same, but the local is promoted and the opponent is in target-only state, so it is split brain. rule(%d), res(100)", *rule_nr);
+			return 100;
+		}
 		bsr_info(198, BSR_LC_RESYNC_OV, device, "The local current UUID is the same as the peer bitmap UUID. rule(%d), res(-2)", *rule_nr);
 		return -2;
 	}
