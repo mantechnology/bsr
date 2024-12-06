@@ -5552,7 +5552,9 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		return -1;
 	}
 
-	if (hg <= -2 && /* by intention we do not use disk_state here. */
+	if ((hg <= -2 
+		// BSR-1430
+		|| hg == -200) && /* by intention we do not use disk_state here. */
 	    device->resource->role[NOW] == R_PRIMARY && device->disk_state[NOW] >= D_CONSISTENT) {
 		switch (rr_conflict) {
 		case ASB_CALL_HELPER:
