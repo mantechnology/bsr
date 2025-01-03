@@ -5489,6 +5489,20 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 			return -1;
 		}
 
+		// BSR-1440
+		if (test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
+			(peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)) {
+			connection->last_error = C_DISCARD_MY_DATA;
+			bsr_err(36, BSR_LC_CONNECTION, connection, "The local node has set discard-my-data but cannot connect because the peer node is dedicated to the target-only.", "discard-my-data");
+			return -1;
+		}
+		if (device->resource->node_opts.target_only &&
+			(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA)) {
+			connection->last_error = C_DISCARD_MY_DATA;
+			bsr_err(37, BSR_LC_CONNECTION, connection, "The peer node has set discard-my-data, but cannot connect because the local node is target-only.", "discard-my-data");
+			return -1;
+		}
+
 		if (test_bit(DISCARD_MY_DATA, &peer_device->flags) &&
 		    !(peer_device->uuid_flags & UUID_FLAG_DISCARD_MY_DATA))
 			hg = -2;
