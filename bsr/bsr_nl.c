@@ -3814,6 +3814,9 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 	// RCU_SPECIAL_CASE
 	ExReleaseSpinLockShared(&g_rcuLock, oldIrql_rLock1);
+
+	// BSR-1444 if the attach target volume is in a readonly state, release it.
+	ChangeVolumeReadonly(device->minor, false);
 #else // _LIN
 	rcu_read_unlock();
 #endif

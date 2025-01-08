@@ -962,6 +962,22 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 	return 0;
 }
 
+// BSR-1444
+int cmd_release_readonly(int *index, int argc, char* argv[])
+{
+	int minor = 0;
+
+	(*index)++;
+	if (*index < argc) {
+		minor = atoi(argv[(*index)++]);
+		return MVOL_ReleaseReadonly(minor);
+	}
+	else
+		usage(false);
+
+	return 0;
+}
+
 int cmd_all_cmd_usage(int *index, int argc, char* argv[])
 {
 	usage(true);
@@ -993,6 +1009,8 @@ static struct cmd_struct commands[] = {
 #ifdef _WIN
 	// BSR-1060
 	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(millisecond)}", "", "1", false },
+	// BSR-1444 remove the readonly set in the GPT meta.
+	{ "/release_readonly", cmd_release_readonly, "{minor}", "", "1", false },
 #ifdef _DEBUG_OOS
 	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", true },
 	{ "/search_oos_log", cmd_search_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", true },

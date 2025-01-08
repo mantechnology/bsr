@@ -128,6 +128,10 @@ IOCTL_HoldState(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 NTSTATUS
 IOCTL_FakeALUsed(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 
+// BSR-1444
+NTSTATUS 
+IOCTL_ReleaseReadonly(PDEVICE_OBJECT DeviceObject, PIRP Irp);
+
 NTSTATUS
 IOCTL_GetBsrLog(PDEVICE_OBJECT DeviceObject, PIRP Irp, ULONG* size);
 

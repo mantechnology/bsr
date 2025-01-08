@@ -576,6 +576,23 @@ long IOCTL_FakeALUsed(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	return 0;
 }
 
+// BSR-1444
+NTSTATUS IOCTL_ReleaseReadonly(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	ULONG		inlen;
+	PIO_STACK_LOCATION	irpSp = IoGetCurrentIrpStackLocation(Irp);
+	inlen = irpSp->Parameters.DeviceIoControl.InputBufferLength;
+	int minor;
+
+	if (Irp->AssociatedIrp.SystemBuffer) {
+		minor = *(int*)Irp->AssociatedIrp.SystemBuffer;
+		if (!ChangeVolumeReadonly(minor, false))
+			return STATUS_UNSUCCESSFUL;
+	}
+
+	return STATUS_SUCCESS;
+}
+
 NTSTATUS IOCTL_Panic(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	ULONG		inlen;
