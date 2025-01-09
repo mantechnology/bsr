@@ -656,6 +656,7 @@ int cmd_release_vol(int *index, int argc, char* argv[])
 	int ret = ERROR_SUCCESS;
 	char* resName = NULL;
 	bool force = false;
+	int minor = 0;
 
 	(*index)++;
 	if ((*index) < argc) {
@@ -673,9 +674,14 @@ int cmd_release_vol(int *index, int argc, char* argv[])
 	} else 
 		usage(false);
 
-	printf(" ==> Destroys the meta data of volume letter %c! <==\n", letter);
+
+	minor = (letter > 'a') ? letter - 'c' : letter - 'C';
+	printf(" ==> Destroys the meta data of volume letter %c(%d)! <==\n", letter, minor);
 	if (!confirmed("The volume release unlocks the volume and destroy the meta data.\nDo you really want to release volume?\n", force))
 		return ret;
+
+	// BSR-1444
+	MVOL_ReleaseReadonly(minor);
 
 	ret = MVOL_MountVolume(letter);
 	if (ERROR_SUCCESS == ret) {
@@ -962,6 +968,22 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 	return 0;
 }
 
+// BSR-1444
+int cmd_release_readonly(int *index, int argc, char* argv[])
+{
+	int minor = 0;
+
+	(*index)++;
+	if (*index < argc) {
+		minor = atoi(argv[(*index)++]);
+		return MVOL_ReleaseReadonly(minor);
+	}
+	else
+		usage(false);
+
+	return 0;
+}
+
 int cmd_all_cmd_usage(int *index, int argc, char* argv[])
 {
 	usage(true);
@@ -993,6 +1015,8 @@ static struct cmd_struct commands[] = {
 #ifdef _WIN
 	// BSR-1060
 	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(millisecond)}", "", "1", false },
+	// BSR-1444 remove the readonly set in the GPT meta.
+	{ "/release_readonly", cmd_release_readonly, "{minor}", "", "1", true },
 #ifdef _DEBUG_OOS
 	{ "/convert_oos_log", cmd_convert_oos_log, "{source file path}", "", "C:\\Program Files\\bsr\\log", true },
 	{ "/search_oos_log", cmd_search_oos_log, "{source file path} {sector}", "", "\"C:\\Program Files\\bsr\\log\" 10240000", true },

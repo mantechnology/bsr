@@ -1826,6 +1826,36 @@ DWORD MVOL_FakeALUsed(int al_used_count)
 	return retVal;
 }
 
+// BSR-1444
+#ifdef _WIN
+DWORD MVOL_ReleaseReadonly(int minor)
+{
+	HANDLE      hDevice = INVALID_HANDLE_VALUE;
+	DWORD       dwReturned = 0;
+	DWORD		dwControlCode = 0;
+	DWORD       retVal = ERROR_SUCCESS;
+
+	hDevice = OpenDevice(MVOL_DEVICE);
+	if (hDevice == INVALID_HANDLE_VALUE) {
+		retVal = GetLastError();
+		fprintf(stderr, "RELEASE_READONLY__ERROR: %s: Failed open bsr. Err=%u\n",
+			__FUNCTION__, retVal);
+		return retVal;
+	}
+
+	if (DeviceIoControl(hDevice, IOCTL_MVOL_RELEASE_READONLY, &minor, sizeof(minor), NULL, 0, &dwReturned, NULL) == FALSE) {
+		retVal = GetLastError();
+		fprintf(stderr, "RELEASE_READONLY__ERROR: %s: Failed IOCTL_MVOL_RELEASE_READONLY. Err=%u\n",
+			__FUNCTION__, retVal);
+	}
+
+	if (hDevice != INVALID_HANDLE_VALUE) {
+		CloseHandle(hDevice);
+	}
+	return retVal;
+}
+#endif
+
 // BSR-1072
 DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force, char* cert)
 {

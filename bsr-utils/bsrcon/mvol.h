@@ -8,6 +8,9 @@
 #endif
 
 #ifdef _WIN
+// BSR-1444
+DWORD MVOL_ReleaseReadonly(int minor);
+
 DWORD MVOL_GetVolumeInfo( CHAR DriveLetter, PMVOL_VOLUME_INFO pVolumeInfo );
 extern DWORD MVOL_GetVolumesInfo(BOOLEAN verbose);
 
