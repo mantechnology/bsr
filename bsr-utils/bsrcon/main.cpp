@@ -452,6 +452,22 @@ int cmd_search_oos_log(int *index, int argc, char* argv[])
 #endif
 
 #ifdef _WIN
+// BSR-1444
+int cmd_release_readonly(int *index, int argc, char* argv[])
+{
+	int minor = 0;
+
+	(*index)++;
+	if (*index < argc) {
+		minor = atoi(argv[(*index)++]);
+		return MVOL_ReleaseReadonly(minor);
+	}
+	else
+		usage(false);
+
+	return 0;
+}
+
 // BSR-71
 int cmd_bsrlock_use(int *index, int argc, char* argv[])
 {
@@ -965,22 +981,6 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 	else
 		usage(false);
 	
-	return 0;
-}
-
-// BSR-1444
-int cmd_release_readonly(int *index, int argc, char* argv[])
-{
-	int minor = 0;
-
-	(*index)++;
-	if (*index < argc) {
-		minor = atoi(argv[(*index)++]);
-		return MVOL_ReleaseReadonly(minor);
-	}
-	else
-		usage(false);
-
 	return 0;
 }
 
