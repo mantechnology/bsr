@@ -1386,6 +1386,11 @@ struct bsr_backing_dev {
 	struct bdev_handle *backing_bdev_handle;
 	struct bdev_handle *md_bdev_handle;
 #endif
+	// BSR-1452 added variables to support bdev over file
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	struct file *backing_bdev_file;
+	struct file *md_bdev_file;
+#endif
 	struct block_device *backing_bdev;
 	struct block_device *md_bdev;
 	struct bsr_md md;

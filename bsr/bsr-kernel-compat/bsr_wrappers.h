@@ -422,6 +422,8 @@ typedef unsigned __bitwise__ fmode_t;
 #ifndef COMPAT_HAVE_BLKDEV_GET_BY_PATH
 // BSR-1376
 #ifndef COMPAT_HAVE_BLKDEV_GET_BY_PATH_4_PARAMS
+// BSR-1452
+#ifndef COMPAT_HAVE_BLKDEV_FILE
 #ifndef COMPAT_HAVE_BLKDEV_HANDLE
 /* see kernel 2.6.37,
  * d4d7762 block: clean up blkdev_get() wrappers and their users
@@ -484,6 +486,13 @@ static inline int bsr_blkdev_put(struct block_device *bdev, fmode_t mode)
 	return 0;
 }
 #define blkdev_put(b, m)	bsr_blkdev_put(b, m)
+#else
+// BSR-1376
+#ifndef FMODE_EXCL
+#define FMODE_EXCL 0
+#endif
+#endif
+// BSR-1452
 #else
 // BSR-1376
 #ifndef FMODE_EXCL
