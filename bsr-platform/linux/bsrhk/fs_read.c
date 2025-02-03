@@ -65,9 +65,15 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	
 #ifdef COMPAT_HAVE_BD_SUPER
 	if(bdev->bd_super) {
+		// BSR-1360
 		// journal log flush
+#ifdef COMPAT_FREEZE_BDEV_RETURNS_INT
+        if(freeze_bdev(bdev))
+            goto close;
+#else
 		if(IS_ERR(freeze_bdev(bdev)))
 			goto close;
+#endif
 		freezed = true;
 		// meta flush
 		if(fsync_bdev(bdev))
