@@ -79,9 +79,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 		if(fsync_bdev(bdev))
 			goto close;
 		invalidate_bdev(bdev);
-	} else {
-		goto close;
-	}
+	} 
 #else
 	// BSR-1360 based on kernel 6.8, bd_holder has super_block set.
 	sb = (struct super_block *)(bdev->bd_holder);
@@ -90,9 +88,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 			goto close;
 		freezed = true;
 		invalidate_bdev(bdev);
-	} else { 
-		goto close;
-	}
+	} 
 #endif
 
 	super_block = read_superblock(fd);
