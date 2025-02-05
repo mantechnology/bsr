@@ -62,7 +62,7 @@ installed kernel.
 # and have yum/rpm figure out via dependencies, which kmod version should be installed.
 # This is a dirty hack, non generic, and should probably be enclosed in some "if-on-rhel6".
 # BSR-861 modified to use the appropriate preamble according to uek
-%define _this_uek_kmp_version %(echo %kernel_version | sed -n 's/.*el\(.*\)/\1/p' | grep 'uek')
+%define _this_uek_kmp_version %(echo %kernel_version | grep -o 'uek.*' || echo '')
 %define _this_kmp_version %{version}_%(echo %kernel_version | sed -r 'y/-/_/; s/\.el.\.(x86_64|i.86)$//;')
 %if %{defined _this_uek_kmp_version} && "%{_this_uek_kmp_version}" != ""
 %kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble-uek
