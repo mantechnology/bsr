@@ -1631,18 +1631,17 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 				set_bit(EXPLICIT_PRIMARY, &resource->flags);
 #ifdef _WIN
 				resource->bPreSecondaryLock = FALSE;
+				// BSR-1463
+				idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+					PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
+					if (pvext)
+						SetBsrlockIoBlock(pvext, FALSE);
+				}
 #endif
 			}
 			else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 				goto fail;
 
-#ifdef _WIN
-			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
-				PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
-				if (pvext)
-					SetBsrlockIoBlock(pvext, FALSE);
-			}
-#endif
 			bsr_info(94, BSR_LC_ETC, resource, "Promoted due to persist-role setting.");
 		}
 	}
@@ -1707,25 +1706,25 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 #ifdef _WIN
 			adm_ctx.resource->bPreSecondaryLock = FALSE;
 #endif
+			// BSR-1463 unblock I/O block on promotion and set persist role
+			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+#ifdef _WIN
+				PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
+				if (pvext)
+					SetBsrlockIoBlock(pvext, FALSE);
+#endif
+				// BSR-1411
+				if (!adm_ctx.resource->node_opts.target_only) {
+					// BSR-1392
+					bsr_md_set_flag(device, MDF_WAS_PRIMARY);
+					bsr_md_sync(device);
+				}
+			}
 		}
 		else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 			goto fail;
 		else if (retcode == SS_TARGET_ONLY)
 			goto fail;
-
-		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
-#ifdef _WIN
-			PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
-			if (pvext)
-				SetBsrlockIoBlock(pvext, FALSE);
-#endif
-			// BSR-1411
-			if (!adm_ctx.resource->node_opts.target_only) {
-				// BSR-1392
-				bsr_md_set_flag(device, MDF_WAS_PRIMARY);
-				bsr_md_sync(device);
-			}
-		}
 	}
 	else {
 #ifdef _WIN_MVFL
