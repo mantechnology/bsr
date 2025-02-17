@@ -3513,17 +3513,9 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 
-	// BSR-1453 in the event of an I/O error, set ldev temporarily for reference to current settings.
-	if (device->ldev == NULL) 
-		device->ldev = nbc;
-
 	/* Read our meta data super block early.
 	 * This also sets other on-disk offsets. */
 	retcode = bsr_md_read(device, nbc);
-
-	// BSR-1453
-	if (device->ldev == nbc) 
-		device->ldev = NULL;
 
 	if (retcode != ERR_NO)
 		goto fail;

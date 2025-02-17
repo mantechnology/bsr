@@ -3602,10 +3602,18 @@ static inline void __bsr_chk_io_error_(struct bsr_device *device,
 	int max_passthrough_cnt = 0;
 	bool do_detach = false;
 
-	rcu_read_lock();
-	ep = rcu_dereference(device->ldev->disk_conf)->on_io_error;
-	max_passthrough_cnt = rcu_dereference(device->ldev->disk_conf)->max_passthrough_count;
-	rcu_read_unlock();
+	// BSR-1453 
+	if(device->ldev) {
+		rcu_read_lock();
+		ep = rcu_dereference(device->ldev->disk_conf)->on_io_error;
+		max_passthrough_cnt = rcu_dereference(device->ldev->disk_conf)->max_passthrough_count;
+		rcu_read_unlock();
+	} else {
+		// BSR-1453 if ldev is not set, set the following values.
+		ep = EP_PASSTHROUGH;
+		max_passthrough_cnt = 0;
+	}
+	
 	switch (ep) {
 		// DW-1755
 	case EP_PASSTHROUGH:
