@@ -820,33 +820,71 @@ FILE *bsr_open_log()
 
 // BSR-1378
 #ifdef _WIN
-#include <tlhelp32.h>
-#include <psapi.h>  
+#include <winternl.h>
 
-int get_parent_pid(int pid)
-{
-	HANDLE hSnapshot;
-	PROCESSENTRY32 pe32;
-	int ppid = 0;
+// BSR-1465
+#define STATUS_SUCCESS 0
+#define STATUS_INFO_LENGTH_MISMATCH ((NTSTATUS)0xC0000004L)
+#define SystemProcessInformation 5
 
-	hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-	if (hSnapshot == INVALID_HANDLE_VALUE) {
-		return 0;
-	}
+typedef NTSTATUS (NTAPI *PFN_ZwQuerySystemInformation)(
+    ULONG SystemInformationClass,
+    PVOID SystemInformation,
+    ULONG SystemInformationLength,
+    PULONG ReturnLength
+);
 
-	pe32.dwSize = sizeof(PROCESSENTRY32);
+int get_parent_pid(int pid) {
+    NTSTATUS status;
+    ULONG size = 0x10000;
+	char *buffer  = NULL;
+    PFN_ZwQuerySystemInformation ZwQuerySystemInformation;
+    int ppid = 0;
+	int try_cnt = 0;
 
-	if (Process32First(hSnapshot, &pe32)) {
-		do {
-			if (pe32.th32ProcessID == pid) {
-				ppid = pe32.th32ParentProcessID; 
-				break;
-			}
-		} while (Process32Next(hSnapshot, &pe32));
-	}
+    ZwQuerySystemInformation = (PFN_ZwQuerySystemInformation)GetProcAddress(
+        GetModuleHandleA("ntdll.dll"), "ZwQuerySystemInformation");
+    if (!ZwQuerySystemInformation) {
+        return 0;
+    }
 
-	CloseHandle(hSnapshot);
-	return ppid;
+    do {
+        buffer = (char*)malloc(size);
+        if (!buffer) {
+            return 0;
+        }
+        memset(buffer, 0, size);
+        status = ZwQuerySystemInformation(SystemProcessInformation, buffer, size, &size);
+		try_cnt++;
+        if (status == STATUS_INFO_LENGTH_MISMATCH) {
+			free(buffer);
+			buffer = (char*)malloc(size);
+			if (buffer != NULL)
+				memset(buffer, 0, size);
+			else 
+				return 0;
+		}
+    } while (status != STATUS_SUCCESS && try_cnt < 3);
+
+    if (!NT_SUCCESS(status)) {
+		free(buffer);
+        return 0;
+    }
+
+    SYSTEM_PROCESS_INFORMATION *spi = (SYSTEM_PROCESS_INFORMATION *)buffer;
+    while (spi) {
+        if ((DWORD)(ULONG_PTR)spi->UniqueProcessId == pid) {
+            ppid = (DWORD)(ULONG_PTR)spi->InheritedFromUniqueProcessId;
+            break;
+        }
+        if (!spi->NextEntryOffset) {
+            break;
+        }
+        spi = (SYSTEM_PROCESS_INFORMATION *)((BYTE *)spi + spi->NextEntryOffset);
+    }
+
+    free(buffer);
+    return ppid;
 }
 
 void get_process_name_by_pid(DWORD pid, char *name, size_t size)
@@ -858,6 +896,7 @@ void get_process_name_by_pid(DWORD pid, char *name, size_t size)
 			char *p = strrchr(name, '\\');
 			if (p != NULL) {
 				strcpy(name, p + 1);
+                name[size - 1] = '\0';
 			}
 		}
 		CloseHandle(hProcess);
@@ -958,28 +997,30 @@ long bsr_log_format(char* b, const char* func, int line, enum cli_log_level leve
 	ppid = getppid();
 #endif
 
-	// BSR-1378 prints parent and grandparent processes. Up to 10
-	if (ppid != end_ppid)
-		offset += snprintf(b + offset, 512 - offset, "[ppids:");
+	if(ppid) {
+		// BSR-1378 prints parent and grandparent processes. Up to 10
+		if (ppid != end_ppid)
+			offset += snprintf(b + offset, 512 - offset, "[ppids:");
 
-	while (ppid != end_ppid) {
-		parent_cnt++;
-		get_process_name_by_pid(ppid, process_name, sizeof(process_name));
-		offset += snprintf(b + offset, 512 - offset, "%s(%d)", process_name, ppid);
-		ppid = get_parent_pid(ppid);
+		while (ppid != end_ppid) {
+			parent_cnt++;
+			get_process_name_by_pid(ppid, process_name, sizeof(process_name));
+			offset += snprintf(b + offset, 512 - offset, "%s(%d)", process_name, ppid);
+			ppid = get_parent_pid(ppid);
 
-		// BSR-1378 stop when duplicate pids are found.
-		for (i = 0; i < parent_cnt; i++) {
-			if (ppid == ppids[i]) {
-				ppid = end_ppid;
-				break;
+			// BSR-1378 stop when duplicate pids are found.
+			for (i = 0; i < parent_cnt; i++) {
+				if (ppid == ppids[i]) {
+					ppid = end_ppid;
+					break;
+				}
 			}
-		}
 
-		if (ppid != end_ppid && parent_cnt < MAX_PARENT_PID_COUNT)
-			offset += snprintf(b + offset, 512 - offset, ",");
-		else
-			offset += snprintf(b + offset, 512 - offset, "]");
+			if (ppid != end_ppid && parent_cnt < MAX_PARENT_PID_COUNT)
+				offset += snprintf(b + offset, 512 - offset, ",");
+			else
+				offset += snprintf(b + offset, 512 - offset, "]");
+		}
 	}
 
 	// BSR-622
