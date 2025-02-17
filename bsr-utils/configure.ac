@@ -13,7 +13,7 @@ m4_include([m4/AX_CXX_COMPILE_STDXX.m4])
 m4_include([m4/AX_CXX_COMPILE_STDXX_11.m4])
 
 dnl What we are, our version, who to bug in case of problems
-AC_INIT(BSR, 1.7.4.0, [bsr@mantech.co.kr])
+AC_INIT(BSR, 1.7.4.1, [bsr@mantech.co.kr])
 
 dnl Sanitize $prefix. Autoconf does this by itself, but so late in the
 dnl generated configure script that the expansion does not occur until
