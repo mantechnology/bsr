@@ -1018,8 +1018,10 @@ long bsr_log_format(char* b, const char* func, int line, enum cli_log_level leve
 
 			if (ppid != end_ppid && parent_cnt < MAX_PARENT_PID_COUNT)
 				offset += snprintf(b + offset, 512 - offset, ",");
-			else
+			else {
 				offset += snprintf(b + offset, 512 - offset, "]");
+				break;
+			}
 		}
 	}
 
