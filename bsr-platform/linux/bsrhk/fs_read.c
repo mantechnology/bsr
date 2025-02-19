@@ -35,7 +35,11 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	mm_segment_t old_fs = get_fs();
 #endif
 	struct block_device *bdev = NULL;
-	
+// BSR-1466
+#ifndef COMPAT_HAVE_BD_SUPER
+	struct super_block *sb;
+#endif
+	bool freezed = false;
 	sprintf(disk_name, "/dev/bsr%d", device->minor);
 #ifdef COMPAT_HAVE_SET_FS
 	set_fs(KERNEL_DS);
@@ -57,15 +61,30 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	if (bdev == NULL)
 		goto out;
 	
+#ifdef COMPAT_HAVE_BD_SUPER
 	if(bdev->bd_super) {
 		// journal log flush
-		freeze_bdev(bdev);
-	
+#ifdef COMPAT_FREEZE_BDEV_RETURNS_INT
+		if(freeze_bdev(bdev))
+#else
+		if(IS_ERR(freeze_bdev(bdev)))
+#endif
+			goto close;
+		freezed = true;
 		// meta flush
 		fsync_bdev(bdev);
 		invalidate_bdev(bdev);
 	}
-
+#else
+	// BSR-1466
+	sb = (struct super_block *)(bdev->bd_holder);
+	if(sb && (sb->s_bdev == bdev)) {
+		if(freeze_super(sb, FREEZE_HOLDER_KERNEL))
+			goto close;
+		freezed = true;
+		invalidate_bdev(bdev);
+	}
+#endif
 	super_block = read_superblock(fd);
 	if (super_block == NULL) {		
 		goto close;
@@ -99,8 +118,13 @@ close:
 	set_fs(old_fs);
 #endif
 
-	if(bdev->bd_super) {
+	if(freezed) {
+// BSR-1466
+#ifdef COMPAT_HAVE_BD_SUPER
 		thaw_bdev(bdev, bdev->bd_super);
+#else
+		thaw_super(sb, FREEZE_HOLDER_KERNEL);
+#endif
 	}
 
 #if defined(COMPAT_HAVE_BDGRAB) || defined(COMPAT_HAVE_HD_STRUCT)
