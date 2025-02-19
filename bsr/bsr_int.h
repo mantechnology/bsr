@@ -1381,7 +1381,7 @@ struct bsr_md {
 };
 
 struct bsr_backing_dev {
-	// BSR-1452 added variables to support bdev over file
+	// BSR-1466 added variables to support bdev over file
 #ifdef COMPAT_HAVE_BLKDEV_FILE
 	struct file *backing_bdev_file;
 	struct file *md_bdev_file;

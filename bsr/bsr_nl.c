@@ -298,7 +298,12 @@ static void log_for_netlink_cli_done(const u8 cmd)
 static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	struct sk_buff *skb, struct genl_info *info, unsigned flags)
 {
+// BSR-1466
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	struct bsr_genlmsghdr *d_in = (struct bsr_genlmsghdr *)genl_info_userhdr(info);
+#else
 	struct bsr_genlmsghdr *d_in = info->userhdr;
+#endif
 	const u8 cmd = info->genlhdr->cmd;
 	int err;
 
@@ -2724,7 +2729,12 @@ static void bsr_try_suspend_al(struct bsr_device *device)
 
 static bool should_set_defaults(struct genl_info *info)
 {
+// BSR-1466
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	unsigned flags = ((struct bsr_genlmsghdr*)genl_info_userhdr(info))->flags;
+#else
 	unsigned flags = ((struct bsr_genlmsghdr*)info->userhdr)->flags;
+#endif
 	return 0 != (flags & BSR_GENL_F_SET_DEFAULTS);
 }
 
@@ -3022,7 +3032,7 @@ static struct block_device *open_backing_dev(
 	struct block_device *bdev;
 	// BSR-1466
 #ifdef COMPAT_HAVE_BLKDEV_FILE
-struct file *file;
+	struct file *file;
 #endif
 	int err = 0;
 	int retry = 0;
@@ -3077,12 +3087,12 @@ retry:
 	err = bd_claim_by_disk(bdev, claim_ptr, device->vdisk);
 #endif
 	if (err) {
-				// BSR-1466
+	// BSR-1466
 #ifdef COMPAT_HAVE_BLKDEV_FILE
-fput(file);
-bsr_err(141, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
-	bdev_path, err);
-file = ERR_PTR(err);
+	fput(file);
+	bsr_err(141, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
+		bdev_path, err);
+	file = ERR_PTR(err);
 #else
 // BSR-1376
 #ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
@@ -3093,8 +3103,8 @@ file = ERR_PTR(err);
 		bsr_err(141, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
 				bdev_path, err);
 		bdev = ERR_PTR(err);
-	}
 #endif
+	}
 #if 0 // DW-1510 The bd_contains value is not appropriate when the device size is updated. Return bdev.
 #ifdef _WIN
 	if (bdev->bd_contains) {
@@ -7153,7 +7163,12 @@ void device_to_info(struct device_info *info,
 int bsr_adm_new_minor(struct sk_buff *skb, struct genl_info *info)
 {
 	struct bsr_config_context adm_ctx;
+// BSR-1466
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	struct bsr_genlmsghdr *dh = (struct bsr_genlmsghdr *)genl_info_userhdr(info);
+#else
 	struct bsr_genlmsghdr *dh = info->userhdr;
+#endif	
 	struct device_conf device_conf;
 	struct bsr_resource *resource;
 	struct bsr_device *device;
