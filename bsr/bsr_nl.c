@@ -298,7 +298,12 @@ static void log_for_netlink_cli_done(const u8 cmd)
 static int bsr_adm_prepare(struct bsr_config_context *adm_ctx,
 	struct sk_buff *skb, struct genl_info *info, unsigned flags)
 {
+// BSR-1466
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	struct bsr_genlmsghdr *d_in = (struct bsr_genlmsghdr *)genl_info_userhdr(info);
+#else
 	struct bsr_genlmsghdr *d_in = info->userhdr;
+#endif
 	const u8 cmd = info->genlhdr->cmd;
 	int err;
 
@@ -2724,7 +2729,12 @@ static void bsr_try_suspend_al(struct bsr_device *device)
 
 static bool should_set_defaults(struct genl_info *info)
 {
+// BSR-1466
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	unsigned flags = ((struct bsr_genlmsghdr*)genl_info_userhdr(info))->flags;
+#else
 	unsigned flags = ((struct bsr_genlmsghdr*)info->userhdr)->flags;
+#endif
 	return 0 != (flags & BSR_GENL_F_SET_DEFAULTS);
 }
 
@@ -3011,15 +3021,35 @@ struct bsr_backing_dev *nbc)
 	bsr_err(105, BSR_LC_BITMAP, peer_device, "Failed to allocate bitmap index due to not enough free bitmap slots");
 	return -ENOSPC;
 }
-
-static struct block_device *open_backing_dev(struct bsr_device *device,
-		const char *bdev_path, void *claim_ptr, bool do_bd_link)
+// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+static struct file *open_backing_dev(
+#else
+static struct block_device *open_backing_dev(
+#endif
+	struct bsr_device *device, const char *bdev_path, void *claim_ptr, bool do_bd_link)
 {
 	struct block_device *bdev;
+	// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	struct file *file;
+#endif
 	int err = 0;
 	int retry = 0;
 
 retry:
+// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	file = bdev_file_open_by_path(bdev_path, BLK_OPEN_READ | BLK_OPEN_WRITE, claim_ptr, NULL);
+	if (IS_ERR(file)) {
+		bsr_err(140, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device with %ld",
+			bdev_path, PTR_ERR(file));
+		return file;
+	}
+	if (!do_bd_link)
+		return file;
+	bdev = file_bdev(file);
+#else
 #ifdef _WIN
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr, false);
 #else // _LIN
@@ -3049,6 +3079,7 @@ retry:
 #endif
 	if (!do_bd_link)
 		return bdev;
+#endif
 
 #if   defined(COMPAT_HAVE_BD_UNLINK_DISK_HOLDER)
 	err = bd_link_disk_holder(bdev, device->vdisk);
@@ -3056,6 +3087,13 @@ retry:
 	err = bd_claim_by_disk(bdev, claim_ptr, device->vdisk);
 #endif
 	if (err) {
+	// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	fput(file);
+	bsr_err(141, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
+		bdev_path, err);
+	file = ERR_PTR(err);
+#else
 // BSR-1376
 #ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
 		blkdev_put(bdev, claim_ptr);
@@ -3065,6 +3103,7 @@ retry:
 		bsr_err(141, BSR_LC_DRIVER, device, "Failed to open(\"%s\") backing device due to bd_link_disk_holder() with %d",
 				bdev_path, err);
 		bdev = ERR_PTR(err);
+#endif
 	}
 #if 0 // DW-1510 The bd_contains value is not appropriate when the device size is updated. Return bdev.
 #ifdef _WIN
@@ -3073,20 +3112,34 @@ retry:
 	}
 #endif
 #endif
-	return bdev;
-}
 
+	// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	return file;
+#else
+	return bdev;
+#endif
+}
 static int open_backing_devices(struct bsr_device *device,
 		struct disk_conf *new_disk_conf,
 		struct bsr_backing_dev *nbc)
 {
 	struct block_device *bdev;
-
+// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	struct file *file;
+	file = open_backing_dev(device, new_disk_conf->backing_dev, device, true);
+	if (IS_ERR(file))
+		return ERR_OPEN_DISK;
+	nbc->backing_bdev_file = file;
+	bdev = file_bdev(file);
+#else
 	bdev = open_backing_dev(device, new_disk_conf->backing_dev, device, true);
 	if (IS_ERR(bdev))
 		return ERR_OPEN_DISK;
-	
+#endif
 	nbc->backing_bdev = bdev;
+	
 #ifdef _WIN
 	// DW-1277 mark that this will be using as replication volume.
 	set_bit(VOLUME_TYPE_REPL, &bdev->bd_disk->pDeviceExtension->Flag);
@@ -3099,8 +3152,13 @@ static int open_backing_devices(struct bsr_device *device,
 	 * other bsr minor!  (if you use bsr.conf + bsradm, that
 	 * should check it for you already; but if you don't, or
 	 * someone fooled it, we need to double check here)
-	 */
+	 */	
+// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	file = open_backing_dev(device, new_disk_conf->meta_dev,
+#else
 	bdev = open_backing_dev(device, new_disk_conf->meta_dev,
+#endif
 		/* claim ptr: device, if claimed exclusively; shared bsr_m_holder,
 		 * if potentially shared with other bsr minors */
 			(new_disk_conf->meta_dev_idx < 0) ? (void*)device : (void*)bsr_m_holder,
@@ -3108,8 +3166,17 @@ static int open_backing_devices(struct bsr_device *device,
 		 * as would happen with internal metadata. */
 			(new_disk_conf->meta_dev_idx != BSR_MD_INDEX_FLEX_INT &&
 			 new_disk_conf->meta_dev_idx != BSR_MD_INDEX_INTERNAL));
+
+// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	if (IS_ERR(file))
+		return ERR_OPEN_MD_DISK;
+	nbc->md_bdev_file = file;
+	bdev = file_bdev(file);
+#else
 	if (IS_ERR(bdev))
 		return ERR_OPEN_MD_DISK;
+#endif
 	nbc->md_bdev = bdev;
 #ifdef _WIN
 	// DW-1277 mark that this will be using as meta volume.
@@ -3118,14 +3185,26 @@ static int open_backing_devices(struct bsr_device *device,
 #endif
 	return ERR_NO;
 }
-
+// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+static void close_backing_dev(struct bsr_device *device, struct file *file, 
+#else
 static void close_backing_dev(struct bsr_device *device, struct block_device *bdev,
+#endif
 	// BSR-1376
 #ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
 	void *holder,
 #endif
 	bool do_bd_unlink)
 {
+		// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	struct block_device *bdev;
+	if (!file)
+		return;
+	bdev = file_bdev(file);
+#endif
+
 	UNREFERENCED_PARAMETER(device);
 
 	if (!bdev)
@@ -3137,11 +3216,16 @@ static void close_backing_dev(struct bsr_device *device, struct block_device *bd
 		bd_release_from_disk(bdev, device->vdisk);
 #endif
 	}
+// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	fput(file);
+#else
 // BSR-1376
 #ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
 	blkdev_put(bdev, holder);
 #else
 	blkdev_put(bdev, FMODE_READ | FMODE_WRITE | FMODE_EXCL);
+#endif
 #endif
 }
 
@@ -3156,15 +3240,24 @@ void bsr_backing_dev_free(struct bsr_device *device, struct bsr_backing_dev *lde
 		bd->bd_disk->private_data = NULL;
 	}
 #endif
-
+// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	close_backing_dev(device, ldev->md_bdev_file,
+#else
 	close_backing_dev(device, ldev->md_bdev,
+#endif
 		// BSR-1376
 #ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
 		(rcu_dereference(device->ldev->disk_conf)->meta_dev_idx < 0) ? (void*)device : (void*)bsr_m_holder, 
 #endif
 		ldev->md_bdev != ldev->backing_bdev);
 
+	// BSR-1466
+#ifdef COMPAT_HAVE_BLKDEV_FILE
+	close_backing_dev(device, ldev->backing_bdev_file,
+#else
 	close_backing_dev(device, ldev->backing_bdev,
+#endif
 		// BSR-1376
 #ifdef COMPAT_HAVE_BLKDEV_PUT_PARAM_HOLDER
 		(void*)device,
@@ -7070,7 +7163,12 @@ void device_to_info(struct device_info *info,
 int bsr_adm_new_minor(struct sk_buff *skb, struct genl_info *info)
 {
 	struct bsr_config_context adm_ctx;
+// BSR-1466
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	struct bsr_genlmsghdr *dh = (struct bsr_genlmsghdr *)genl_info_userhdr(info);
+#else
 	struct bsr_genlmsghdr *dh = info->userhdr;
+#endif	
 	struct device_conf device_conf;
 	struct bsr_resource *resource;
 	struct bsr_device *device;
