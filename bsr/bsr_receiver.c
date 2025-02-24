@@ -10063,11 +10063,11 @@ void conn_disconnect(struct bsr_connection *connection)
  *
  * for now, they are expected to be zero, but ignored.
  */
-static int bsr_send_features(struct bsr_connection *connection)
+static int bsr_send_features(struct bsr_connection *connection, bsr_stream stream)
 {
 	struct p_connection_features *p;
 
-	p = __conn_prepare_command(connection, sizeof(*p), DATA_STREAM);
+	p = __conn_prepare_command(connection, sizeof(*p), stream);
 	if (!p)
 		return -EIO;
 	memset(p, 0, sizeof(*p));
@@ -10076,7 +10076,7 @@ static int bsr_send_features(struct bsr_connection *connection)
 	p->sender_node_id = cpu_to_be32(connection->resource->res_opts.node_id);
 	p->receiver_node_id = cpu_to_be32(connection->peer_node_id);
 	p->feature_flags = cpu_to_be32(PRO_FEATURES);
-	return __send_command(connection, -1, P_CONNECTION_FEATURES, DATA_STREAM);
+	return __send_command(connection, -1, P_CONNECTION_FEATURES, stream);
 }
 
 /*
@@ -10095,7 +10095,7 @@ int bsr_do_features(struct bsr_connection *connection)
 	struct packet_info pi;
 	int err;
 
-	err = bsr_send_features(connection);
+	err = bsr_send_features(connection, DATA_STREAM);
 	if (err){
 		bsr_debug_conn("fail bsr_send_feature err = %d", err); 
 		return 0;
@@ -10172,6 +10172,60 @@ int bsr_do_features(struct bsr_connection *connection)
 		}
 		if (be32_to_cpu(p->receiver_node_id) != resource->res_opts.node_id) {
 			bsr_err(54, BSR_LC_PROTOCOL, connection, "Failed to recevie features packet due to peer expects me to have a node_id of %d instead of %d",
+				 be32_to_cpu(p->receiver_node_id), resource->res_opts.node_id);
+			return 0;
+		}
+	}
+
+	// BSR-1471 
+	if (connection->agreed_pro_version >= 117) {
+		struct bsr_transport *transport = &connection->transport;
+		struct bsr_transport_ops *tr_ops = transport->ops;
+		int rflags = 0;
+		void *buffer;
+
+		err = bsr_send_features(connection, CONTROL_STREAM);
+		if (err){
+			bsr_err(71, BSR_LC_PROTOCOL, connection,"fail bsr_send_features err = %d", err); 
+			return 0;
+		}
+		err = tr_ops->recv(transport, CONTROL_STREAM, &buffer, bsr_header_size(connection), rflags);
+		if (err != bsr_header_size(connection)) {
+			bsr_err(72, BSR_LC_PROTOCOL, connection,"fail header err %d", err);
+			if (err == -EAGAIN)
+				bsr_err(73, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features header packet due to timeout while waiting for feature packet");
+			return 0;
+		}
+
+		err = decode_header(connection, buffer, &pi);
+
+		if (pi.cmd != P_CONNECTION_FEATURES) {
+			bsr_err(74, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features packet due to expected ConnectionFeatures packet, received: %s (0x%04x)",
+				 bsr_packet_name(pi.cmd), pi.cmd);
+			return -1;
+		}
+	
+		if (pi.size != (unsigned int)expect) {
+			bsr_err(75, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features packet due to expected ConnectionFeatures length: %u, received: %u",
+				 expect, pi.size);
+			return -1;
+		}
+		err = tr_ops->recv(transport, CONTROL_STREAM, (void **)&p, expect, rflags);
+		if (err != expect) {
+			bsr_err(76, BSR_LC_PROTOCOL, connection,"fail data err %d", err);
+			if (err == -EAGAIN)
+				bsr_err(77, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features packet due to timeout while waiting for feature packet");
+			return 0;
+		}
+
+		if (be32_to_cpu(p->sender_node_id) != connection->peer_node_id) {
+			bsr_err(78, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features packet due to peer presented a node_id of %d instead of %d",
+				 be32_to_cpu(p->sender_node_id), connection->peer_node_id);
+			return 0;
+		}
+		
+		if (be32_to_cpu(p->receiver_node_id) != resource->res_opts.node_id) {
+			bsr_err(79, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features packet due to peer expects me to have a node_id of %d instead of %d",
 				 be32_to_cpu(p->receiver_node_id), resource->res_opts.node_id);
 			return 0;
 		}
