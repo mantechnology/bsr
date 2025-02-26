@@ -149,13 +149,13 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		struct ext_group_desc group_desc= {0,};
 		unsigned int used = 0;
 		unsigned int free = 0;
-		unsigned int first_block = 0;
-		unsigned int last_block = 0;
+		ULONGLONG first_block = 0;
+		ULONGLONG last_block = 0;
 		bool block_uninit = false;
 		unsigned long long bg_block_bitmap;
 		unsigned int bg_free_blocks_count;
 		
-		first_block = group_no * blocks_per_group + first_data_block;
+		first_block = (ULONGLONG)group_no * blocks_per_group + first_data_block;
 		last_block = first_block + (blocks_per_group - 1);
 		if (last_block > total_block - 1) {
 			last_block = total_block - 1;
@@ -185,7 +185,7 @@ PVOLUME_BITMAP_BUFFER read_ext_bitmap(struct file *fd, struct ext_super_block *e
 		}
 		
 		if (debug_fast_sync) {
-			bsr_info(79, BSR_LC_BITMAP, NO_OBJECT, "Group %u (Blocks %u ~ %u) ", group_no, first_block, last_block);
+			bsr_info(79, BSR_LC_BITMAP, NO_OBJECT, "Group %u (Blocks %llu ~ %llu) ", group_no, first_block, last_block);
 			bsr_info(80, BSR_LC_BITMAP, NO_OBJECT, "block bitmap : %llu", bg_block_bitmap);
 			bsr_info(81, BSR_LC_BITMAP, NO_OBJECT, "block bitmap offset : %llu", bg_block_bitmap * bytes_per_block);
 		}
