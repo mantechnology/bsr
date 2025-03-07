@@ -608,6 +608,101 @@ Return Value:
     return STATUS_SUCCESS;
 }
 
+#include <ntddk.h>
+#include <fltkernel.h>
+#include <ntdddisk.h>  
+
+// BSR-1468
+NTSTATUS GetPartitionSizeFromVolume(
+    _In_ PFLT_VOLUME Volume,
+    _Out_ ULONGLONG *PartitionSize
+    )
+{
+    NTSTATUS status;
+    PDEVICE_OBJECT diskDeviceObject = NULL;
+    IO_STATUS_BLOCK ioStatus;
+    KEVENT event;
+    PIRP irp = NULL;
+    PARTITION_INFORMATION_EX partInfo = {0};  
+
+    status = FltGetDiskDeviceObject(Volume, &diskDeviceObject);
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+
+    KeInitializeEvent(&event, NotificationEvent, FALSE);
+    irp = IoBuildDeviceIoControlRequest(
+        IOCTL_DISK_GET_PARTITION_INFO_EX,  
+        diskDeviceObject,
+        NULL,
+        0,
+        &partInfo,
+        sizeof(partInfo),
+        FALSE,
+        &event,
+        &ioStatus);
+    if (irp == NULL) {
+        ObDereferenceObject(diskDeviceObject);
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    status = IoCallDriver(diskDeviceObject, irp);
+    if (status == STATUS_PENDING) {
+        KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
+        status = ioStatus.Status;
+    }
+
+    if (NT_SUCCESS(status)) {
+        *PartitionSize = partInfo.PartitionLength.QuadPart; 
+    }
+
+    ObDereferenceObject(diskDeviceObject);
+    return status;
+}
+
+// BSR-1468
+NTSTATUS GetSectorSizeFromVolume(PFLT_INSTANCE Instance, PFILE_OBJECT FileObject, ULONG *SectorSize) 
+{
+  NTSTATUS status;
+  DISK_GEOMETRY diskGeometry;
+  ULONG bytesReturned;
+
+  status = FltDeviceIoControlFile(Instance, 
+                                  FileObject, 
+                                  IOCTL_DISK_GET_DRIVE_GEOMETRY, 
+                                  NULL, 0, 
+                                  &diskGeometry, sizeof(DISK_GEOMETRY), 
+                                  &bytesReturned);
+
+  if (NT_SUCCESS(status)) {
+      *SectorSize = diskGeometry.BytesPerSector;
+      return STATUS_SUCCESS;
+  }
+
+  return status;
+}
+
+
+NTSTATUS GetFileSystemSize(PFLT_INSTANCE Instance, ULONGLONG *fsSize) {
+    NTSTATUS status;
+    IO_STATUS_BLOCK ioStatus;
+    FILE_FS_SIZE_INFORMATION fsSizeInfo;
+    
+    status = FltQueryVolumeInformation( Instance,
+                                        &ioStatus,             
+                                        &fsSizeInfo,            
+                                        sizeof(fsSizeInfo),     
+                                        FileFsSizeInformation);
+
+    if (NT_SUCCESS(status)) {
+       *fsSize = fsSizeInfo.TotalAllocationUnits.QuadPart * fsSizeInfo.SectorsPerAllocationUnit;
+        // *fsSize = fsSizeInfo.TotalAllocationUnits.QuadPart * fsSizeInfo.SectorsPerAllocationUnit * fsSizeInfo.BytesPerSector;
+        // *freeSpace = fsSizeInfo.AvailableAllocationUnits.QuadPart * fsSizeInfo.SectorsPerAllocationUnit * fsSizeInfo.BytesPerSector;
+    } 
+
+    return status;
+}
+
 
 /*************************************************************************
     MiniFilter callback routines.
@@ -677,9 +772,34 @@ Return Value:
 				status = FltGetDiskDeviceObject(FltObjects->Volume, &pDiskDev);
 
 				if (NT_SUCCESS(status)) {
-					ResizeBsrVolume(pDiskDev);
-				}
+          ULONGLONG partitionSize = 0;
+          ULONG sectorSize = 0;
+          ULONGLONG partitionPerSector = 0;
+          NTSTATUS callBsrResize = STATUS_UNSUCCESSFUL;
+          ULONGLONG extendSize = 0;
+          ULONGLONG currentFsSize = 0;
 
+          ;
+          if(Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer != NULL) {
+            extendSize = *(ULONGLONG*)Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer;
+            if(NT_SUCCESS(GetPartitionSizeFromVolume(FltObjects->Volume, &partitionSize)) &&
+              NT_SUCCESS(GetSectorSizeFromVolume(FltObjects->Instance, Data->Iopb->TargetFileObject, &sectorSize)) &&
+              NT_SUCCESS(GetFileSystemSize(FltObjects->Instance, &currentFsSize))) {
+              partitionPerSector = partitionSize / sectorSize;
+              DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "current fs size : %llu, extend size : %llu, partition size : %llu, sector size : %u\n", 
+                currentFsSize, extendSize, partitionSize, sectorSize);
+              if(partitionPerSector != 0 && extendSize == partitionPerSector && currentFsSize != extendSize) {
+                // BSR-1468 resize bsr only when the file system size is equal to the partition size.
+                callBsrResize = STATUS_SUCCESS;
+              }
+            } else {
+              // BSR-1468 if the information is not imported properly, we judge it as an exception and resize the bsr.
+              callBsrResize = STATUS_SUCCESS;
+            }
+            if(NT_SUCCESS(callBsrResize))
+              ResizeBsrVolume(pDiskDev);
+          }
+				}
 			}
 
 			break;
