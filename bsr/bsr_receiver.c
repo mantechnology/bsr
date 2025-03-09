@@ -10190,7 +10190,7 @@ int bsr_do_features(struct bsr_connection *connection)
 			return 0;
 		}
 		err = tr_ops->recv(transport, CONTROL_STREAM, &buffer, bsr_header_size(connection), rflags);
-		if (err != bsr_header_size(connection)) {
+		if (err != (int)bsr_header_size(connection)) {
 			bsr_err(72, BSR_LC_PROTOCOL, connection,"fail header err %d", err);
 			if (err == -EAGAIN)
 				bsr_err(73, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features header packet due to timeout while waiting for feature packet");

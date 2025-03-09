@@ -3809,6 +3809,10 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	else
 		clear_bit(CRASHED_PRIMARY, &device->flags);
 
+	// BSR-1482
+	if (!resource->res_opts.persist_role)
+		bsr_md_clear_flag(device, MDF_WAS_PRIMARY);
+
 	if (bsr_md_test_flag(device, MDF_PRIMARY_IND) &&
 	    !(resource->role[NOW] == R_PRIMARY && resource->susp_nod[NOW]) &&
 	    !device->exposed_data_uuid && !test_bit(NEW_CUR_UUID, &device->flags)) {
