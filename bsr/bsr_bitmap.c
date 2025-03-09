@@ -1006,7 +1006,8 @@ int bsr_bm_resize(struct bsr_device *device, sector_t capacity, int flags)
 			ULONG_PTR bm_set = b->bm_set[bitmap_index];
 
 			// BSR-1327 
-			start_obits = obits;
+			// BSR-1485
+			start_obits = end_obits = obits;
 			do {
 				// BSR-1327 set the bitmap to a size of up to 1TB.
 				end_obits += RANGE_NEXT_BIT;
