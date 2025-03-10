@@ -44,4 +44,8 @@ ResizeBsrVolume(
 	PDEVICE_OBJECT pDeviceObject
 	);
 
-
+NTSTATUS 
+	CustomBsrLog(
+	const char * format, 
+	...
+)	;

@@ -1095,54 +1095,74 @@ Return Value:
 --*/	
 {
 	UNREFERENCED_PARAMETER(Context);
-	UNREFERENCED_PARAMETER(Argument2);
 
-	PBSR_VOLUME_CONTROL pVolume = (PBSR_VOLUME_CONTROL)Argument1;
+	PBSR_CALLBACK_COMMAND pCommand;
+	PBSR_VOLUME_CONTROL pVolume;
 
-	if (pVolume == NULL) {
+	if (Argument1 == NULL || 
+		Argument2 == NULL) {
 		// invalid parameter.
-		bsr_err(30, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to volume control is not allocate");
+		bsr_err(30, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to command is not allocate");
 		return;
 	}
 
-	PDEVICE_OBJECT pDeviceObject = pVolume->pVolumeObject;
+	pCommand = (PBSR_CALLBACK_COMMAND)Argument1;
 
-	PVOLUME_EXTENSION VolumeExtension = mvolSearchVolExtention(pDeviceObject);
-	
-	if (VolumeExtension == NULL) {
-		bsr_err(31, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to cannot find volume, PDO(0x%p)", pDeviceObject);
+	// BSR-1468
+	if(pCommand->magic != 'BSR') {
+		// invalid caller
+		bsr_err(165, BSR_LC_DRIVER, NO_OBJECT, "Called due to unknown caller.");
 		return;
 	}
 
-	bsr_info(32, BSR_LC_DRIVER, NO_OBJECT, "volume [%ws] is extended.", VolumeExtension->PhysicalDeviceName);
-
-	unsigned long long new_size = get_targetdev_volsize(VolumeExtension);
-	
-	if (VolumeExtension->dev->bd_contains) {
-		VolumeExtension->dev->bd_contains->d_size = new_size;
-		VolumeExtension->dev->bd_disk->queue->max_hw_sectors = new_size ? (new_size >> 9) : BSR_MAX_BIO_SIZE;
-	}
-	
-	if (VolumeExtension->Active) {	
-		struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
-
-		if (device) {
-			int err = 0;
-			
-
-			bsr_suspend_io(device, WRITE_ONLY);
-			bsr_set_my_capacity(device, new_size >> 9);
-			
-			err = bsr_resize(device);
-
-			if (err) {
-				bsr_err(33, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to bsr resize failed. err(%d)", err);
-			}
-			bsr_resume_io(device);
-
-			kref_put(&device->kref, bsr_destroy_device);
+	switch(pCommand->command) {
+	case BSR_CALLBACK_COMMAND_RESIZE:
+		pVolume = (PBSR_VOLUME_CONTROL)Argument2;
+		PDEVICE_OBJECT pDeviceObject = pVolume->pVolumeObject;
+		PVOLUME_EXTENSION VolumeExtension = mvolSearchVolExtention(pDeviceObject);
+		
+		if (VolumeExtension == NULL) {
+			bsr_err(31, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to cannot find volume, PDO(0x%p)", pDeviceObject);
+			return;
 		}
+
+		bsr_info(32, BSR_LC_DRIVER, NO_OBJECT, "volume [%ws] is extended.", VolumeExtension->PhysicalDeviceName);
+
+		unsigned long long new_size = get_targetdev_volsize(VolumeExtension);
+		
+		if (VolumeExtension->dev->bd_contains) {
+			VolumeExtension->dev->bd_contains->d_size = new_size;
+			VolumeExtension->dev->bd_disk->queue->max_hw_sectors = new_size ? (new_size >> 9) : BSR_MAX_BIO_SIZE;
+		}
+		
+		if (VolumeExtension->Active) {	
+			struct bsr_device *device = get_device_with_vol_ext(VolumeExtension, TRUE);
+
+			if (device) {
+				int err = 0;
+
+				bsr_suspend_io(device, WRITE_ONLY);
+				bsr_set_my_capacity(device, new_size >> 9);
+				
+				err = bsr_resize(device);
+
+				if (err) {
+					bsr_err(33, BSR_LC_DRIVER, NO_OBJECT, "Failed to call back function bsr due to bsr resize failed. err(%d)", err);
+				}
+				bsr_resume_io(device);
+
+				kref_put(&device->kref, bsr_destroy_device);
+			}
+		}
+		break;	
+	case BSR_CALLBACK_COMMAND_LOG:
+		bsr_info(165, BSR_LC_DRIVER, NO_OBJECT, "%s", (char*)Argument2);
+		break;
+	default:
+		bsr_info(166, BSR_LC_DRIVER, NO_OBJECT, "invailed command. %d", pCommand->command);
+		break;
 	}
+
 }
 
 NTSTATUS 

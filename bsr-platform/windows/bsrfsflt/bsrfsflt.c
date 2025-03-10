@@ -608,6 +608,77 @@ Return Value:
     return STATUS_SUCCESS;
 }
 
+#include <ntddk.h>
+#include <fltkernel.h>
+#include <ntdddisk.h>  
+
+// BSR-1468
+NTSTATUS GetPartitionSizeFromVolume(
+    _In_ PFLT_VOLUME Volume,
+    _Out_ ULONGLONG *PartitionSize
+    )
+{
+    NTSTATUS status;
+    PDEVICE_OBJECT diskDeviceObject = NULL;
+    IO_STATUS_BLOCK ioStatus;
+    KEVENT event;
+    PIRP irp = NULL;
+    PARTITION_INFORMATION_EX partInfo = {0};  
+
+    status = FltGetDiskDeviceObject(Volume, &diskDeviceObject);
+    if (!NT_SUCCESS(status)) {
+        return status;
+    }
+
+    KeInitializeEvent(&event, NotificationEvent, FALSE);
+    irp = IoBuildDeviceIoControlRequest(
+        IOCTL_DISK_GET_PARTITION_INFO_EX,  
+        diskDeviceObject,
+        NULL,
+        0,
+        &partInfo,
+        sizeof(partInfo),
+        FALSE,
+        &event,
+        &ioStatus);
+    if (irp == NULL) {
+        ObDereferenceObject(diskDeviceObject);
+        return STATUS_INSUFFICIENT_RESOURCES;
+    }
+
+    status = IoCallDriver(diskDeviceObject, irp);
+    if (status == STATUS_PENDING) {
+        KeWaitForSingleObject(&event, Executive, KernelMode, FALSE, NULL);
+        status = ioStatus.Status;
+    }
+
+    if (NT_SUCCESS(status)) {
+        *PartitionSize = partInfo.PartitionLength.QuadPart; 
+    }
+
+    ObDereferenceObject(diskDeviceObject);
+    return status;
+}
+
+NTSTATUS GetFileSystemVolumeSize(PFLT_INSTANCE Instance, ULONGLONG *fsSize, ULONG *sectorSize) {
+    NTSTATUS status;
+    IO_STATUS_BLOCK ioStatus;
+    FILE_FS_SIZE_INFORMATION fsSizeInfo;
+    
+    status = FltQueryVolumeInformation( Instance,
+                                        &ioStatus,             
+                                        &fsSizeInfo,            
+                                        sizeof(fsSizeInfo),     
+                                        FileFsSizeInformation);
+
+    if (NT_SUCCESS(status)) {
+       *fsSize = fsSizeInfo.TotalAllocationUnits.QuadPart * fsSizeInfo.SectorsPerAllocationUnit * fsSizeInfo.BytesPerSector;
+       *sectorSize = fsSizeInfo.BytesPerSector;
+    } 
+
+    return status;
+}
+
 
 /*************************************************************************
     MiniFilter callback routines.
@@ -677,11 +748,41 @@ Return Value:
 				status = FltGetDiskDeviceObject(FltObjects->Volume, &pDiskDev);
 
 				if (NT_SUCCESS(status)) {
-					ResizeBsrVolume(pDiskDev);
-				}
+          ULONGLONG partitionSize = 0;
+          ULONG sectorSize = 0;
+          NTSTATUS callBsrResize = STATUS_UNSUCCESSFUL;
+          ULONGLONG extendSize = 0, extendBytePerSector = 0;
+          ULONGLONG currentFsSize = 0;
 
+          if(Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer != NULL) {
+            extendBytePerSector = *(ULONGLONG*)Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer;;
+            status = GetPartitionSizeFromVolume(FltObjects->Volume, &partitionSize);
+            if(NT_SUCCESS(status)) {
+              status = GetFileSystemVolumeSize(FltObjects->Instance, &currentFsSize, &sectorSize);
+              if(NT_SUCCESS(status)) {
+                extendSize = extendBytePerSector * sectorSize;
+                CustomBsrLog("%s, current fs size : %llubyte, fs extend size : %llubyte, partition size : %llubyte, fs sector size : %ubyte", 
+                  __FUNCTION__ , currentFsSize, extendSize, partitionSize, sectorSize);
+                if(partitionSize != 0 && extendSize == partitionSize && currentFsSize != extendSize) {
+                  // BSR-1468 resize bsr only when the file system size is equal to the partition size.
+                  callBsrResize = STATUS_SUCCESS;
+                }
+              } else {
+                CustomBsrLog("%s, Failed to current file system size %x, %llus, %llu", __FUNCTION__, status, extendBytePerSector, partitionSize);
+                callBsrResize = STATUS_SUCCESS;
+              }
+            } else {
+              CustomBsrLog("%s, Failed to partition size %x, %llus", __FUNCTION__, status, extendBytePerSector);
+              callBsrResize = STATUS_SUCCESS;
+            }
+            if(NT_SUCCESS(callBsrResize))
+              ResizeBsrVolume(pDiskDev);
+          } else 
+           CustomBsrLog("%s, Input buffer empty", __FUNCTION__);
+				} else {
+          CustomBsrLog("%s, Failed to obtain device object from disk %x", __FUNCTION__, status);
+        }
 			}
-
 			break;
 		}
 		// BSR-1152 restore because the VSS operates abnormally due to modifications that prevent volume expansion/shrinkage. 
