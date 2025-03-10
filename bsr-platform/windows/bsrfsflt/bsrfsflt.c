@@ -660,30 +660,7 @@ NTSTATUS GetPartitionSizeFromVolume(
     return status;
 }
 
-// BSR-1468
-NTSTATUS GetSectorSizeFromVolume(PFLT_INSTANCE Instance, PFILE_OBJECT FileObject, ULONG *SectorSize) 
-{
-  NTSTATUS status;
-  DISK_GEOMETRY diskGeometry;
-  ULONG bytesReturned;
-
-  status = FltDeviceIoControlFile(Instance, 
-                                  FileObject, 
-                                  IOCTL_DISK_GET_DRIVE_GEOMETRY, 
-                                  NULL, 0, 
-                                  &diskGeometry, sizeof(DISK_GEOMETRY), 
-                                  &bytesReturned);
-
-  if (NT_SUCCESS(status)) {
-      *SectorSize = diskGeometry.BytesPerSector;
-      return STATUS_SUCCESS;
-  }
-
-  return status;
-}
-
-
-NTSTATUS GetFileSystemSize(PFLT_INSTANCE Instance, ULONGLONG *fsSize) {
+NTSTATUS GetFileSystemVolumeSize(PFLT_INSTANCE Instance, ULONGLONG *fsSize, ULONG *sectorSize) {
     NTSTATUS status;
     IO_STATUS_BLOCK ioStatus;
     FILE_FS_SIZE_INFORMATION fsSizeInfo;
@@ -695,9 +672,8 @@ NTSTATUS GetFileSystemSize(PFLT_INSTANCE Instance, ULONGLONG *fsSize) {
                                         FileFsSizeInformation);
 
     if (NT_SUCCESS(status)) {
-       *fsSize = fsSizeInfo.TotalAllocationUnits.QuadPart * fsSizeInfo.SectorsPerAllocationUnit;
-        // *fsSize = fsSizeInfo.TotalAllocationUnits.QuadPart * fsSizeInfo.SectorsPerAllocationUnit * fsSizeInfo.BytesPerSector;
-        // *freeSpace = fsSizeInfo.AvailableAllocationUnits.QuadPart * fsSizeInfo.SectorsPerAllocationUnit * fsSizeInfo.BytesPerSector;
+       *fsSize = fsSizeInfo.TotalAllocationUnits.QuadPart * fsSizeInfo.SectorsPerAllocationUnit * fsSizeInfo.BytesPerSector;
+       *sectorSize = fsSizeInfo.BytesPerSector;
     } 
 
     return status;
@@ -774,38 +750,29 @@ Return Value:
 				if (NT_SUCCESS(status)) {
           ULONGLONG partitionSize = 0;
           ULONG sectorSize = 0;
-          ULONGLONG partitionPerSector = 0;
           NTSTATUS callBsrResize = STATUS_UNSUCCESSFUL;
-          ULONGLONG extendSize = 0;
+          ULONGLONG extendSize = 0, extendBytePerSector = 0;
           ULONGLONG currentFsSize = 0;
 
           if(Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer != NULL) {
-            extendSize = *(ULONGLONG*)Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer;
+            extendBytePerSector = *(ULONGLONG*)Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer;;
             status = GetPartitionSizeFromVolume(FltObjects->Volume, &partitionSize);
             if(NT_SUCCESS(status)) {
-              status = GetSectorSizeFromVolume(FltObjects->Instance, Data->Iopb->TargetFileObject, &sectorSize);
+              status = GetFileSystemVolumeSize(FltObjects->Instance, &currentFsSize, &sectorSize);
               if(NT_SUCCESS(status)) {
-                status = GetFileSystemSize(FltObjects->Instance, &currentFsSize);
-                if(NT_SUCCESS(status)) {
-                  partitionPerSector = partitionSize / sectorSize;
-                  CustomBsrLog("%s, current fs size : %llus, extend size : %llus, partition size : %llus, sector size : %u", 
-                    __FUNCTION__ , currentFsSize, extendSize, partitionPerSector, sectorSize);
-                  if(partitionPerSector != 0 && extendSize == partitionPerSector && currentFsSize != extendSize) {
-                    // BSR-1468 resize bsr only when the file system size is equal to the partition size.
-                    callBsrResize = STATUS_SUCCESS;
-                  }
-                } else {
-                  CustomBsrLog("%s, Failed to current file system size %x, %llus, %llu, %u", __FUNCTION__, status, extendSize, partitionSize, sectorSize);
-                  partitionPerSector = partitionSize / sectorSize;
-                  if(extendSize == partitionPerSector)
-                   callBsrResize = STATUS_SUCCESS;
+                extendSize = extendBytePerSector * sectorSize;
+                CustomBsrLog("%s, current fs size : %llubyte, fs extend size : %llubyte, partition size : %llubyte, fs sector size : %ubyte", 
+                  __FUNCTION__ , currentFsSize, extendSize, partitionSize, sectorSize);
+                if(partitionSize != 0 && extendSize == partitionSize && currentFsSize != extendSize) {
+                  // BSR-1468 resize bsr only when the file system size is equal to the partition size.
+                  callBsrResize = STATUS_SUCCESS;
                 }
               } else {
-                CustomBsrLog("%s, Failed to partition size %x, %llus, %llu", __FUNCTION__, status, extendSize, partitionSize);
+                CustomBsrLog("%s, Failed to current file system size %x, %llus, %llu", __FUNCTION__, status, extendBytePerSector, partitionSize);
                 callBsrResize = STATUS_SUCCESS;
               }
             } else {
-              CustomBsrLog("%s, Failed to volume sector size %x, %llus", __FUNCTION__, status, extendSize);
+              CustomBsrLog("%s, Failed to partition size %x, %llus", __FUNCTION__, status, extendBytePerSector);
               callBsrResize = STATUS_SUCCESS;
             }
             if(NT_SUCCESS(callBsrResize))
