@@ -779,29 +779,43 @@ Return Value:
           ULONGLONG extendSize = 0;
           ULONGLONG currentFsSize = 0;
 
-          ;
           if(Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer != NULL) {
             extendSize = *(ULONGLONG*)Data->Iopb->Parameters.FileSystemControl.Direct.InputSystemBuffer;
-            if(NT_SUCCESS(GetPartitionSizeFromVolume(FltObjects->Volume, &partitionSize)) &&
-              NT_SUCCESS(GetSectorSizeFromVolume(FltObjects->Instance, Data->Iopb->TargetFileObject, &sectorSize)) &&
-              NT_SUCCESS(GetFileSystemSize(FltObjects->Instance, &currentFsSize))) {
-              partitionPerSector = partitionSize / sectorSize;
-              DbgPrintEx(DPFLTR_DEFAULT_ID, DPFLTR_INFO_LEVEL, "current fs size : %llu, extend size : %llu, partition size : %llu, sector size : %u\n", 
-                currentFsSize, extendSize, partitionSize, sectorSize);
-              if(partitionPerSector != 0 && extendSize == partitionPerSector && currentFsSize != extendSize) {
-                // BSR-1468 resize bsr only when the file system size is equal to the partition size.
+            status = GetPartitionSizeFromVolume(FltObjects->Volume, &partitionSize);
+            if(NT_SUCCESS(status)) {
+              status = GetSectorSizeFromVolume(FltObjects->Instance, Data->Iopb->TargetFileObject, &sectorSize);
+              if(NT_SUCCESS(status)) {
+                status = GetFileSystemSize(FltObjects->Instance, &currentFsSize);
+                if(NT_SUCCESS(status)) {
+                  partitionPerSector = partitionSize / sectorSize;
+                  CustomBsrLog("%s, current fs size : %llus, extend size : %llus, partition size : %llus, sector size : %u", 
+                    __FUNCTION__ , currentFsSize, extendSize, partitionPerSector, sectorSize);
+                  if(partitionPerSector != 0 && extendSize == partitionPerSector && currentFsSize != extendSize) {
+                    // BSR-1468 resize bsr only when the file system size is equal to the partition size.
+                    callBsrResize = STATUS_SUCCESS;
+                  }
+                } else {
+                  CustomBsrLog("%s, Failed to current file system size %x, %llus, %llu, %u", __FUNCTION__, status, extendSize, partitionSize, sectorSize);
+                  partitionPerSector = partitionSize / sectorSize;
+                  if(extendSize == partitionPerSector)
+                   callBsrResize = STATUS_SUCCESS;
+                }
+              } else {
+                CustomBsrLog("%s, Failed to partition size %x, %llus, %llu", __FUNCTION__, status, extendSize, partitionSize);
                 callBsrResize = STATUS_SUCCESS;
               }
             } else {
-              // BSR-1468 if the information is not imported properly, we judge it as an exception and resize the bsr.
+              CustomBsrLog("%s, Failed to volume sector size %x, %llus", __FUNCTION__, status, extendSize);
               callBsrResize = STATUS_SUCCESS;
             }
             if(NT_SUCCESS(callBsrResize))
               ResizeBsrVolume(pDiskDev);
-          }
-				}
+          } else 
+           CustomBsrLog("%s, Input buffer empty", __FUNCTION__);
+				} else {
+          CustomBsrLog("%s, Failed to obtain device object from disk %x", __FUNCTION__, status);
+        }
 			}
-
 			break;
 		}
 		// BSR-1152 restore because the VSS operates abnormally due to modifications that prevent volume expansion/shrinkage. 

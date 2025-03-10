@@ -239,7 +239,7 @@ Return Value:
 }
 
 
-NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
+NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam1, PVOID pParam2)
 {
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 	OBJECT_ATTRIBUTES cboa = { 0, };
@@ -256,7 +256,7 @@ NTSTATUS NotifyCallbackObject(PWSTR pszCallbackName, PVOID pParam)
 	status = ExCreateCallback(&pCallbackObj, &cboa, FALSE, TRUE);
 
 	if (NT_SUCCESS(status)) {
-		ExNotifyCallback(pCallbackObj, pParam, NULL);
+		ExNotifyCallback(pCallbackObj, pParam1, pParam2);
 		ObDereferenceObject(pCallbackObj);
 	}
 	else
@@ -269,13 +269,12 @@ NTSTATUS ResizeBsrVolume(PDEVICE_OBJECT pDeviceObject)
 {
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
 
-
+	BSR_CALLBACK_COMMAND command = { 'BSR', BSR_CALLBACK_COMMAND_RESIZE };
 	BSR_VOLUME_CONTROL volume = { 0, };
 
 	volume.pVolumeObject = pDeviceObject;
 	
-	
-	status = NotifyCallbackObject(BSR_CALLBACK_NAME, &volume);
+	status = NotifyCallbackObject(BSR_CALLBACK_NAME, &command, &volume);
 
 	if (!NT_SUCCESS(status)) {
 		return status;
@@ -284,6 +283,28 @@ NTSTATUS ResizeBsrVolume(PDEVICE_OBJECT pDeviceObject)
 	return status;
 }
 
+
+NTSTATUS CustomBsrLog(const char * format, ...)
+{
+	NTSTATUS status = STATUS_UNSUCCESSFUL;
+	BSR_CALLBACK_COMMAND command = { 'BSR', BSR_CALLBACK_COMMAND_LOG };
+	char logbuf[512];
+	va_list args;
+
+	memset(logbuf, 0, sizeof(logbuf));
+
+	va_start(args, format);
+	_vsnprintf_s(logbuf, sizeof(logbuf), _TRUNCATE, format, args); 
+	va_end(args);
+	
+	status = NotifyCallbackObject(BSR_CALLBACK_NAME, &command, logbuf);
+
+	if (!NT_SUCCESS(status)) {
+		return status;
+	}
+
+	return status;
+}
 
 NTSTATUS
 DefaultIrpDispatch(
