@@ -2595,8 +2595,9 @@ void verify_progress(struct bsr_peer_device *peer_device,
 		peer_device->ov_acked_sector = sector;
 
 	/* let's advance progress step marks only for every other megabyte */
-	if ((peer_device->ov_left & 0x1ff) == 0)
-		bsr_advance_rs_marks(peer_device, peer_device->ov_left);
+	// BSR-1478 exclude the remaining size conditions for periodic presentation of events
+	// if ((peer_device->ov_left & 0x1ff) == 0)
+	bsr_advance_rs_marks(peer_device, peer_device->ov_left);
 		
 	// BSR-997 set RS_DONE if ov_left_sectors is 0 instead of ov_left
 	if (peer_device->ov_left_sectors == 0 || stop_sector_reached) {
@@ -2812,9 +2813,6 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 	bsr_free_peer_req(peer_req);
 	peer_req = NULL;
 
-	// BSR-1399
-	verify_progress(peer_device, sector, size, true);
-
 	// BSR-997
 	if (!is_skipped) {
 		if (!eq)
@@ -2822,9 +2820,9 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 		else
 			ov_out_of_sync_print(peer_device, false);
 
+		verify_progress(peer_device, sector, size, true);
 		err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, size,
 				eq ? ID_IN_SYNC : ID_OUT_OF_SYNC);
-		
 		
 		if ((atomic_read64(&peer_device->ov_split_req_sector) != 0) &&
 			(sector >= (sector_t)atomic_read64(&peer_device->ov_split_reply_sector)) &&
@@ -2840,6 +2838,8 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 
 	}
 	else {
+		// BSR-1478 periodic event notification when processing skip area
+		bsr_advance_rs_marks(peer_device, peer_device->ov_left);
 		// peer needs to receive ack to execute bsr_rs_complete_io()
 		// send P_OV_RESULT for sector, set size to 0
 		err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, 0, ID_IN_SYNC);
