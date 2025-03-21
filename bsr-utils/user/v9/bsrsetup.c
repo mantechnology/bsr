@@ -4652,7 +4652,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 		// BSR-734
 		[NOTIFY_DETECT] = "detect",
 		// BSR-1125
-		[NOTIFY_SYNC] = "sync"
+		[NOTIFY_SYNC] = "sync",
+		// BSR-1470
+		[NOTIFY_OOS] = "change"
 	};
 	static char *object_name[] = {
 		[BSR_RESOURCE_STATE] = "resource",
@@ -4994,7 +4996,9 @@ static int print_notifications(struct bsr_cmd *cm, struct genl_info *info, void 
 				goto nl_out;
 			}
 			old = update_info(&key, &new, sizeof(new));
-			if (action != NOTIFY_SYNC) {
+			if (action != NOTIFY_SYNC &&
+				// BSR-1470
+				action != NOTIFY_OOS) {
 				if (!old || new.i.peer_repl_state != old->i.peer_repl_state) {
 					// BSR-1124
 					if (opt_diff && (action != NOTIFY_EXISTS)) {

@@ -1283,6 +1283,8 @@ ULONG_PTR update_sync_bits(const char* caller, struct bsr_peer_device *peer_devi
 	unsigned long flags = 0;
 	ULONG_PTR count = 0;
 	unsigned int cleared = 0;
+	// BSR-1470
+	ULONG_PTR bm_total = bsr_bm_total_weight(peer_device);
 	while (sbnr <= ebnr) {
 		/* set temporary boundary bit number to last bit number within
 		 * the resync extent of the current start bit number,
@@ -1342,6 +1344,17 @@ ULONG_PTR update_sync_bits(const char* caller, struct bsr_peer_device *peer_devi
 			if ((mode == SET_IN_SYNC && cleared) || rs_is_done) {
 				maybe_schedule_on_disk_bitmap_update(peer_device, rs_is_done);
 			}
+		} 
+
+		// BSR-1470 forward "change peer-device" event in case of OOS trigger (new/release).
+		if((mode == SET_OUT_OF_SYNC && 0 == bm_total && bsr_bm_total_weight(peer_device)) ||
+			(mode == SET_IN_SYNC && bm_total && 0 == bsr_bm_total_weight(peer_device))) {
+			// set the NEW information in the peer_device state to prevent redundant state output.
+			mutex_lock(&notification_mutex);
+			// NOTIFY_OOS does not initialize because it does not use peer_device_info.
+			struct peer_device_info peer_device_info;
+			notify_peer_device_state(NULL, 0, peer_device, &peer_device_info, NOTIFY_OOS);
+			mutex_unlock(&notification_mutex);
 		}
 
 		wake_up(&device->al_wait);
