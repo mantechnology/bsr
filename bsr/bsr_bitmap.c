@@ -1574,6 +1574,11 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
+			if(i && (i % 10000 == 0)) {
+ 				while(atomic_read(&ctx->in_flight) > 1) {
+					msleep(1);
+				}
+			}			
 			cond_resched();
 		}
 	} else if (flags & BM_AIO_WRITE_HINTED) {
@@ -1597,6 +1602,12 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
+			if(hint && (hint % 10000 == 0)) {
+ 				while(atomic_read(&ctx->in_flight) > 1) {
+					msleep(1);
+				}
+			}			
+			cond_resched();
 		}
 	} else {
 		for (i = start_page; i <= end_page; i++) {
@@ -1621,6 +1632,11 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
+			if(i && (i % 10000 == 0)) {
+ 				while(atomic_read(&ctx->in_flight) > 1) {
+					msleep(1);
+				}
+			}			
 			cond_resched();
 		}
 	}
