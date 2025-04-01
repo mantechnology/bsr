@@ -1574,6 +1574,7 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
+			// BSR-1494 prevent excessive asynchronous I/O requests
 			if(i && (i % 10000 == 0)) {
  				while(atomic_read(&ctx->in_flight) > 1) {
 					msleep(1);
@@ -1602,6 +1603,7 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
+			// BSR-1494
 			if(hint && (hint % 10000 == 0)) {
  				while(atomic_read(&ctx->in_flight) > 1) {
 					msleep(1);
@@ -1632,6 +1634,7 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
+			// BSR-1494
 			if(i && (i % 10000 == 0)) {
  				while(atomic_read(&ctx->in_flight) > 1) {
 					msleep(1);
