@@ -1483,6 +1483,28 @@ no_memory :
 	return -ENOMEM;
 }
 
+
+void wait_pre_async_io_done_or_force_detached(struct bsr_device *device, struct bsr_backing_dev *bdev,
+	struct bsr_bm_aio_ctx *ctx)
+{
+	long dt;
+
+	rcu_read_lock();
+	dt = rcu_dereference(bdev->disk_conf)->disk_timeout;
+	rcu_read_unlock();
+	dt = dt * HZ / 10;
+	if (dt == 0)
+	dt = MAX_SCHEDULE_TIMEOUT;
+
+	wait_event_timeout_ex(device->misc_wait, 
+		atomic_read(&ctx->in_flight) > 1 || test_bit(FORCE_DETACH, &device->flags), dt, dt);
+
+	if (dt == 0) {
+		bsr_err(65, BSR_LC_IO, device, "The meta-disk I/O timeout sets the detach state.");
+		bsr_chk_io_error(device, 1, BSR_FORCE_DETACH);
+	}
+}
+
 /**
  * bm_rw_range() - read/write the specified range of bitmap pages
  * @device: bsr device this bitmap is associated with
@@ -1574,7 +1596,11 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
-			cond_resched();
+			// BSR-1494 prevent excessive asynchronous I/O requests
+			if(i && (i % 10000 == 0)) 
+				wait_pre_async_io_done_or_force_detached(device, device->ldev, ctx);
+			else
+				cond_resched();
 		}
 	} else if (flags & BM_AIO_WRITE_HINTED) {
 		/* ASSERT: BM_AIO_WRITE_ALL_PAGES is not set. */
@@ -1597,6 +1623,11 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
+			// BSR-1494
+			if(hint && (hint % 10000 == 0)) 
+				wait_pre_async_io_done_or_force_detached(device, device->ldev, ctx);
+			else
+				cond_resched();
 		}
 	} else {
 		for (i = start_page; i <= end_page; i++) {
@@ -1621,7 +1652,11 @@ static int bm_rw_range(struct bsr_device *device,
 				break;
 			}
 			++count;
-			cond_resched();
+			// BSR-1494
+			if(i && (i % 10000 == 0)) 
+				wait_pre_async_io_done_or_force_detached(device, device->ldev, ctx);		
+			else
+				cond_resched();
 		}
 	}
 
