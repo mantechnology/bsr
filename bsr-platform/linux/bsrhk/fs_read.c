@@ -4,12 +4,14 @@
 #include <linux/buffer_head.h>
 #include "ext_fs.h"
 #include "xfs_fs.h"
+#include "btrfs_fs.h"
 
-static char * read_superblock(struct file *fd)
+static bool read_ext_and_xfs_superblock(struct file *fd, char *super_block)
 {
 	ssize_t ret;
-	static char super_block[EXT_SUPER_BLOCK_OFFSET + EXT_SUPER_BLOCK_SIZE];
-	
+
+	if(super_block == NULL)
+		return false;
 	/* read 2048 bytes.
 	 *   ext superblock is starting at the 1024 bytes, size is 1024 bytes
 	 *   xfs superblock is starting at the 0 byte, size is 512 bytes	
@@ -19,10 +21,21 @@ static char * read_superblock(struct file *fd)
 	
 	if (ret < 0 || ret != sizeof(super_block)) {
 		bsr_err(91, BSR_LC_BITMAP, NO_OBJECT, "Failed to read super block. err(%ld)", ret);
-		return NULL;
+		return false;
 	}
+	return true;
+}
 
-	return super_block;
+static void try_update_superblock(struct bsr_device *device, struct file *fd, struct btrfs_super_block *btrfs_sb, struct btrfs_super_block *tmp_sb, u64 offset, const char *label) {
+    if (BTRFS_SUPER_BLOCK_SIZE == bsr_read_data(fd, tmp_sb, BTRFS_SUPER_BLOCK_SIZE, offset)) {
+        if (is_btrfs_fs(tmp_sb)) {
+            u64 gen = le64_to_cpu(tmp_sb->generation);
+            bsr_info(131, BSR_LC_BITMAP, device, "BTRFS %s super block generation : %llu", label, gen);
+            if (le64_to_cpu(btrfs_sb->generation) < gen) {
+                memcpy(btrfs_sb, tmp_sb, BTRFS_SUPER_BLOCK_SIZE);
+            }
+        }
+    }
 }
 
 PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG * pbytes_per_block)
@@ -90,9 +103,13 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 		invalidate_bdev(bdev);
 	} 
 #endif
-
-	super_block = read_superblock(fd);
-	if (super_block == NULL) {		
+	// BSR-1407 allocate as the superblock size of btrfs with the largest superblock size among ext, xfs, and btrfs supported.
+	super_block = bsr_kmalloc(BTRFS_SUPER_BLOCK_SIZE, GFP_ATOMIC|__GFP_NOWARN, '');
+	if(!read_ext_and_xfs_superblock(fd, super_block)) {
+		if(super_block) {
+			bsr_kfree(super_block);
+			super_block = NULL;
+		}
 		goto close;
 	}
 
@@ -113,9 +130,41 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 		*pbytes_per_block = be32_to_cpu(xfs_sb->sb_blocksize);
 		
 		bitmap_buf = read_xfs_bitmap(fd, xfs_sb);
+	} else {
+		// BSR-1407
+		struct btrfs_super_block *btrfs_sb = NULL;
+		
+		btrfs_sb = bsr_kmalloc(BTRFS_SUPER_BLOCK_SIZE, GFP_ATOMIC|__GFP_NOWARN, '');
+		if(!btrfs_sb) {
+			bsr_kfree(super_block);
+			super_block = NULL;
+			goto close;
+		}
+
+		// BSR-1407 get the latest superblock among superblocks
+		memset(btrfs_sb, 0, BTRFS_SUPER_BLOCK_SIZE);
+		try_update_superblock(device, fd, btrfs_sb, (struct btrfs_super_block *)super_block, BTRFS_SUPER_BLOCK_OFFSET, "primary");
+		try_update_superblock(device, fd, btrfs_sb, (struct btrfs_super_block *)super_block, BTRFS_FIRST_COPY_SUPER_BLOCK_OFFSET, "first");
+		try_update_superblock(device, fd, btrfs_sb, (struct btrfs_super_block *)super_block, BTRFS_SECOND_COPY_SUPER_BLOCK_OFFSET, "secondary");
+
+		if(is_btrfs_fs(btrfs_sb)) {
+			struct btrfs_dev_item *dev_item = &btrfs_sb->dev_item; 
+
+			*ptotal_block = ALIGN((le64_to_cpu(dev_item->total_bytes) >> BM_BLOCK_SHIFT), BITS_PER_BYTE);
+			*pbytes_per_block = 1 << BM_BLOCK_SHIFT;
+			bitmap_buf = read_btrfs_bitmap(fd, btrfs_sb);
+		} else 
+			bsr_warn(174, BSR_LC_RESYNC_OV, device, "Disk (%s) is a file system that does not support fast sync. fast sync supports ext, xfs.", disk_name);
+		
+		if(btrfs_sb) {
+			bsr_kfree(btrfs_sb);
+			btrfs_sb = NULL;
+		} 
 	}
-	else {
-		bsr_warn(174, BSR_LC_RESYNC_OV, device, "Disk (%s) is a file system that does not support fast sync. fast sync supports ext, xfs.", disk_name);
+
+	if(super_block) {
+		bsr_kfree(super_block);
+		super_block = NULL;
 	}
 
 close:
