@@ -6,7 +6,7 @@
 #include "xfs_fs.h"
 #include "btrfs_fs.h"
 
-static bool read_ext_and_xfs_superblock(struct file *fd, char *super_block)
+static bool read_ext_and_xfs_superblock(struct file *fd, char *super_block, int size)
 {
 	ssize_t ret;
 
@@ -17,9 +17,9 @@ static bool read_ext_and_xfs_superblock(struct file *fd, char *super_block)
 	 *   xfs superblock is starting at the 0 byte, size is 512 bytes	
 	*/
 
-	ret = bsr_read(fd, super_block, sizeof(super_block), &fd->f_pos);
+	ret = bsr_read(fd, super_block, size, &fd->f_pos);
 	
-	if (ret < 0 || ret != sizeof(super_block)) {
+	if (ret < 0 || ret != size) {
 		bsr_err(91, BSR_LC_BITMAP, NO_OBJECT, "Failed to read super block. err(%ld)", ret);
 		return false;
 	}
@@ -105,7 +105,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 #endif
 	// BSR-1407 allocate as the superblock size of btrfs with the largest superblock size among ext, xfs, and btrfs supported.
 	super_block = bsr_kmalloc(BTRFS_SUPER_BLOCK_SIZE, GFP_ATOMIC|__GFP_NOWARN, '');
-	if(!read_ext_and_xfs_superblock(fd, super_block)) {
+	if(!read_ext_and_xfs_superblock(fd, super_block, BTRFS_SUPER_BLOCK_SIZE)) {
 		if(super_block) {
 			bsr_kfree(super_block);
 			super_block = NULL;
