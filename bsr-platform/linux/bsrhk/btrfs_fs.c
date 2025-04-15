@@ -52,9 +52,11 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
             off_t child_offset_position = node_offset + sizeof(struct btrfs_header) + i * sizeof(uint64_t);
 
             if (bsr_read_data(fd, &child_offset, sizeof(uint64_t), child_offset_position) < 0) {
+                bsr_err(134, BSR_LC_BITMAP, NO_OBJECT, "Failed to read child offset. offset = %llu", child_offset_position);
                 return false;
             }
             if(!traverse_chunk_tree(fd, child_offset, bitmap_buf)) {
+                bsr_err(135, BSR_LC_BITMAP, NO_OBJECT, "Failed to traverse chunk tree. offset = %llu", child_offset);
                 return false;
             }
         }
@@ -64,6 +66,7 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
             off_t chunk_offset, item_offset = node_offset + sizeof(struct btrfs_header) + i * sizeof(struct btrfs_item);
             struct btrfs_stripe stripe;
             if (bsr_read_data(fd, &item, sizeof(struct btrfs_item), item_offset) < 0) {
+                bsr_err(136, BSR_LC_BITMAP, NO_OBJECT, "Failed to read item. offset = %llu", item_offset);
                 return false;
             }
 
@@ -72,6 +75,7 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
 
             chunk_offset = node_offset + sizeof(struct btrfs_header) + le64_to_cpu(item.offset);  
             if (bsr_read_data(fd, &chunk, sizeof(struct btrfs_chunk), chunk_offset) < 0) {
+                bsr_err(137, BSR_LC_BITMAP, NO_OBJECT, "Failed to read chunk. offset = %llu", chunk_offset);
                 return false;
             }
             
@@ -81,6 +85,7 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
 
                 if (bsr_read_data(fd, &stripe, sizeof(struct btrfs_stripe), 
                         chunk_offset + sizeof(struct btrfs_chunk) - sizeof(struct btrfs_stripe) + (sizeof(struct btrfs_stripe) * i) ) < 0) {
+                    bsr_err(138, BSR_LC_BITMAP, NO_OBJECT, "Failed to read stripe. offset = %llu", chunk_offset + sizeof(struct btrfs_chunk) - sizeof(struct btrfs_stripe) + (sizeof(struct btrfs_stripe) * i));
                     return false;
                 }
 
@@ -111,7 +116,7 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
             }
         }
     } else {
-        // BUG?
+        bsr_err(139, BSR_LC_BITMAP, NO_OBJECT, "Invalid header level: %u", header.level);
         return false;
     }
     return true;
@@ -138,10 +143,16 @@ PVOLUME_BITMAP_BUFFER read_btrfs_bitmap(struct file *fd, struct btrfs_super_bloc
 	bitmap_size = ALIGN(le64_to_cpu(dev_item->total_bytes) >> BM_BLOCK_SHIFT, BITS_PER_BYTE) / BITS_PER_BYTE;
 	bitmap_buf = (PVOLUME_BITMAP_BUFFER)bsr_kvmalloc(sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size, GFP_ATOMIC|__GFP_NOWARN);
 
+    if(!bitmap_buf) {
+        bsr_err(98, BSR_LC_MEMORY, NO_OBJECT, "Failed to allocate memory for bitmap buffer. size = %llu", sizeof(VOLUME_BITMAP_BUFFER) + bitmap_size);
+        return NULL;
+    }
+
 	bitmap_buf->BitmapSize = bitmap_size;
 	memset(bitmap_buf->Buffer, 0, bitmap_buf->BitmapSize);
 
     if (bsr_read_data(fd, &header, sizeof(header), chunk_root_offset) < 0) {
+        bsr_err(132, BSR_LC_BITMAP, NO_OBJECT, "Failed to read chunk root header. offset = %llu", chunk_root_offset);
         bsr_kfree(bitmap_buf);
         return NULL;
     }
@@ -154,6 +165,7 @@ PVOLUME_BITMAP_BUFFER read_btrfs_bitmap(struct file *fd, struct btrfs_super_bloc
         set_bitmap(bitmap_buf->Buffer, BTRFS_SECOND_COPY_SUPER_BLOCK_OFFSET);
 
     if(!traverse_chunk_tree(fd, chunk_root_offset, bitmap_buf)) {
+        bsr_err(133, BSR_LC_BITMAP, NO_OBJECT, "Failed to traverse chunk tree. offset = %llu", chunk_root_offset);
         bsr_kfree(bitmap_buf);
         return NULL;
     }

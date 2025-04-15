@@ -1443,6 +1443,7 @@ int run_check_fs(char **argv, char *output_file)
 		}
 	}
 #else // _LIN
+	CLI_ERRO_LOG_STDERR(false,  "exec %s", argv[0]);
 	while (1) {
 		if (waitpid(pid, &status, 0) == -1) {
 			if (errno != EINTR)
@@ -1577,6 +1578,13 @@ static int need_filesystem_recovery(char dev_letter)
 	return ret;
 }
 #else // _LIN
+// BSR-1407
+enum filesyste_type {
+	FS_XFS = 1,
+	FS_EXT,
+	FS_BTRFS,
+};
+
 // BSR-747
 static int need_filesystem_recovery(char * dev_name)
 {
@@ -1585,8 +1593,9 @@ static int need_filesystem_recovery(char * dev_name)
 	int fast_sync = 0;
 	FILE *fp;
 	bool journal_recovery = false;
-	bool xfs_fs = false;
-	char *argv[] = { NULL, NULL, NULL, NULL };
+	int type = 0;
+	char *argv[] = { NULL, NULL, NULL, NULL, NULL };
+	int argc = 0;
 	char  *n_dev_name, *ptr;
 	char fs_check_log[256];
 	char journal_check_log[256];
@@ -1619,9 +1628,11 @@ static int need_filesystem_recovery(char * dev_name)
 	pclose(fp);
 
 	if (!strncmp(buf, "xfs", 3))
-		xfs_fs = true;
+		type = FS_XFS;
 	else if (!strncmp(buf, "ext", 3))
-		xfs_fs = false;
+		type = FS_EXT;
+	else if(!strncmp(buf, "btrfs", 5))
+		type = FS_BTRFS;
 	else
 		return 0;
 
@@ -1640,12 +1651,23 @@ static int need_filesystem_recovery(char * dev_name)
 	
 	memset(journal_check_log, 0, sizeof(journal_check_log));	
 	memset(fs_check_log, 0, sizeof(fs_check_log));
-	if (xfs_fs) {
-		sprintf(journal_check_log, "%s/xfs_logprint%s.log", lpath, n_dev_name);
-		sprintf(fs_check_log, "%s/xfs_repair%s.log", lpath, n_dev_name);
-	} else {
-		sprintf(journal_check_log, "%s/tune2fs%s.log", lpath, n_dev_name);
-		sprintf(fs_check_log, "%s/fsck%s.log", lpath, n_dev_name);
+
+	switch (type) {
+		case FS_XFS:
+			sprintf(journal_check_log, "%s/xfs_logprint%s.log", lpath, n_dev_name);
+			sprintf(fs_check_log, "%s/xfs_repair%s.log", lpath, n_dev_name);
+			break;
+		case FS_EXT:
+			sprintf(journal_check_log, "%s/tune2fs%s.log", lpath, n_dev_name);
+			sprintf(fs_check_log, "%s/fsck%s.log", lpath, n_dev_name);
+			break;
+		case FS_BTRFS:
+			// BSR-1407
+			sprintf(journal_check_log, "%s/btrfcheck%s.log", lpath, n_dev_name);
+			sprintf(fs_check_log, "%s/btrfdumptree%s.log", lpath, n_dev_name);
+			break;
+		default:
+			break;
 	}
 
 	free(n_dev_name);
@@ -1660,14 +1682,27 @@ static int need_filesystem_recovery(char * dev_name)
 	*/
 
 	// 1. Check if journal recovery is required.	
-	if (xfs_fs) {
-		argv[0] = "xfs_logprint";
-		argv[1] = "-t";
-	} else {
-		argv[0] = "tune2fs";
-		argv[1] = "-l";
+	switch (type) {
+		case FS_XFS:
+			argv[argc++] = "xfs_logprint";
+			argv[argc++] = "-t";
+			break;
+		case FS_EXT:
+			argv[argc++] = "tune2fs";
+			argv[argc++] = "-l";
+			break;
+		case FS_BTRFS:
+			// BSR-1407
+			argv[argc++] = "btrfs";
+			argv[argc++] = "check";
+			argv[argc++] = "--readonly";
+ 			break;
+		default:
+			break;
+
 	}
-	argv[2] = dev_name;
+	argv[argc] = dev_name;
+	
 	ret = run_check_fs(argv, journal_check_log);
 
 	if (ret != 0) {
@@ -1682,30 +1717,43 @@ static int need_filesystem_recovery(char * dev_name)
 		return 1;
 	}
 
-	if (xfs_fs) {
-		while (fgets(buf, sizeof(buf), fp)) {
-			/**
-			* check xfs log state. if <DIRTY>, journal recovery is required.
-			* ex 1) log tail: 26 head: 32 state: <DIRTY>
-			* ex 2) log tail: 2 head: 2 state: <CLEAN>
-			*/
-			if (strstr(buf, "log tail:") != NULL) {
-				if (strstr(buf, "<DIRTY>") != NULL)
-					journal_recovery = true;
-				break;
+	switch (type) {
+		case FS_XFS:
+			while (fgets(buf, sizeof(buf), fp)) {
+				/**
+				* check xfs log state. if <DIRTY>, journal recovery is required.
+				* ex 1) log tail: 26 head: 32 state: <DIRTY>
+				* ex 2) log tail: 2 head: 2 state: <CLEAN>
+				*/
+				if (strstr(buf, "log tail:") != NULL) {
+					if (strstr(buf, "<DIRTY>") != NULL)
+						journal_recovery = true;
+					break;
+				}
 			}
-		}
-	}
-	else {
-		// BSR-821 for ext filesystems
-		while (fgets(buf, sizeof(buf), fp)) {
-			// check filesystem features. if needs_recovery is set, journal recovery is required.
-			if (strstr(buf, "Filesystem features:") != NULL) {
-				if (strstr(buf, "needs_recovery") != NULL)
-					journal_recovery = true;
-				break;
+			break; 
+		case FS_EXT:
+			// BSR-821 for ext filesystems
+			while (fgets(buf, sizeof(buf), fp)) {
+				// check filesystem features. if needs_recovery is set, journal recovery is required.
+				if (strstr(buf, "Filesystem features:") != NULL) {
+					if (strstr(buf, "needs_recovery") != NULL)
+						journal_recovery = true;
+					break;
+				}
 			}
-		}
+			break;
+		case FS_BTRFS:
+			// BSR-1407
+			while (fgets(buf, sizeof(buf), fp)) {
+				if (strstr(buf, "error(s) found") != NULL) {
+					journal_recovery = true;
+					break;
+				}
+			}
+			break;
+		default:
+			break;
 	}
 
 	fclose(fp);
@@ -1716,14 +1764,28 @@ static int need_filesystem_recovery(char * dev_name)
 	
 	// 2. Check if filesystem recovery is required.
 	memset(argv, 0, sizeof(argv));
-
-	if (xfs_fs) {
-		argv[0] = "xfs_repair";
-	} else {
-		argv[0] = "fsck";
+	argc = 0;
+	
+	switch (type) {
+		case FS_XFS:
+			argv[argc++] = "xfs_repair";
+			argv[argc++] = "-n";
+			break; 
+		case FS_EXT:
+			argv[argc++] = "fsck";
+			argv[argc++] = "-n";
+			break;
+		case FS_BTRFS:
+			// BSR-1407
+			argv[argc++] = "btrfs";
+			argv[argc++] = "inspect-internal";
+			argv[argc++] = "dump-tree";
+			break; 
+		default:
+			break;
 	}
-	argv[1] = "-n";
-	argv[2] = dev_name;
+
+	argv[argc] = dev_name;
 	ret = run_check_fs(argv, fs_check_log);
 
 	if (ret == -1 || ret == 127) {
