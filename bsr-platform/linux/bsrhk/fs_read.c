@@ -142,6 +142,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 		}
 
 		// BSR-1407 get the latest superblock among superblocks
+		memset(super_block, 0, BTRFS_SUPER_BLOCK_SIZE);
 		memset(btrfs_sb, 0, BTRFS_SUPER_BLOCK_SIZE);
 		try_update_superblock(device, fd, btrfs_sb, (struct btrfs_super_block *)super_block, BTRFS_SUPER_BLOCK_OFFSET, "primary");
 		try_update_superblock(device, fd, btrfs_sb, (struct btrfs_super_block *)super_block, BTRFS_FIRST_COPY_SUPER_BLOCK_OFFSET, "first");
@@ -154,7 +155,7 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 			*pbytes_per_block = 1 << BM_BLOCK_SHIFT;
 			bitmap_buf = read_btrfs_bitmap(fd, btrfs_sb);
 		} else 
-			bsr_warn(174, BSR_LC_RESYNC_OV, device, "Disk (%s) is a file system that does not support fast sync. fast sync supports ext, xfs.", disk_name);
+			bsr_warn(174, BSR_LC_RESYNC_OV, device, "Disk (%s) is a file system that does not support fast sync. fast sync supports ext, xfs, btrfs.", disk_name);
 		
 		if(btrfs_sb) {
 			bsr_kfree(btrfs_sb);
