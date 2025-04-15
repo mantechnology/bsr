@@ -1443,7 +1443,6 @@ int run_check_fs(char **argv, char *output_file)
 		}
 	}
 #else // _LIN
-	CLI_ERRO_LOG_STDERR(false,  "exec %s", argv[0]);
 	while (1) {
 		if (waitpid(pid, &status, 0) == -1) {
 			if (errno != EINTR)
