@@ -40,6 +40,7 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
     struct btrfs_header header;
     struct btrfs_chunk chunk;
     struct btrfs_item item;
+    uint32_t i, j;
 
     if (bsr_read_data(fd, &header, sizeof(struct btrfs_header), node_offset) < 0) 
         return false;
@@ -47,7 +48,7 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
     bsr_debug(-1, BSR_LC_BITMAP, NO_OBJECT, "traversing mode @ %llu, level: %u, items: %u", node_offset, header.level, le32_to_cpu(header.nritems));
     if (header.level > 0) {
         // internal node
-        for (uint32_t i = 0; i < le32_to_cpu(header.nritems); i++) {
+        for (i = 0; i < le32_to_cpu(header.nritems); i++) {
             uint64_t child_offset;
             off_t child_offset_position = node_offset + sizeof(struct btrfs_header) + i * sizeof(uint64_t);
 
@@ -62,7 +63,7 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
         }
     } else if (header.level == 0) {
         // leaf node
-        for (uint32_t i = 0; i < header.nritems; i++) {
+        for (i = 0; i < header.nritems; i++) {
             off_t chunk_offset, item_offset = node_offset + sizeof(struct btrfs_header) + i * sizeof(struct btrfs_item);
             struct btrfs_stripe stripe;
             if (bsr_read_data(fd, &item, sizeof(struct btrfs_item), item_offset) < 0) {
@@ -79,13 +80,13 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
                 return false;
             }
             
-            for(uint32_t i = 0; i < le16_to_cpu(chunk.num_stripes); i++) {
+            for(j = 0; j < le16_to_cpu(chunk.num_stripes); j++) {
                 uint64_t start_bit = 0, end_bit = 0, start_byte = 0, end_byte = 0, bit_count = 0;
                 u8 start_mask, end_mask;
 
                 if (bsr_read_data(fd, &stripe, sizeof(struct btrfs_stripe), 
-                        chunk_offset + sizeof(struct btrfs_chunk) - sizeof(struct btrfs_stripe) + (sizeof(struct btrfs_stripe) * i) ) < 0) {
-                    bsr_err(138, BSR_LC_BITMAP, NO_OBJECT, "Failed to read stripe. offset = %llu", chunk_offset + sizeof(struct btrfs_chunk) - sizeof(struct btrfs_stripe) + (sizeof(struct btrfs_stripe) * i));
+                        chunk_offset + sizeof(struct btrfs_chunk) - sizeof(struct btrfs_stripe) + (sizeof(struct btrfs_stripe) * j) ) < 0) {
+                    bsr_err(138, BSR_LC_BITMAP, NO_OBJECT, "Failed to read stripe. offset = %llu", chunk_offset + sizeof(struct btrfs_chunk) - sizeof(struct btrfs_stripe) + (sizeof(struct btrfs_stripe) * j));
                     return false;
                 }
 
