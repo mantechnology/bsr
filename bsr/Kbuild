@@ -48,6 +48,7 @@ bsr-y += ../bsr-platform/linux/bsrhk/bsrhk_init.o
 bsr-y += ../bsr-platform/linux/bsrhk/fs_read.o
 bsr-y += ../bsr-platform/linux/bsrhk/ext_fs.o
 bsr-y += ../bsr-platform/linux/bsrhk/xfs_fs.o
+bsr-y += ../bsr-platform/linux/bsrhk/btrfs_fs.o
 bsr-y += ../bsr-platform/linux/bsrhk/file_ops.o
 bsr-y += ../bsr-headers/bsr_strings.o
 bsr-y += lru_cache.o bsr_interval.o bsr_nla.o bsr_linux_buildtag.o
