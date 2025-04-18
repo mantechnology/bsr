@@ -524,18 +524,32 @@ BOOLEAN is_reboot_after_installation()
 	DWORD lResult = ERROR_SUCCESS;
 	HKEY hKey = NULL;
 	const char runOnce[] = "Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce";
+	const char bsrRegistry[] = "System\\CurrentControlSet\\Services\\bsrvflt";
 	DWORD type = REG_SZ;
 	DWORD size = MAX_PATH;
 	TCHAR buf[MAX_PATH] = { 0, };
 	lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, runOnce, 0, KEY_ALL_ACCESS, &hKey);
 	if (ERROR_SUCCESS == lResult) {
 		lResult = RegQueryValueEx(hKey, "bsr", NULL, &type, (PBYTE)&buf, &size);
-		RegCloseKey(hKey);
-		if (ERROR_SUCCESS == lResult)
+		if (ERROR_SUCCESS == lResult) {
+			RegCloseKey(hKey);
+			lResult = RegOpenKeyEx(HKEY_LOCAL_MACHINE, bsrRegistry, 0, KEY_ALL_ACCESS, &hKey);
+			if (ERROR_SUCCESS == lResult) {
+				// BSR-1431 check if the registry value exists
+				lResult = RegQueryValueEx(hKey, "boot_not_completed", NULL, &type, (PBYTE)&buf, &size);
+				if (ERROR_FILE_NOT_FOUND == lResult) {
+					RegCloseKey(hKey);
+					return TRUE;
+				}
+				RegCloseKey(hKey);
+			}
 			return FALSE;
+		}
+		RegCloseKey(hKey);
 	}
 	return TRUE;
 }
+
 #endif
 /*
  * Steps through buffer one byte at at time, calculates reflected

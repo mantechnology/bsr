@@ -1259,7 +1259,8 @@ NTSTATUS DeleteRegistryValueKey(__in PUNICODE_STRING preg_path, __in PUNICODE_ST
     if (!NT_SUCCESS(status)) {
 		bsr_warn(91, BSR_LC_DRIVER, NO_OBJECT, "Failed to delete registry key. status(0x%x)", status);
         goto cleanup;
-    }
+    } else 
+        bsr_info(168, BSR_LC_DRIVER, NO_OBJECT, "After installation, the driver was rebooted and loaded.");
 
 cleanup:
     if (hKey) {
@@ -1326,6 +1327,16 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 		proc_details = 1;
 	}
 #endif
+    // BSR-1431
+    status = GetRegistryValue(L"boot_not_completed", &ulLength, (UCHAR*)&aucTemp, RegPath_unicode);
+    if (status == STATUS_SUCCESS) {
+        UNICODE_STRING valuekey;
+        status = RtlUnicodeStringInit(&valuekey, L"boot_not_completed");
+        if(status == STATUS_SUCCESS) 
+            DeleteRegistryValueKey(RegPath_unicode, &valuekey);
+        else 
+            bsr_err(169, BSR_LC_DRIVER, NO_OBJECT, "Failed to initialize string for deleting registry value. status(0x%x)", status);
+    }
 
 	// set bypass_level
 	status = GetRegistryValue(L"bypass_level", &ulLength, (UCHAR*)&aucTemp, RegPath_unicode);
