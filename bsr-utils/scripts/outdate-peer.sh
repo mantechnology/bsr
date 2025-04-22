@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #  outdate-peer.sh
-#  This file is part of BSR by Man Technology inc.
+#  This file is part of BSR by Mantech Solution Inc.
 #
 
 #

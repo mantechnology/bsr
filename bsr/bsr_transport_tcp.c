@@ -42,7 +42,7 @@
 
 // The existing bsr_transport_tcp module has been integrated into bsr.
 //#ifdef _LIN
-//MODULE_AUTHOR("Man Technology inc <bsr@mantech.co.kr>");
+//MODULE_AUTHOR("Mantech Solution Inc <bsr@mantech.co.kr>");
 //MODULE_DESCRIPTION("TCP (SDP, SSOCKS) transport layer for BSR");
 //MODULE_LICENSE("GPL");
 //MODULE_VERSION("1.0.0");

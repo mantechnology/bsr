@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright (c) 2007 Man Technology inc
+# Copyright (c) 2007 Mantech Solution Inc
 # Based on the original "block" VBD script by XenSource Inc.
 #
 # This script implements the "bsr" VBD type. To use a BSR resource

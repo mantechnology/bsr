@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <install4j version="9.0.7" transformSequenceNumber="9">
   <directoryPresets config="I:/bsr/build/windows" />
-  <application name="${compiler:productName}" applicationId="6255-7678-9668-1745" mediaDir="${compiler:target}" shortName="${compiler:shartName}" publisher="Man Technology Inc." publisherWeb="http://www.mantech.co.kr" version="${compiler:productVersion}" macVolumeId="ffc0a97626f7bb0c" javaMinVersion="1.8" jdkMode="runtimeJre">
+  <application name="${compiler:productName}" applicationId="6255-7678-9668-1745" mediaDir="${compiler:target}" shortName="${compiler:shartName}" publisher="Mantech Solution Inc." publisherWeb="http://www.mantech.co.kr" version="${compiler:productVersion}" macVolumeId="ffc0a97626f7bb0c" javaMinVersion="1.8" jdkMode="runtimeJre">
     <languages>
       <principalLanguage id="en" customLocalizationFile="bsr_install_messages_en.utf8" />
       <additionalLanguages>

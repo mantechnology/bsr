@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 #  snapshot-resync-target-lvm.sh
-#  This file is part of BSR by Man Technology inc.
+#  This file is part of BSR by Mantech Solution Inc.
 #
 # The caller (bsradm) sets for us:
 # BSR_RESOURCE, BSR_VOLUME, BSR_MINOR, BSR_LL_DISK etc.

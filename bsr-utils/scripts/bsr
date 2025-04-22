@@ -3,9 +3,9 @@
 # chkconfig: - 21 08
 # description: Loads and unloads the bsr module
 #
-# Copyright 2007-2020 Man Technology inc
+# Copyright 2007-2025 Mantech Solution Inc
 #
-# Man Technology inc
+# Mantech Solution Inc
 #
 ### BEGIN INIT INFO
 # Provides: bsr

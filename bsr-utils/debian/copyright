@@ -3,7 +3,7 @@ Upstream-Name: bsr-utils
 Source: https://github.com/mantechnology/bsr
 
 Files: *
-Copyright: Copyright (C) 2014-2020, Man Technology Inc <bsr@mantech.co.kr>
+Copyright: Copyright (C) 2014-2025, Mantech Solution Inc <bsr@mantech.co.kr>
 License: GPL-2+
  This program is free software; you can redistribute it
  and/or modify it under the terms of the GNU General Public
@@ -54,7 +54,7 @@ License: BSD-3-Clause
  SUCH DAMAGE.
 
 Files: debian/*
-Copyright: Copyright 2014-2020 Man Technology Inc <bsr@mantech.co.kr>
+Copyright: Copyright 2014-2025, Mantech Solution Inc <bsr@mantech.co.kr>
 License:
  Copying and distribution of this package, with or without
  modification, are permitted in any medium without royalty
