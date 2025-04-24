@@ -136,7 +136,7 @@ static u64 __set_bitmap_slots(struct bsr_device *device, struct bsr_peer_device 
 static u64 __test_bitmap_slots_of_peer(struct bsr_peer_device *peer_device) __must_hold(local);
 
 #ifdef _LIN
-MODULE_AUTHOR("Man Technology Inc. <bsr@mantech.co.kr>");
+MODULE_AUTHOR("Mantech Solution Inc. <bsr@mantech.co.kr>");
 MODULE_DESCRIPTION("bsr - Block Sync and Replication v" REL_VERSION);
 MODULE_VERSION(REL_VERSION);
 MODULE_LICENSE("GPL");

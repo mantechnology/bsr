@@ -1,7 +1,7 @@
 Source: bsr
 Section: admin
 Priority: extra
-Maintainer: Man Technology Inc. <bsr@mantech.co.kr>
+Maintainer: Mantech Solution Inc. <bsr@mantech.co.kr>
 Build-Depends: bash,
                debhelper (>= 7),
                dkms
