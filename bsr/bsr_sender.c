@@ -2244,7 +2244,7 @@ out:
 	bsr_md_sync_if_dirty(device);
 
 	if (khelper_cmd)
-		bsr_khelper(device, connection, khelper_cmd);
+		bsr_khelper(NULL, device, connection, khelper_cmd);
 
 	/* If we have been sync source, and have an effective fencing-policy,
 	 * once *all* volumes are back in sync, call "unfence". */
@@ -2266,7 +2266,7 @@ out:
 		}
 		rcu_read_unlock();
 		if (disk_state == D_UP_TO_DATE && pdsk_state == D_UP_TO_DATE)
-			bsr_khelper(NULL, connection, "unfence-peer");
+			bsr_khelper(NULL, NULL, connection, "unfence-peer");
 	}
 
 	// BSR-1001
@@ -3402,7 +3402,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 			/* Since application IO was locked out during L_WF_BITMAP_T and
 			   L_WF_SYNC_UUID we are still unmodified. Before going to L_SYNC_TARGET
 			   we check that we might make the data inconsistent. */
-			r = bsr_khelper(device, connection, "before-resync-target");
+			r = bsr_khelper(NULL, device, connection, "before-resync-target");
 
 			// DW-798, BSR-399
 #ifdef _WIN
@@ -3417,7 +3417,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 				goto clear_flag;
 			}
 		} else /* L_SYNC_SOURCE */ {
-			r = bsr_khelper(device, connection, "before-resync-source");
+			r = bsr_khelper(NULL, device, connection, "before-resync-source");
 			// DW-798, BSR-25
 #ifdef _WIN
 			r = r & 0xff;

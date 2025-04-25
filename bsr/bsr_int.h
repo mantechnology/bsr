@@ -544,7 +544,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SOCKET_MAX_INDEX 109
 #define BSR_LC_DRIVER_MAX_INDEX 169
 #define BSR_LC_NETLINK_MAX_INDEX 36
-#define BSR_LC_GENL_MAX_INDEX 92
+#define BSR_LC_GENL_MAX_INDEX 94
 #define BSR_LC_PROTOCOL_MAX_INDEX 78
 #define BSR_LC_MEMORY_MAX_INDEX 98
 #define BSR_LC_LOG_MAX_INDEX 26
@@ -2994,7 +2994,7 @@ extern enum bsr_state_rv bsr_set_secondary_from_shutdown(struct bsr_resource *);
 #endif
 extern bool conn_try_outdate_peer(struct bsr_connection *connection);
 extern void conn_try_outdate_peer_async(struct bsr_connection *connection);
-extern int bsr_khelper(struct bsr_device *, struct bsr_connection *, char *);
+extern int bsr_khelper(struct bsr_resource *, struct bsr_device *, struct bsr_connection *, char *);
 extern int bsr_create_peer_device_default_config(struct bsr_peer_device *peer_device);
 
 /* bsr_sender.c */
@@ -3523,7 +3523,7 @@ extern void notify_peer_device_state(struct sk_buff *,
 				     enum bsr_notification_type);
 // BSR-1125
 extern void bsr_broadcast_peer_device_state(struct bsr_peer_device *peer_device);
-extern void notify_helper(enum bsr_notification_type, struct bsr_device *,
+extern void notify_helper(enum bsr_notification_type, struct bsr_resource *, struct bsr_device *,
 			  struct bsr_connection *, const char *, int);
 extern void notify_path(struct bsr_connection *, struct bsr_path *,
 			enum bsr_notification_type);

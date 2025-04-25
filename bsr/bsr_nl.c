@@ -729,22 +729,25 @@ static char **make_envp(struct env *env)
 		__bsr_printk_peer_device(category, index, level, peer_device, fmt, __VA_ARGS__); \
 	else if (device)						\
 		__bsr_printk_device(category, index, level, device, fmt, __VA_ARGS__);		\
-	else								\
-		__bsr_printk_connection(category, index, level, connection, fmt, __VA_ARGS__);
+	else if (connection)								\
+		__bsr_printk_connection(category, index, level, connection, fmt, __VA_ARGS__); \
+	else 																		\
+		__bsr_printk_resource(category, index, level, resource, fmt, __VA_ARGS__); 
 #else // _LIN
 #define magic_printk(index, category, level, fmt, args...)				\
 	if (peer_device)						\
 		__bsr_printk_peer_device(category, index, level, peer_device, fmt, args); \
 	else if (device)						\
 		__bsr_printk_device(category, index, level, device, fmt, args);		\
-	else								\
-		__bsr_printk_connection(category, index, level, connection, fmt, args);
+	else if (connection)								\
+		__bsr_printk_connection(category, index, level, connection, fmt, args); \
+	else																		\
+		__bsr_printk_resource(category, index, level, resource, fmt, args);	
 #endif
 
-int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, char *cmd)
+int bsr_khelper(struct bsr_resource *resource, struct bsr_device *device, struct bsr_connection *connection, char *cmd)
 {
-	struct bsr_resource *resource = device ? device->resource : connection->resource;
-	char *argv[] = {usermode_helper, cmd, resource->name, NULL };
+	char *argv[] = {usermode_helper, cmd, NULL, NULL };
 	struct bsr_peer_device *peer_device = NULL;
 	struct env env = { .size = PAGE_SIZE };
 	char **envp;
@@ -754,6 +757,11 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	if (!atomic_read(&g_handler_use))
 		return 0;
 
+	// BSR-1438
+	if(!resource)
+		resource = device ? device->resource : connection->resource;
+	argv[2] = resource->name;
+	
     enlarge_buffer:
 #ifdef _WIN
 	env.buffer = (char *)kmalloc(env.size, 0, '77SB');
@@ -864,7 +872,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 	magic_printk(84, BSR_LC_ETC, KERN_INFO, "helper command: %s %s", usermode_helper, cmd);
 #endif
 
-	notify_helper(NOTIFY_CALL, device, connection, cmd, 0);
+	notify_helper(NOTIFY_CALL, resource, device, connection, cmd, 0);
 
 #ifdef _WIN
 	// BSR-822 fix to serializes handler operations
@@ -886,7 +894,7 @@ int bsr_khelper(struct bsr_device *device, struct bsr_connection *connection, ch
 		     usermode_helper, cmd,
 		     (ret >> 8) & 0xff, ret);
 #endif
-	notify_helper(NOTIFY_RESPONSE, device, connection, cmd, ret);
+	notify_helper(NOTIFY_RESPONSE, resource, device, connection, cmd, ret);
 
 	if (current == resource->worker.task)
 		clear_bit(CALLBACK_PENDING, &resource->flags);
@@ -984,7 +992,7 @@ bool conn_try_outdate_peer(struct bsr_connection *connection)
 	if (fencing_policy == FP_DONT_CARE)
 		return true;
 
-	r = bsr_khelper(NULL, connection, "fence-peer");
+	r = bsr_khelper(NULL, NULL, connection, "fence-peer");
 
 	// DW-798, BSR-399
 #ifdef _WIN
@@ -1201,12 +1209,27 @@ bsr_set_role(struct bsr_resource *resource, enum bsr_role role, bool force, stru
 	long timeout = 10 * HZ;
 	enum chg_state_flags flags = CS_ALREADY_SERIALIZED | CS_DONT_RETRY | CS_WAIT_COMPLETE;
 
+	int r;
 
 retry:
 	down(&resource->state_sem);
 
 	if (role == R_PRIMARY) {
 		struct bsr_connection *connection;
+		// BSR-1438		
+		r = bsr_khelper(resource, NULL, NULL, "before-promote");
+#ifdef _WIN
+		r = r & 0xff;
+#else // _LIN
+		r = (r >> 8) & 0xff;
+#endif
+		if (r > 0) {
+			bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
+				 "dropping connection.", r);
+			for_each_connection_rcu(connection, resource) 
+				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+			goto out;
+		}
 
 		/* Detect dead peers as soon as possible.  */
 
@@ -1224,10 +1247,25 @@ retry:
 			goto out;
 
 	} else /* (role == R_SECONDARY) */ {
-		if (start_new_tl_epoch(resource)) {
-			struct bsr_connection *connection;
-			u64 im;
+		struct bsr_connection *connection;
+		u64 im;
 
+		// BSR-1438		
+		r = bsr_khelper(resource, NULL, NULL, "before-demote");
+#ifdef _WIN
+		r = r & 0xff;
+#else // _LIN
+		r = (r >> 8) & 0xff;
+#endif
+		if (r > 0) {
+			bsr_info(94, BSR_LC_GENL, resource, "before-demote handler returned %d, "
+				 "dropping connection.", r);
+			for_each_connection_ref(connection, im, resource)
+				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+			goto out;
+		}
+
+		if (start_new_tl_epoch(resource)) {
 			for_each_connection_ref(connection, im, resource)
 				bsr_flush_workqueue(resource, &connection->sender_work);
 		}
@@ -1540,6 +1578,11 @@ retry:
 		if (!resource->res_opts.auto_promote && role == R_PRIMARY)
 			bsr_kobject_uevent(device);
 	}
+
+	if (role == R_PRIMARY)
+		bsr_khelper(resource, NULL, NULL, "after-promote");
+	else 
+		bsr_khelper(resource, NULL, NULL, "after-demote");
 
 out:
 	up(&resource->state_sem);
@@ -8266,15 +8309,17 @@ failed:
 }
 
 void notify_helper(enum bsr_notification_type type,
-		   struct bsr_device *device, struct bsr_connection *connection,
+		   struct bsr_resource *resource, struct bsr_device *device, struct bsr_connection *connection,
 		   const char *name, int status)
 {
-	struct bsr_resource *resource = device ? device->resource : connection->resource;
 	struct bsr_helper_info helper_info;
 	unsigned int seq = atomic_inc_return(&bsr_genl_seq);
 	struct sk_buff *skb = NULL;
 	struct bsr_genlmsghdr *dh;
 	int err;
+
+	if(!resource)
+		resource = device ? device->resource : connection->resource;
 
 #ifdef _WIN
 	strncpy(helper_info.helper_name, name, sizeof(helper_info.helper_name) - 1);

@@ -20,6 +20,10 @@ common {
 		# out-of-sync "/usr/lib/bsr/notify-out-of-sync.sh root";
 		# before-resync-target "/usr/lib/bsr/snapshot-resync-target-lvm.sh -p 15 -- -c 16k";
 		# after-resync-target /usr/lib/bsr/unsnapshot-resync-target-lvm.sh;
+		# before-demote "/usr/lib/bsr/notify-before-demote.sh";
+		# before-promote "/usr/lib/bsr/notify-before-demote.sh";
+		# after-demote "/usr/lib/bsr/notify-after-demote.sh";
+		# after-promote "/usr/lib/bsr/notify-after-promote.sh";
 	}
 
 	startup {

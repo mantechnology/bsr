@@ -3438,7 +3438,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			if (!(role[OLD] == R_PRIMARY && disk_state[OLD] < D_UP_TO_DATE && !one_peer_disk_up_to_date[OLD]) &&
 			     (role[NEW] == R_PRIMARY && disk_state[NEW] < D_UP_TO_DATE && !one_peer_disk_up_to_date[NEW]) &&
 			    !test_bit(UNREGISTERED, &device->flags))
-				bsr_khelper(device, connection, "pri-on-incon-degr");
+				bsr_khelper(NULL, device, connection, "pri-on-incon-degr");
 
 			// DW-1291 provide LastPrimary Information for Local Primary
 			if( (role[OLD] == R_SECONDARY) && (role[NEW] == R_PRIMARY) ) {
@@ -3922,7 +3922,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 				 * People may chose to hard-reset the box from this handler.
 				 * It is useful if this looks like a "regular node crash". */
 				if (was_io_error && eh == EP_CALL_HELPER)
-					bsr_khelper(device, NULL, "local-io-error");
+					bsr_khelper(NULL, device, NULL, "local-io-error");
 
 				/* Immediately allow completion of all application IO,
 				 * that waits for completion from the local disk,
@@ -3988,7 +3988,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 		bsr_md_sync_if_dirty(device);
 
 		if (!susp_quorum[OLD] && susp_quorum[NEW])
-			bsr_khelper(device, NULL, "quorum-lost");
+			bsr_khelper(NULL, device, NULL, "quorum-lost");
 	}
 
 	if (role[OLD] == R_PRIMARY && role[NEW] == R_SECONDARY)
