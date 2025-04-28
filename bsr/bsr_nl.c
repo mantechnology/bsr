@@ -1595,6 +1595,8 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_resource * resource;
 	struct bsr_device * device;
 	bool promote = false;
+	int r;
+	struct bsr_connection * connection;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
@@ -1614,6 +1616,21 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 					bsr_md_sync(device);
 				}
 				promote = true;
+				
+				// BSR-1438		
+				r = bsr_khelper(resource, NULL, NULL, "before-promote");
+#ifdef _WIN
+				r = r & 0xff;
+#else // _LIN
+				r = (r >> 8) & 0xff;
+#endif
+				if (r > 0) {
+					bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
+					"dropping connection.", r);
+					for_each_connection_rcu(connection, resource) 
+						change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+					goto fail;
+				}		
 			}
 		}
 		// BSR-1411
@@ -1643,6 +1660,8 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 						SetBsrlockIoBlock(pvext, FALSE);
 				}
 #endif
+				// BSR-1438
+				bsr_khelper(resource, NULL, NULL, "after-promote");
 			}
 			else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 				goto fail;
@@ -1744,6 +1763,8 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 					bsr_md_sync(device);
 				}
 			}
+			// BSR-1438
+			bsr_khelper(resource, NULL, NULL, "after-promote");
 		}
 		else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 			goto fail;
@@ -1860,14 +1881,10 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				bsr_md_clear_flag(device, MDF_WAS_PRIMARY);
 				bsr_md_sync(device);
 			}
+			// BSR-1438
+			bsr_khelper(resource, NULL, NULL, "after-demote");
 		}
 	}
-
-	// BSR-1438
-	if (info->genlhdr->cmd == BSR_ADM_PRIMARY)
-		bsr_khelper(resource, NULL, NULL, "after-promote");
-	else 
-		bsr_khelper(resource, NULL, NULL, "after-demote");
 fail:
 	// DW-1317
 	mutex_unlock(&resource->vol_ctl_mutex);
