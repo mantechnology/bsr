@@ -363,7 +363,7 @@ void bsr_printk_with_wrong_object_type(void);
 	})
 
 #define __bsr_printk_resource(category, index, level, resource, fmt, args...) \
-	__printk(__FUNCTION__, index, level, category, "<%c> bsr %s: " fmt, level[1], (resource)->name, ## args)
+	__printk(__FUNCTION__, index, level, category, "<%c> bsr %s: " fmt, (level)[1], (resource)->name, ## args)
 
 #define __bsr_printk_connection(category, index, level, connection, fmt, args...) \
 	({	rcu_read_lock(); \
