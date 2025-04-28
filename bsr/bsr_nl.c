@@ -1209,28 +1209,11 @@ bsr_set_role(struct bsr_resource *resource, enum bsr_role role, bool force, stru
 	long timeout = 10 * HZ;
 	enum chg_state_flags flags = CS_ALREADY_SERIALIZED | CS_DONT_RETRY | CS_WAIT_COMPLETE;
 
-	int r;
-
 retry:
 	down(&resource->state_sem);
 
 	if (role == R_PRIMARY) {
 		struct bsr_connection *connection;
-		// BSR-1438		
-		r = bsr_khelper(resource, NULL, NULL, "before-promote");
-#ifdef _WIN
-		r = r & 0xff;
-#else // _LIN
-		r = (r >> 8) & 0xff;
-#endif
-		if (r > 0) {
-			bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
-				 "dropping connection.", r);
-			for_each_connection_rcu(connection, resource) 
-				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-			goto out;
-		}
-
 		/* Detect dead peers as soon as possible.  */
 
 		rcu_read_lock();
@@ -1249,21 +1232,6 @@ retry:
 	} else /* (role == R_SECONDARY) */ {
 		struct bsr_connection *connection;
 		u64 im;
-
-		// BSR-1438		
-		r = bsr_khelper(resource, NULL, NULL, "before-demote");
-#ifdef _WIN
-		r = r & 0xff;
-#else // _LIN
-		r = (r >> 8) & 0xff;
-#endif
-		if (r > 0) {
-			bsr_info(94, BSR_LC_GENL, resource, "before-demote handler returned %d, "
-				 "dropping connection.", r);
-			for_each_connection_ref(connection, im, resource)
-				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-			goto out;
-		}
 
 		if (start_new_tl_epoch(resource)) {
 			for_each_connection_ref(connection, im, resource)
@@ -1578,12 +1546,6 @@ retry:
 		if (!resource->res_opts.auto_promote && role == R_PRIMARY)
 			bsr_kobject_uevent(device);
 	}
-
-	if (role == R_PRIMARY)
-		bsr_khelper(resource, NULL, NULL, "after-promote");
-	else 
-		bsr_khelper(resource, NULL, NULL, "after-demote");
-
 out:
 	up(&resource->state_sem);
 
@@ -1705,6 +1667,10 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	enum bsr_state_rv retcode;
 	int vnr;
 	struct bsr_device * device;
+	int r;
+	u64 im;
+	struct bsr_resource *resource;
+	struct bsr_connection *connection;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
@@ -1720,44 +1686,59 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 
-	mutex_lock(&adm_ctx.resource->adm_mutex);
-
+	resource = adm_ctx.resource;
+	mutex_lock(&resource->adm_mutex);
 	// BSR-1064
-	if (!wait_until_vol_ctl_mutex_is_used(adm_ctx.resource)) {
-		mutex_unlock(&adm_ctx.resource->adm_mutex);
+	if (!wait_until_vol_ctl_mutex_is_used(resource)) {
+		mutex_unlock(&resource->adm_mutex);
 		retcode = ERR_VOL_LOCK_ACQUISITION_TIMEOUT;
 		bsr_msg_put_info(adm_ctx.reply_skb, "Failed to change role");
 		goto out;
 	}
 
 	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
-	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
+	mutex_lock(&resource->vol_ctl_mutex);
 
 	if (info->genlhdr->cmd == BSR_ADM_PRIMARY) {
+		// BSR-1438		
+		r = bsr_khelper(resource, NULL, NULL, "before-promote");
+#ifdef _WIN
+		r = r & 0xff;
+#else // _LIN
+		r = (r >> 8) & 0xff;
+#endif
+		if (r > 0) {
+			bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
+				 "dropping connection.", r);
+			for_each_connection_rcu(connection, resource) 
+				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+			goto out;
+		}
+
 		// DW-839 not support diskless Primary
-		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (D_DISKLESS == device->disk_state[NOW]) {
 				retcode = SS_IS_DISKLESS;
 				goto fail;
 			}
 		}
 
-		retcode = bsr_set_role(adm_ctx.resource, R_PRIMARY, parms.assume_uptodate,
+		retcode = bsr_set_role(resource, R_PRIMARY, parms.assume_uptodate,
 			adm_ctx.reply_skb);
 		if (retcode >= SS_SUCCESS) {
-			set_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
+			set_bit(EXPLICIT_PRIMARY, &resource->flags);
 #ifdef _WIN
-			adm_ctx.resource->bPreSecondaryLock = FALSE;
+			resource->bPreSecondaryLock = FALSE;
 #endif
 			// BSR-1463 unblock I/O block on promotion and set persist role
-			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 #ifdef _WIN
 				PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 				if (pvext)
 					SetBsrlockIoBlock(pvext, FALSE);
 #endif
 				// BSR-1411
-				if (!adm_ctx.resource->node_opts.target_only) {
+				if (!resource->node_opts.target_only) {
 					// BSR-1392
 					bsr_md_set_flag(device, MDF_WAS_PRIMARY);
 					bsr_md_sync(device);
@@ -1770,18 +1751,33 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			goto fail;
 	}
 	else {
+		// BSR-1438		
+		r = bsr_khelper(resource, NULL, NULL, "before-demote");
+#ifdef _WIN
+		r = r & 0xff;
+#else // _LIN
+		r = (r >> 8) & 0xff;
+#endif
+		if (r > 0) {
+			bsr_info(94, BSR_LC_GENL, resource, "before-demote handler returned %d, "
+				 "dropping connection.", r);
+			for_each_connection_ref(connection, im, resource)
+				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+			goto out;
+		}
+
 #ifdef _WIN_MVFL
 #ifdef _WIN_MULTI_VOLUME        
 		retcode = SS_SUCCESS;
 
 		// DW-1327 
-		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 			if (pvext)
 				SetBsrlockIoBlock(pvext, TRUE);
 		}
 
-		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (device->disk_state[NOW] == D_DISKLESS)
 				continue;
 
@@ -1789,27 +1785,27 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				continue;
 		}
 
-		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (device->disk_state[NOW] == D_DISKLESS)
 				continue;
 
-			adm_ctx.resource->bPreDismountLock = TRUE;
+			resource->bPreDismountLock = TRUE;
 			NTSTATUS status = FsctlFlushDismountVolume(device->minor, true);
 			if (!NT_SUCCESS(status)) {
 				retcode = SS_UNKNOWN_ERROR;
-				adm_ctx.resource->bPreDismountLock = FALSE;
+				resource->bPreDismountLock = FALSE;
 				break;
 			}
 		}
 		
 		if (retcode == SS_SUCCESS) {
-			adm_ctx.resource->bPreSecondaryLock = TRUE;
-			retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
-			adm_ctx.resource->bPreSecondaryLock = FALSE;
-			adm_ctx.resource->bPreDismountLock = FALSE;
+			resource->bPreSecondaryLock = TRUE;
+			retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+			resource->bPreSecondaryLock = FALSE;
+			resource->bPreDismountLock = FALSE;
 		}
 
-		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (device->disk_state[NOW] == D_DISKLESS)
 				continue;
 
@@ -1817,8 +1813,8 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 
 		// DW-2107 remove from block target if setting from primary to secondary fails
-		if (retcode != SS_SUCCESS && adm_ctx.resource->role[NOW] == R_PRIMARY) {
-			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr)
+		if (retcode != SS_SUCCESS && resource->role[NOW] == R_PRIMARY) {
+			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr)
 			{
 				PVOLUME_EXTENSION pvext = get_targetdev_by_minor(device->minor, FALSE);
 				if (pvext)
@@ -1828,48 +1824,54 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			}
 		}
 #else
-		idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (D_DISKLESS == device->disk_state[NOW]) {
-				retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);				
+				retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);				
 			} else if (NT_SUCCESS(FsctlLockVolume(device->minor))) {
 				if (retcode < SS_SUCCESS) {
 					FsctlUnlockVolume(device->minor);
 					goto fail;
 				}
-				adm_ctx.resource->bPreDismountLock = TRUE;
+				resource->bPreDismountLock = TRUE;
 				NTSTATUS status = FsctlFlushDismountVolume(device->minor, true);
-				adm_ctx.resource->bPreSecondaryLock = TRUE;
+				resource->bPreSecondaryLock = TRUE;
 				FsctlUnlockVolume(device->minor);
 
 				if (!NT_SUCCESS(status)) {
 					retcode = SS_UNKNOWN_ERROR;
-					adm_ctx.resource->bPreDismountLock = FALSE;
+					resource->bPreDismountLock = FALSE;
 					goto fail;
 				}
-				retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
-				adm_ctx.resource->bPreSecondaryLock = FALSE;
-				adm_ctx.resource->bPreDismountLock = FALSE;
+				retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+				resource->bPreSecondaryLock = FALSE;
+				resource->bPreDismountLock = FALSE;
 			} else {
 				retcode = SS_DEVICE_IN_USE;
 			}
 		}
 #endif
 #else
-		retcode = bsr_set_role(adm_ctx.resource, R_SECONDARY, false, adm_ctx.reply_skb);
+		retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
 #endif
 		if (retcode >= SS_SUCCESS) {
-			clear_bit(EXPLICIT_PRIMARY, &adm_ctx.resource->flags);
+			clear_bit(EXPLICIT_PRIMARY, &resource->flags);
 			// BSR-1392
-			idr_for_each_entry_ex(struct bsr_device *, &adm_ctx.resource->devices, device, vnr) {
+			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 				bsr_md_clear_flag(device, MDF_WAS_PRIMARY);
 				bsr_md_sync(device);
 			}
 		}
 	}
+
+	// BSR-1438
+	if (info->genlhdr->cmd == BSR_ADM_PRIMARY)
+		bsr_khelper(resource, NULL, NULL, "after-promote");
+	else 
+		bsr_khelper(resource, NULL, NULL, "after-demote");
 fail:
 	// DW-1317
-	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
-	mutex_unlock(&adm_ctx.resource->adm_mutex);
+	mutex_unlock(&resource->vol_ctl_mutex);
+	mutex_unlock(&resource->adm_mutex);
 out:
 	bsr_adm_finish(&adm_ctx, info, (enum bsr_ret_code)retcode);
 	return 0;
