@@ -1294,6 +1294,11 @@ struct context_def handlers_ctx = {
 		{ "before-resync-source", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
 		{ "out-of-sync", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
 		{ "quorum-lost", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		// BSR-1438 added handler for demote, promote
+		{ "before-demote", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "before-promote", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "after-demote", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "after-promote", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
 		{ } },
 };
 

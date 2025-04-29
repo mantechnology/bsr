@@ -438,6 +438,11 @@ static struct adm_cmd khelper10_cmd = {"split-brain", adm_khelper, ACF3_RES_HAND
 static struct adm_cmd khelper11_cmd = {"out-of-sync", adm_khelper, ACF3_RES_HANDLER};
 static struct adm_cmd khelper12_cmd = {"unfence-peer", adm_khelper, ACF3_RES_HANDLER};
 static struct adm_cmd khelper13_cmd = { "quorum-lost", adm_khelper, ACF3_RES_HANDLER };
+// BSR-1438 
+static struct adm_cmd khelper14_cmd = {"before-demote", adm_khelper, ACF3_RES_HANDLER};
+static struct adm_cmd khelper15_cmd = {"before-promote", adm_khelper, ACF3_RES_HANDLER };
+static struct adm_cmd khelper16_cmd = {"after-demote", adm_khelper, ACF3_RES_HANDLER};
+static struct adm_cmd khelper17_cmd = {"after-promote", adm_khelper, ACF3_RES_HANDLER };
 
 
 static struct adm_cmd suspend_io_cmd = {"suspend-io", adm_bsrsetup, ACF4_ADVANCED  .backend_res_name = 0 };
@@ -550,6 +555,10 @@ struct adm_cmd *cmds[] = {
 	&khelper11_cmd,
 	&khelper12_cmd,
 	&khelper13_cmd,
+	&khelper14_cmd,
+	&khelper15_cmd,
+	&khelper16_cmd,
+	&khelper17_cmd,
 	
 	&suspend_io_cmd,
 	&resume_io_cmd,

@@ -842,7 +842,7 @@ int connect_work(struct bsr_work *work, int cancel)
 		bsr_alert(2, BSR_LC_CONNECTION, connection, "split-brain since more primaries than allowed. dropping connection");
 		// BSR-734
 		notify_split_brain(connection, "no");
-		bsr_khelper(NULL, connection, "split-brain");
+		bsr_khelper(NULL, NULL, connection, "split-brain");
 	} else {
 		bsr_info(3, BSR_LC_CONNECTION, connection, "Connection failed. Try again. status(%d)", rv);
 		change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
@@ -4570,7 +4570,7 @@ static int bsr_asb_recover_1p(struct bsr_peer_device *peer_device) __must_hold(l
 			  * we do not need to wait for the after state change work either. */
 			rv2 = change_role(resource, R_SECONDARY, CS_VERBOSE, false, NULL);
 			if (rv2 != SS_SUCCESS) {
-				bsr_khelper(device, connection, "pri-lost-after-sb");
+				bsr_khelper(NULL, device, connection, "pri-lost-after-sb");
 			} else {
 				bsr_warn(168, BSR_LC_RESYNC_OV, device, "The role changed from primary to secondary for recovery of split-brain.");
 				rv = hg;
@@ -4621,7 +4621,7 @@ static int bsr_asb_recover_2p(struct bsr_peer_device *peer_device) __must_hold(l
 			  * we do not need to wait for the after state change work either. */
 			rv2 = change_role(device->resource, R_SECONDARY, CS_VERBOSE, false, NULL);
 			if (rv2 != SS_SUCCESS) {
-				bsr_khelper(device, connection, "pri-lost-after-sb");
+				bsr_khelper(NULL, device, connection, "pri-lost-after-sb");
 			} else {
 				bsr_warn(169, BSR_LC_RESYNC_OV, device, "The role changed from primary to secondary for recovery of split-brain.");
 				rv = hg;
@@ -5442,7 +5442,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 	*/
 	
 	if (abs(hg) == 100)
-		bsr_khelper(device, connection, "initial-split-brain");
+		bsr_khelper(NULL, device, connection, "initial-split-brain");
 
 	rcu_read_lock();
 	nc = rcu_dereference(connection->transport.net_conf);
@@ -5561,7 +5561,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 		connection->last_error = C_SPLIT_BRAIN;
 		// BSR-734
 		notify_split_brain(connection, "no");
-		bsr_khelper(device, connection, "split-brain");
+		bsr_khelper(NULL, device, connection, "split-brain");
 		return -1;
 	}
 
@@ -5570,7 +5570,7 @@ static enum bsr_repl_state bsr_sync_handshake(struct bsr_peer_device *peer_devic
 
 		if (rr_conflict == ASB_CALL_HELPER || rr_conflict == ASB_DISCONNECT) {
 			if (rr_conflict == ASB_CALL_HELPER)
-				bsr_khelper(device, connection, "pri-lost");
+				bsr_khelper(NULL, device, connection, "pri-lost");
 			bsr_err(28, BSR_LC_CONNECTION, device, "Failed to bsr handshake due to I shall become synctarget, but I am primary. disk(%s)", bsr_disk_str(device->disk_state[NOW]));
 			// BSR-1140
 			connection->last_error = C_SYNC_TARGET_PRIMARY;
@@ -8178,7 +8178,7 @@ static int process_twopc(struct bsr_connection *connection,
 		bsr_alert(29, BSR_LC_TWOPC, connection, "split-brain close the connection with two or more primary settings.");
 		// BSR-734
 		notify_split_brain(connection, "no");
-		bsr_khelper(NULL, connection, "split-brain");
+		bsr_khelper(NULL, NULL, connection, "split-brain");
 		return 0;
 	}
 	
