@@ -4112,7 +4112,6 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	int size, verb;
 	unsigned int fault_type = 0;
 	struct p_block_req *p =	pi->data;
-	enum bsr_disk_state min_d_state;
 	int err;
 	uint64_t block_id;
 
@@ -4135,33 +4134,40 @@ static int receive_DataRequest(struct bsr_connection *connection, struct packet_
 	}
 
     bsr_debug_rs("cmd(%s) sector(0x%llx), size(%d)", bsr_packet_name(pi->cmd), (u64)sector, size);
-	min_d_state = pi->cmd == P_DATA_REQUEST ? D_UP_TO_DATE : D_OUTDATED;
-	if (!get_ldev_if_state(device, min_d_state)) {
-		verb = 1;
-		switch (pi->cmd) {
-		case P_DATA_REQUEST:
-			bsr_send_ack_rp(peer_device, P_NEG_DREPLY, p);
-			break;
-		case P_RS_THIN_REQ:
-		case P_RS_DATA_REQUEST:
-		case P_CSUM_RS_REQUEST:
-		case P_OV_REQUEST:
-			bsr_send_ack_rp(peer_device, P_NEG_RS_DREPLY , p);
-			break;
-		case P_OV_REPLY:
-			verb = 0;
-			dec_rs_pending(peer_device);
-			bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, size, ID_IN_SYNC);
-			break;
-		default:
-			BUG();
-		}
-		if (verb && bsr_ratelimit())
-			bsr_err(13, BSR_LC_REPLICATION, device, "Failed to receive data request due to can not satisfy peer's read request, "
-			    "no local data.");
+	// BSR-1395
+	if(pi->cmd != P_OV_REQUEST && pi->cmd != P_OV_REPLY) {
+		enum bsr_disk_state min_d_state;
+		min_d_state = pi->cmd == P_DATA_REQUEST ? D_UP_TO_DATE : D_OUTDATED;
+		if (!get_ldev_if_state(device, min_d_state)) {
+			verb = 1;
+			switch (pi->cmd) {
+			case P_DATA_REQUEST:
+				bsr_send_ack_rp(peer_device, P_NEG_DREPLY, p);
+				break;
+			case P_RS_THIN_REQ:
+			case P_RS_DATA_REQUEST:
+			case P_CSUM_RS_REQUEST:
+			case P_OV_REQUEST:
+				bsr_send_ack_rp(peer_device, P_NEG_RS_DREPLY , p);
+				break;
+			case P_OV_REPLY:
+				verb = 0;
+				dec_rs_pending(peer_device);
+				bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, size, ID_IN_SYNC);
+				break;
+			default:
+				BUG();
+			}
+			if (verb && bsr_ratelimit())
+				bsr_err(13, BSR_LC_REPLICATION, device, "Failed to receive data request due to can not satisfy peer's read request, "
+					"no local data.");
 
-		/* drain possibly payload */
-		return ignore_remaining_packet(connection, pi->size);
+			/* drain possibly payload */
+			return ignore_remaining_packet(connection, pi->size);
+		}
+	} else {
+		if(!get_ldev(device))
+			return ignore_remaining_packet(connection, pi->size);
 	}
 
 	peer_req = bsr_alloc_peer_req(peer_device, GFP_TRY);
@@ -5239,7 +5245,9 @@ static enum bsr_repl_state goodness_to_repl_state(struct bsr_peer_device *peer_d
 				else if ((peer_device->device->disk_state[NOW] == D_UP_TO_DATE) &&
 					(peer_disk_state == D_UP_TO_DATE) && (peer_device->repl_state[NOW] == L_OFF) &&
 					(role == R_SECONDARY && peer_role == R_SECONDARY) &&
-					(my_current_uuid == peer_current_uuid)) {
+					(my_current_uuid == peer_current_uuid) &&
+					// BSR-1395 to prevent the removal of OOS areas set during the verify process, a condition has been introduced.
+					(!bsr_md_test_flag(peer_device->device, MDF_VERIFY_MISMATCH) && !(peer_device->uuid_flags & UUID_FLAG_VERIFY_MISMATCH))) {
 					bsr_info(235, BSR_LC_RESYNC_OV, peer_device, "Both nodes are UpToDate and current uuid is the same, clearing bitmap content (%llu bits)",
 						(unsigned long long)bsr_bm_total_weight(peer_device));
 					bsr_bm_clear_many_bits(peer_device->device, peer_device->bitmap_index, 0, BSR_END_OF_BITMAP);

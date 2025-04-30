@@ -1932,9 +1932,8 @@ static void sanitize_state(struct bsr_resource *resource)
 				break;
 			case L_VERIFY_S:
 			case L_VERIFY_T:
-				min_disk_state = D_UP_TO_DATE;
+				// BSR-1395 during the verify state configuration, to maintain the current disk state, min_disk(peer_disk) is not set to D_UP_TO_DATE.  
 				max_disk_state = D_UP_TO_DATE;
-				min_peer_disk_state = D_UP_TO_DATE;
 				max_peer_disk_state = D_UP_TO_DATE;
 				break;
 			case L_ESTABLISHED:

@@ -734,12 +734,13 @@ int call_cmd(const struct adm_cmd *cmd, const struct cfg_ctx *ctx,
 	tmp_ctx.cmd = cmd;
 
 	if (iterate_vols && iterate_conns) {
-		for_each_volume(vol, &res->me->volumes) {
-			tmp_ctx.vol = vol;
-			for_each_connection(conn, &res->connections) {
-				if (conn->ignore)
-					continue;
-				tmp_ctx.conn = conn;
+		// BSR-1395 for each connection, process all associated volumes sequentially before proceeding to the next connection.
+		for_each_connection(conn, &res->connections) {
+			if (conn->ignore)
+				continue;
+			tmp_ctx.conn = conn;
+			for_each_volume(vol, &res->me->volumes) {
+				tmp_ctx.vol = vol;
 				ret = __call_cmd_fn(&tmp_ctx, on_error);
 				if (ret)
 					goto out;

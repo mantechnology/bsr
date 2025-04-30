@@ -411,7 +411,8 @@ struct p_protocol {
 
 // BSR-1393
 #define UUID_FLAG_TARGET_ONLY			(1 << 16)
-
+// BSR-1395
+#define UUID_FLAG_VERIFY_MISMATCH		(1 << 17)	
 
 struct p_uuids {
 	uint64_t current_uuid;
