@@ -2037,6 +2037,8 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 		verify_done ? "Online verify" : "Resync", (unsigned long long)dt + peer_device->rs_paused, (unsigned long long)peer_device->rs_paused, (unsigned long long)dbdt);
 #endif
 	}
+	// BSR-1395
+	bsr_md_clear_flag(device, MDF_VERIFY_MISMATCH);
 	n_oos = bsr_bm_total_weight(peer_device);
 
 	if (repl_state[NOW] == L_VERIFY_S || repl_state[NOW] == L_VERIFY_T) {
@@ -2052,6 +2054,14 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 			      n_oos, Bit2KB(1));
 			khelper_cmd = "out-of-sync";
 		}
+
+		if(repl_state[NOW] == L_VERIFY_T) {
+			// BSR-1395
+			if(peer_device->ov_oos_info_list_cnt || 
+				peer_device->ov_oos_info_report_num) {
+				bsr_md_set_flag(device, MDF_VERIFY_MISMATCH);
+			} 
+		}  
 	} else {
 #ifdef _WIN
 		if (!((n_oos - peer_device->rs_failed) == 0)) {

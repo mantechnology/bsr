@@ -438,6 +438,8 @@ enum mdf_flag {
 	// BSR-1392 it is set when the user executes the promotion command, and is clear when the demotion command is executed.
 	// and when the corresponding flag is set, it will be promoted when the command "bsrsetup apply-persist-role" is executed.
 	MDF_WAS_PRIMARY = 1 << 18,
+	// BSR-1395 when verifying data through verify, it is set if there is a mismatch area.
+	MDF_VERIFY_MISMATCH = 1 << 19
 };
 
 enum mdf_peer_flag {
