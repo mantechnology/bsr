@@ -113,6 +113,33 @@ struct d_host_info *find_host_info_by_name(struct d_resource* res, char *name)
 	return NULL;
 }
 
+struct d_group_info *find_group_info_by_name(struct d_resource* res, char *name)
+{
+	struct d_group_info *group;
+
+	for_each_group(group, &res->all_groups) {
+		if (!strcmp(name, group->name))
+			return group;
+	}
+
+	return NULL;
+}
+
+// BSR-1409
+static struct d_group_info *find_group_info_or_invalid(struct d_resource *res, char *name)
+{
+	struct d_group_info *group_info = find_group_info_by_name(res, name);
+
+	if (!group_info) {
+		err("%s:%d: in resource %s:\n\t"
+		    "There is no 'groups' section for groupname '%s' named in the connection-mesh\n",
+		    res->config_file, res->start_line, res->name, name);
+		config_valid = 0;
+	}
+
+	return group_info;
+}
+
 static struct d_host_info *find_host_info_by_address(struct d_resource* res, struct d_address *address)
 {
 	struct d_host_info *host;
@@ -266,12 +293,81 @@ static void _set_host_info_in_host_address_pairs(struct d_resource *res,
 	}
 }
 
+static struct hname_address *alloc_hname_address()
+{
+	struct hname_address *ha;
+
+	ha = calloc(1, sizeof(struct hname_address));
+	if (ha == NULL) {
+		err("calloc", ": %m\n");
+		exit(E_EXEC_ERROR);
+	}
+	return ha;
+}
+
+// BSR-1409 if hname_address is set to a group, obtain and set the host information from that group.
+static void parse_hname_address_from_group_pair(struct d_resource *res, struct path *path)
+{
+	struct hname_address *ha, *next = NULL;
+	struct d_group_info *group = NULL;
+	struct d_host_info *hi = NULL;
+	struct bsr_group_info *local_group = NULL;
+	int count = 0;
+
+	STAILQ_FOREACH(ha, &path->hname_address_pairs, link) {
+		if(!ha->group)
+			continue;
+
+		group = find_group_info_or_invalid(res, ha->group);
+		if(!group)	
+			continue; 
+
+		ha->host_info = NULL;
+		for_each_host_link(hi, &group->members, group_link) {
+			const char *on_name = STAILQ_FIRST(&hi->on_hosts)->name;
+			if (ha->host_info && strcmp(hostname, on_name)) 
+				continue;
+			ha->host_info = hi;
+			ha->proxy = hi->proxy_compat_only;
+			if (!hi->lower) {
+				ha->name = on_name;
+			} else {
+				ha->name = strdup(names_to_str_c(&hi->on_hosts, '_'));
+				ha->address = hi->address;
+				ha->faked_hostname = 1;
+				ha->parsed_address = 1; 
+			}	
+			if (!strcmp(hostname, on_name)) {
+				local_group = group;
+				break;
+			}
+		}
+	}
+
+	for_each_group(group, &res->all_groups) {
+		if (group == local_group)
+			continue;
+		count = 0;
+		STAILQ_FOREACH_SAFE(ha, next, &path->hname_address_pairs, link) {
+			if(ha->group && !strcmp(ha->group, group->name)) {
+				if(++count > 1) {
+					STAILQ_REMOVE(&path->hname_address_pairs, ha, hname_address, link);
+					free(ha);
+				}
+			}
+		}
+	}
+}
+
 static void set_host_info_in_host_address_pairs(struct d_resource *res, struct connection *conn)
 {
 	struct path *path;
 
-	for_each_path(path, &conn->paths)
+	for_each_path(path, &conn->paths) {
+		// BSR-1409
+		parse_hname_address_from_group_pair(res, path);
 		_set_host_info_in_host_address_pairs(res, conn, path);
+	}
 }
 
 static bool test_proxy_on_host(struct d_resource* res, struct d_host_info *host)
@@ -800,24 +896,13 @@ static void check_volumes_hosts(struct d_resource *res)
 		check_volume_sets_equal(res, host1, host2);
 }
 
-static struct hname_address *alloc_hname_address()
-{
-	struct hname_address *ha;
-
-	ha = calloc(1, sizeof(struct hname_address));
-	if (ha == NULL) {
-		err("calloc", ": %m\n");
-		exit(E_EXEC_ERROR);
-	}
-	return ha;
-}
-
 static void create_implicit_connections(struct d_resource *res)
 {
 	struct connection *conn;
 	struct path *path;
 	struct hname_address *ha;
-	struct d_host_info *host_info;
+	struct d_host_info *host_info;;
+	struct d_group_info *group_info;
 	int hosts = 0;
 
 	if (!STAILQ_EMPTY(&res->connections))
@@ -829,13 +914,74 @@ static void create_implicit_connections(struct d_resource *res)
 	path->implicit = 1;
 	insert_tail(&conn->paths, path);
 
+	// BSR-1409
+	for_each_group(group_info, &res->all_groups) {
+		bool found_local = false;
+
+		if(group_info) {
+			if (++hosts == 3) {
+				err("Resource %s:\n\t"
+					"Use explicit 'connection' sections with more than two 'on' sections.\n",
+						res->name);
+				break;
+			}
+			
+			for_each_host_link(host_info, &group_info->members, group_link) {
+				const char *first_on_name = STAILQ_FIRST(&host_info->on_hosts)->name;
+
+				if (!found_local && !strcmp(hostname, first_on_name)) {
+					// Local group 처리
+					ha = alloc_hname_address();
+					ha->host_info = host_info;
+					ha->proxy = host_info->proxy_compat_only;
+					if (!host_info->lower) {
+						ha->name = first_on_name;
+					} else {
+						ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
+						ha->address = host_info->address;
+						ha->faked_hostname = 1;
+						ha->parsed_address = 1;
+					}
+					STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
+					CLI_TRAC_LOG(false, "INSERT_TAIL, %s, group %s, hosts %s(local)", res->name, group_info->name, ha->name);
+					found_local = true;
+					break; 
+				}
+			}
+
+			if (!found_local) {
+				host_info = STAILQ_FIRST(&group_info->members);
+				if (host_info) {
+					ha = alloc_hname_address();
+					ha->host_info = host_info;
+					ha->proxy = host_info->proxy_compat_only;
+					if (!host_info->lower) {
+						ha->name = STAILQ_FIRST(&host_info->on_hosts)->name;
+					} else {
+						ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
+						ha->address = host_info->address;
+						ha->faked_hostname = 1;
+						ha->parsed_address = 1;
+					}
+					CLI_TRAC_LOG(false, "INSERT_TAIL, %s, group %s, hosts %s", res->name, group_info->name, ha->name);
+					STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
+				}
+			}
+		}
+	}
+
 	for_each_host(host_info, &res->all_hosts) {
+		// BSR-1409
+		if(host_info->group)
+			continue;
+
 		if (++hosts == 3) {
 			err("Resource %s:\n\t"
 			    "Use explicit 'connection' sections with more than two 'on' sections.\n",
 		            res->name);
 			break;
 		}
+
 		if (host_info->address.af && host_info->address.addr && host_info->address.port) {
 			ha = alloc_hname_address();
 			ha->host_info = host_info;
@@ -875,10 +1021,33 @@ static struct d_host_info *find_host_info_or_invalid(struct d_resource *res, cha
 	return host_info;
 }
 
+
+
 static void create_connections_from_mesh(struct d_resource *res, struct mesh *mesh)
 {
-	struct d_name *hname1, *hname2;
+	struct d_name *hname1, *hname2, *gname, *name;
 	struct d_host_info *hi1, *hi2;
+	struct d_group_info *gi;
+	struct d_host_info *host_info;
+
+	// BSR-1409 if a group does not have its own host set up, another host belonging to that group is added
+	for_each_group(gname, &mesh->groups) {
+		gi = find_group_info_or_invalid(res, gname->name);
+		if (!gi)
+			return;
+		hi2 = NULL;
+		for_each_host_link(hi1, &gi->members, group_link) {
+			if (hi2 && strcmp(hostname, STAILQ_FIRST(&hi1->on_hosts)->name)) 
+				continue;
+			hi2 = hi1;
+			if(!strcmp(hostname, STAILQ_FIRST(&hi1->on_hosts)->name))
+				break;
+		}
+		
+		name = malloc(sizeof(struct d_name));
+		name->name = STAILQ_FIRST(&hi2->on_hosts)->name;
+		insert_tail(&mesh->hosts, name);
+	}
 
 	for_each_host(hname1, &mesh->hosts) {
 		hi1 = find_host_info_or_invalid(res, hname1->name);
@@ -1223,6 +1392,24 @@ void post_parse(struct resources *resources, enum pp_flags flags)
 		bool any_non_zero_vnr = false;
 		for_each_host(host, &res->all_hosts) {
 			struct d_volume *vol;
+
+			// BSR-1409 check if the node ID is duplicated.
+			struct d_host_info *check_host;
+			for_each_host(check_host, &res->all_hosts) {
+				if(host == check_host)
+					continue;
+				if(strcmp(host->node_id, check_host->node_id))
+					continue;
+				if(host->group && check_host->group) {
+					if(!strcmp(host->group, check_host->group))
+						continue;
+				}
+				err("resource %s, on %s { ... }: "
+					"node-id %s is duplicated\n",
+					res->name, names_to_str(&host->on_hosts), host->node_id);
+				config_valid = 0;
+			}
+
 			inherit_volumes(&res->volumes, host);
 
 			for_each_volume(vol, &host->volumes) {

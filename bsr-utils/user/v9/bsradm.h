@@ -146,13 +146,25 @@ struct d_host_info
 	// BSR-859
 	char* node_name;
 	char* platform; // BSR-867
+	char* group; // BSR-1409
+	STAILQ_ENTRY(d_host_info) group_link; // BSR-1409
 };
 
 STAILQ_HEAD(hosts, d_host_info);
 
+struct d_group_info
+{
+	char *name;
+	struct hosts members;
+	STAILQ_ENTRY(d_group_info) link;
+};
+
+STAILQ_HEAD(groups, d_group_info);
+
 struct hname_address
 {
 	char *name;			/* parsed */
+	char *group;		/* BSR-1409 */
 	int config_line;		/* parsed here */
 	struct d_address address;	/* parsed */
 	struct d_proxy_info *proxy;     /* parsed here */
@@ -211,6 +223,7 @@ STAILQ_HEAD(connections, connection);
 struct mesh
 {
 	struct names hosts; /* parsed here. Expanded to connections in post_parse */
+	struct names groups; // BSR-1409
 	struct options net_options;
 	STAILQ_ENTRY(mesh) link;
 };
@@ -226,6 +239,8 @@ struct d_resource
 
 	struct d_host_info* me;
 	struct hosts all_hosts;
+	// BSR-1409
+	struct groups all_groups;
 
 	struct meshes meshes;
 
@@ -548,12 +563,22 @@ extern struct names backend_options;
 #define for_each_volume(var, head) STAILQ_FOREACH(var, head, link)
 #define for_each_volume_safe(var, next, head) STAILQ_FOREACH_SAFE(var, next, head, link)
 #define for_each_host(var, head) STAILQ_FOREACH(var, head, link)
+// BSR-1409
+#define for_each_host_link(var, head, link) STAILQ_FOREACH(var, head, link)
 #define for_each_connection(var, head) STAILQ_FOREACH(var, head, link)
 #define for_each_path(var, head) STAILQ_FOREACH(var, head, link)
+// BSR-1409
+#define for_each_group(var, head) STAILQ_FOREACH(var, head, link)
 
 #define insert_volume(head, elem) STAILQ_INSERT_ORDERED(head, elem, link)
 
 #define insert_tail(head, elem) do {			\
+	typeof(*elem) *e = (elem); /* evaluate once */	\
+	STAILQ_INSERT_TAIL(head, e, link);		\
+} while (false)
+
+// BSR-1409
+#define insert_link_tail(head, elem, link) do {			\
 	typeof(*elem) *e = (elem); /* evaluate once */	\
 	STAILQ_INSERT_TAIL(head, e, link);		\
 } while (false)

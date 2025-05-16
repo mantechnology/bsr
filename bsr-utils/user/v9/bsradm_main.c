@@ -1189,11 +1189,20 @@ static void free_options(struct options *options)
 static void free_config()
 {
 	struct d_resource *f, *t;
+	struct d_group_info *group, *gth;
 	struct d_host_info *host, *th;
 
 	f = STAILQ_FIRST(&config);
 	while (f) {
 		free(f->name);
+		// BSR-1409
+		group = STAILQ_FIRST(&f->all_groups);
+		while(group) {
+			gth = STAILQ_NEXT(group, link);
+			if(group)
+				free(group);
+			group = gth;
+		}
 		host = STAILQ_FIRST(&f->all_hosts);
 		while (host) {
 			th = STAILQ_NEXT(host, link);

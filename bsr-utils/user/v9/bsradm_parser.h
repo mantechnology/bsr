@@ -103,6 +103,8 @@ enum yytokentype {
 	TK_UDEV_ALWAYS_USE_VNR,
 	TK_LONG_INTEGER, // BSR-845
 	TK_HOSTNAME, // BSR-1387
+	TK_GROUP, // BSR-1409
+	TK_GROUPS, // BSR-1409
 };
 
 typedef struct YYSTYPE {
