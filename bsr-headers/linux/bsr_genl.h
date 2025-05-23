@@ -198,6 +198,8 @@ GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
 	__u32_field_def(37,	BSR_GENLA_F_MANDATORY,	cong_highwater, BSR_CONG_HIGHWATER_DEF)
 	// BSR-859
 	__str_field_def(38,	BSR_GENLA_F_MANDATORY, peer_node_name, SHARED_SECRET_MAX)
+	// BSR-1409
+	__str_field_def(39,	BSR_GENLA_F_MANDATORY, peer_node_group, SHARED_SECRET_MAX)
 )
 
 GENL_struct(BSR_NLA_SET_ROLE_PARMS, 6, set_role_parms,
@@ -409,6 +411,7 @@ GENL_struct(BSR_NLA_NODE_OPTS, 36, node_opts,
 	__flg_field_def(2, 0 /* OPTIONAL */, svc_auto_down, BSR_SVC_AUTO_DOWN_DEF)		// BSR-593 auto-down by svc
 	__str_field_def(3, BSR_GENLA_F_MANDATORY, node_name, SHARED_SECRET_MAX) // BSR-859
 	__flg_field_def(4, 0 /* OPTIONAL */, target_only, BSR_TARGET_ONLY_DEF) // BSR-1393
+	__str_field_def(5, BSR_GENLA_F_MANDATORY, group, SHARED_SECRET_MAX) // BSR-1409
 )
 
 // BSR-734

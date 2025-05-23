@@ -1859,6 +1859,7 @@ static struct connection *parse_connection(enum pr_flags flags)
 	struct peer_device *peer_device;
 	int hosts_or_group = 0, token;
 	struct path *path;
+	char *group;
 
 	conn = alloc_connection();
 	conn->config_line = line;
@@ -1889,7 +1890,15 @@ static struct connection *parse_connection(enum pr_flags flags)
 				config_valid = 0;
 			}
 			break;
-		// BSR-1409 if you set up a group, save only the group name and obtain the group's host information from parse_hname_address_from_group_pair() to set hname_address.
+			// BSR-1409
+		case TK__PEER_NODE_GROUP:
+			EXP(TK_STRING);
+			group = yylval.txt;
+			if(strcmp(group, "")) 
+				conn->peer->group = group;
+			EXP(';');
+			break;
+			// BSR-1409 if you set up a group, save only the group name and obtain the group's host information from parse_hname_address_from_group_pair() to set hname_address.
 		case TK_GROUP:
 			EXP(TK_STRING);
 			struct hname_address *ha = NULL;

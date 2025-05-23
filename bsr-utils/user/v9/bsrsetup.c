@@ -2821,6 +2821,11 @@ static void show_connection(struct connections_list *connection, struct peer_dev
 	if (nla)
 		printI("_peer_node_name\t\"%s\";\n", (char *)nla_data(nla));
 
+	// BSR-1409
+	nla = nla_find_nested(connection->net_conf, __nla_type(T_peer_node_group));
+	if (nla)
+		printI("_peer_node_group\t\"%s\";\n", (char *)nla_data(nla));
+
 	print_paths(connection);
 	if (connection->info.conn_connection_state == C_STANDALONE)
 		printI("_is_standalone;\n");
@@ -2924,8 +2929,13 @@ static int show_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		// BSR-859
 		nla = nla_find_nested(resource->node_opts, __nla_type(T_node_name));
 		if (nla)
-		printI("node-name\t\t\"%s\";\n", (char *)nla_data(nla));
+			printI("node-name\t\t\"%s\";\n", (char *)nla_data(nla));
 		
+		// BSR-1409
+		nla = nla_find_nested(resource->node_opts, __nla_type(T_group));
+		if (nla)
+			printI("group\t\t\"%s\";\n", (char *)nla_data(nla));
+
 		for (device = devices; device; device = device->next)
 			show_volume(device);
 

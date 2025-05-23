@@ -271,7 +271,9 @@ static void dump_host_info(struct d_host_info *hi)
 		++indent;
 	}
 	printI("node-id %s;\n", hi->node_id);
-
+	// BSR-1409
+	if(hi->group)
+		printI("group %s;\n", hi->group);
 	// BSR-718
 	dump_options("options", &hi->node_options);
 
@@ -529,7 +531,9 @@ static void dump_host_info_xml(struct d_host_info *hi)
 	}
 
 	++indent;
-
+	// BSR-1409
+	if(hi->group)
+		printI("<group>%s</group>\n", hi->group);
 	// BSR-718
 	dump_options_xml("options", &hi->node_options);
 	for_each_volume(vol, &hi->volumes)
@@ -625,13 +629,44 @@ static void dump_mesh(struct d_resource *res)
 	struct mesh *mesh;
 
 	STAILQ_FOREACH(mesh, &res->meshes, link) {
-		struct d_name *h;
+		struct d_name *h, *g;
+		struct d_host_info *host;
+		struct d_group_info *group;
+		bool found_group;
+		bool first_host = false;
 
 		printI("connection-mesh {\n");
 		++indent;
-		printI("hosts");
-		STAILQ_FOREACH(h, &mesh->hosts, link)
-			printf(" %s", h->name);
+		// BSR-1409
+		if(!STAILQ_EMPTY(&mesh->groups)) {
+			printI("groups");
+			STAILQ_FOREACH(g, &mesh->groups, link)
+				printf(" %s", g->name);
+			printf(";\n");
+		}
+		if(!STAILQ_EMPTY(&mesh->hosts)) {
+			STAILQ_FOREACH(h, &mesh->hosts, link) {
+				// BSR-1409
+				found_group = false;
+				host = find_host_info_by_name(res, h->name);
+				if(host && host->group) {
+					STAILQ_FOREACH(g, &mesh->groups, link) {
+						if(!strcmp(host->group, g->name)) {
+							found_group = true;
+							break;
+						}
+					}
+				}
+				if(!found_group) {
+					if(!first_host) {
+						printI("hosts");
+						first_host = true;
+					}
+					printf(" %s", h->name);
+				}
+			}
+			printf(";\n");
+		}
 		printf(";\n");
 		dump_options("net", &mesh->net_options);
 		--indent;

@@ -407,6 +407,19 @@ void create_node_name_options(struct d_host_info *host)
 	insert_head(&host->node_options, new_opt(strdup("node-name"), strdup(value)));
 }
 
+// BSR-1409
+void create_node_group_options(struct d_host_info *host)
+{
+	char *value;
+
+	if (find_opt(&host->node_options, "group"))
+		return;
+
+	value = host->group;
+
+	insert_head(&host->node_options, new_opt(strdup("group"), strdup(value)));
+}
+
 extern struct ifreq *ifreq_list;
 
 void set_me_in_resource(struct d_resource* res, int match_on_proxy)
@@ -460,6 +473,8 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 		res->me = host;
 
 		create_node_name_options(res->me);
+		// BSR-1409
+		create_node_group_options(res->me);
 		
 		CLI_TRAC_LOG(false, "res->me(%s)", host->lower ? host->lower->name : names_to_str(&host->on_hosts));
 		host->used_as_me = 1;
@@ -610,6 +625,30 @@ void create_peer_node_name_options(struct connection *conn)
 	insert_head(&conn->net_options, new_opt(strdup("peer-node-name"), strdup(value)));
 }
 
+// BSR-1409
+void create_peer_node_group_options(struct connection *conn)
+{
+	char *value;
+
+	if (find_opt(&conn->net_options, "peer-node-group")) {
+		return;
+	}
+
+	if (conn->peer) {
+		if (conn->peer->group)
+			value = conn->peer->group;
+		else {
+			return;
+		}
+	}
+	else {
+		return;
+	}
+
+	insert_head(&conn->net_options, new_opt(strdup("peer-node-group"), strdup(value)));
+}
+
+
 bool peer_diskless(struct peer_device *peer_device)
 {
 	struct d_volume *vol;
@@ -655,6 +694,8 @@ void set_peer_in_resource(struct d_resource* res, int peer_required)
 		}
 		// BSR-859
 		create_peer_node_name_options(conn);
+		// BSR-1409
+		create_peer_node_group_options(conn);
 		create_implicit_net_options(conn);
 	}
 	res->peers_addrs_set = peers_addrs_set;

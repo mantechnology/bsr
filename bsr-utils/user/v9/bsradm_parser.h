@@ -105,6 +105,7 @@ enum yytokentype {
 	TK_HOSTNAME, // BSR-1387
 	TK_GROUP, // BSR-1409
 	TK_GROUPS, // BSR-1409
+	TK__PEER_NODE_GROUP, // BSR-1409
 };
 
 typedef struct YYSTYPE {
