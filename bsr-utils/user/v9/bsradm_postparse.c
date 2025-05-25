@@ -412,6 +412,9 @@ void create_node_group_options(struct d_host_info *host)
 {
 	char *value;
 
+	if(!host->group)
+		return;
+
 	if (find_opt(&host->node_options, "group"))
 		return;
 
@@ -970,8 +973,9 @@ static void create_implicit_connections(struct d_resource *res)
 			for_each_host_link(host_info, &group_info->members, group_link) {
 				const char *first_on_name = STAILQ_FIRST(&host_info->on_hosts)->name;
 
-				if (!found_local && !strcmp(hostname, first_on_name)) {
-					// Local group 처리
+				if (found_local)
+					continue;
+				if (!strcmp(hostname, first_on_name)) {
 					ha = alloc_hname_address();
 					ha->host_info = host_info;
 					ha->proxy = host_info->proxy_compat_only;
@@ -990,23 +994,27 @@ static void create_implicit_connections(struct d_resource *res)
 				}
 			}
 
-			if (!found_local) {
-				host_info = STAILQ_FIRST(&group_info->members);
-				if (host_info) {
-					ha = alloc_hname_address();
-					ha->host_info = host_info;
-					ha->proxy = host_info->proxy_compat_only;
-					if (!host_info->lower) {
-						ha->name = STAILQ_FIRST(&host_info->on_hosts)->name;
-					} else {
-						ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
-						ha->address = host_info->address;
-						ha->faked_hostname = 1;
-						ha->parsed_address = 1;
-					}
-					CLI_TRAC_LOG(false, "INSERT_TAIL, %s, group %s, hosts %s", res->name, group_info->name, ha->name);
-					STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
+			if (found_local)
+				continue;
+
+			if(STAILQ_EMPTY(&group_info->members))
+				continue;
+
+			host_info = STAILQ_FIRST(&group_info->members);
+			if (host_info) {
+				ha = alloc_hname_address();
+				ha->host_info = host_info;
+				ha->proxy = host_info->proxy_compat_only;
+				if (!host_info->lower) {
+					ha->name = STAILQ_FIRST(&host_info->on_hosts)->name;
+				} else {
+					ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
+					ha->address = host_info->address;
+					ha->faked_hostname = 1;
+					ha->parsed_address = 1;
 				}
+				CLI_TRAC_LOG(false, "INSERT_TAIL, %s, group %s, hosts %s", res->name, group_info->name, ha->name);
+				STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 			}
 		}
 	}
