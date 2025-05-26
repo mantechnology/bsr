@@ -1017,6 +1017,7 @@ struct context_def net_options_ctx = {
 	.fields = {
 		CHANGEABLE_NET_OPTIONS,
 		{ "peer-node-name", STRING(peer_node_name)}, // BSR-859
+		{ "peer-node-group", STRING(peer_node_group)}, // BSR-1409
 		{ } },
 };
 
@@ -1105,6 +1106,7 @@ struct context_def adjust_net_options_ctx = {
 		{ "transport", STRING(transport_name) },
 		CHANGEABLE_NET_OPTIONS,
 		{ "peer-node-name", STRING(peer_node_name)},
+		{ "peer-node-group", STRING(peer_node_group)}, // BSR-1409
 		{ } },
 };
 
