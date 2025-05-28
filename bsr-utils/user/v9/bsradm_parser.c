@@ -1382,7 +1382,9 @@ static void parse_host_section(struct d_resource *res,
 			STAILQ_FOREACH(h, on_hosts, link)
 				check_upr("node-id statement", "%s:%s:node-id", res->name, h->name);
 			// BSR-1409 duplicate node ID comparisons are performed during post-parsing to handle exceptions within the same group.
-			// check_upr("node-id", "%s:%s", res->name, host->node_id);
+#if 0 
+			check_upr("node-id", "%s:%s", res->name, host->node_id);
+#endif
 			EXP(';');
 			break;
 		case TK_OPTIONS:
@@ -1912,7 +1914,35 @@ static struct connection *parse_connection(enum pr_flags flags)
 				    config_file, fline);
 				config_valid = 0;
 			}
-			EXP(';');
+			int stoken = yylex();
+			switch (stoken) {
+			case TK_ADDRESS:
+				__parse_address(&ha->address);
+				ha->parsed_address = 1;
+				goto parse_optional_via;
+			case TK_PORT:
+				EXP(TK_INTEGER);
+				ha->address.port = yylval.txt;
+				ha->parsed_port = 1;
+			parse_optional_via:
+				stoken = yylex();
+				if (stoken == TK_VIA) {
+					EXP(TK_PROXY);
+					ha->proxy = parse_proxy_section();
+					ha->proxy->group = ha->group;
+				} else if (stoken != ';')
+					pe_expected_got( "via | ; ", stoken);
+				break;
+			case TK_VIA:
+				EXP(TK_PROXY);
+				ha->proxy = parse_proxy_section();
+				ha->proxy->group = ha->group;
+				break;
+			case ';':
+				break;
+			default:
+				pe_expected_got( "address | port | ;", stoken);
+			}
 			break;
 		case TK__PEER_NODE_ID:
 			conn->peer = parse_peer_node_id();

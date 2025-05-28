@@ -65,6 +65,8 @@ struct d_proxy_info
 	struct d_address outside;
 	struct options options; /* named proxy_options in other places */
 	struct options plugins; /* named proxy_plugins in other places */
+	// BSR-1409
+	char* group;
 };
 
 struct connection;
@@ -467,6 +469,7 @@ extern char *_proxy_connection_name(char *conn_name, const struct d_resource *re
 	_proxy_connection_name(alloca(_proxy_connect_name_len(RES, CONN)), RES, CONN)
 extern struct d_resource *res_by_name(const char *name);
 extern struct d_host_info *find_host_info_by_name(struct d_resource* res, char *name);
+extern struct d_group_info *find_group_info_by_name(struct d_resource* res, char *name);
 extern int addresses_cmp(struct d_address *addr1, struct d_address *addr2);
 extern bool addresses_equal(struct d_address *addr1, struct d_address *addr2);
 extern int btree_key_cmp(const void *a, const void *b);

@@ -311,36 +311,37 @@ static void parse_hname_address_from_group_pair(struct d_resource *res, struct p
 	struct hname_address *ha, *next = NULL;
 	struct d_group_info *group = NULL;
 	struct d_host_info *hi = NULL;
-	struct bsr_group_info *local_group = NULL;
+	struct d_group_info *local_group = NULL;
 	int count = 0;
 
 	STAILQ_FOREACH(ha, &path->hname_address_pairs, link) {
 		if(!ha->group)
 			continue;
-
+		if(ha->host_info)
+			continue;
 		group = find_group_info_or_invalid(res, ha->group);
 		if(!group)	
 			continue; 
-
-		ha->host_info = NULL;
 		for_each_host_link(hi, &group->members, group_link) {
 			const char *on_name = STAILQ_FIRST(&hi->on_hosts)->name;
 			if (ha->host_info && strcmp(hostname, on_name)) 
 				continue;
 			ha->host_info = hi;
-			ha->proxy = hi->proxy_compat_only;
-			if (!hi->lower) {
-				ha->name = on_name;
-			} else {
-				ha->name = strdup(names_to_str_c(&hi->on_hosts, '_'));
+			ha->name = hi->lower ? strdup(names_to_str_c(&hi->on_hosts, '_')) : on_name;
+			ha->group = group->name;
+			if (!strcmp(hostname, on_name)) 
+				local_group = group;
+			if (!ha->proxy) 
+				ha->proxy = hi->proxy_compat_only;
+			if (ha->proxy)
+				ha->proxy->group = group->name;
+			if (hi->lower) {
 				ha->address = hi->address;
 				ha->faked_hostname = 1;
 				ha->parsed_address = 1; 
 			}	
-			if (!strcmp(hostname, on_name)) {
-				local_group = group;
+			if(local_group == group)
 				break;
-			}
 		}
 	}
 
@@ -382,7 +383,20 @@ static bool test_proxy_on_host(struct d_resource* res, struct d_host_info *host)
 				if (!ha->proxy)
 					continue;
 				if (ha->host_info == host) {
-					return hostname_in_list(hostname, &ha->proxy->on_hosts);
+					// BSR-1409
+					if(!hostname_in_list(hostname, &ha->proxy->on_hosts)) {
+						if(ha->proxy->group) {
+							struct d_group_info *group = find_group_info_by_name(res, ha->proxy->group);
+							if (group) {
+								for_each_host_link(host, &group->members, group_link) {
+									if (hostname_in_list(hostname, &host->on_hosts)) 
+										return true;
+								}
+							}
+						} 
+						return false;
+					}
+					return true;
 				}
 			}
 		}
@@ -436,7 +450,7 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 		/* do we match  this host? */
 		if (match_on_proxy) {
 			if (!test_proxy_on_host(res, host))
-			       continue;
+				continue;
 		}
 		else if (host->by_address) {
 			if (!have_ip(host->address.af, host->address.addr, ifreq_list) &&
@@ -945,7 +959,7 @@ static void create_implicit_connections(struct d_resource *res)
 	struct connection *conn;
 	struct path *path;
 	struct hname_address *ha;
-	struct d_host_info *host_info;;
+	struct d_host_info *host_info;
 	struct d_group_info *group_info;
 	int hosts = 0;
 
@@ -961,7 +975,6 @@ static void create_implicit_connections(struct d_resource *res)
 	// BSR-1409
 	for_each_group(group_info, &res->all_groups) {
 		bool found_local = false;
-
 		if(group_info) {
 			if (++hosts == 3) {
 				err("Resource %s:\n\t"
@@ -979,10 +992,10 @@ static void create_implicit_connections(struct d_resource *res)
 					ha = alloc_hname_address();
 					ha->host_info = host_info;
 					ha->proxy = host_info->proxy_compat_only;
-					if (!host_info->lower) {
-						ha->name = first_on_name;
-					} else {
-						ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
+					if(ha->proxy) 
+						ha->proxy->group = group_info->name;
+					ha->name = host_info->lower ? strdup(names_to_str_c(&host_info->on_hosts, '_')) : first_on_name;
+					if (host_info->lower) {
 						ha->address = host_info->address;
 						ha->faked_hostname = 1;
 						ha->parsed_address = 1;
@@ -1005,10 +1018,11 @@ static void create_implicit_connections(struct d_resource *res)
 				ha = alloc_hname_address();
 				ha->host_info = host_info;
 				ha->proxy = host_info->proxy_compat_only;
-				if (!host_info->lower) {
-					ha->name = STAILQ_FIRST(&host_info->on_hosts)->name;
-				} else {
-					ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
+				if(ha->proxy) 
+					ha->proxy->group = group_info->name;
+					
+				ha->name = host_info->lower ? strdup(names_to_str_c(&host_info->on_hosts, '_')) : STAILQ_FIRST(&host_info->on_hosts)->name;
+				if (host_info->lower) {
 					ha->address = host_info->address;
 					ha->faked_hostname = 1;
 					ha->parsed_address = 1;
