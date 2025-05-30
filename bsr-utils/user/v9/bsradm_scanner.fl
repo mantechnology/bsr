@@ -102,6 +102,9 @@ meta-disk		{ DP; return TK_META_DISK;		}
 flexible-meta-disk	{ DP; return TK_FLEX_META_DISK;		}
 node-id			{ DP; return TK_NODE_ID;		}
 node-name			{ DP; CP; return TK_NODE_NAME;		}	/* BSR-859 */
+group		{ DP; return TK_GROUP;     }	/* BSR-1409 */
+groups		{ DP; return TK_GROUPS;     }	/* BSR-1409 */
+_peer_node_group		{ DP; return TK__PEER_NODE_GROUP;     }	/* BSR-1409 */
 usage-count 		{ DP; return TK_USAGE_COUNT;		}
 _this_host 		{ DP; return TK__THIS_HOST;		}
 _remote_host 		{ DP; return TK__REMOTE_HOST;		}

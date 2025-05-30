@@ -773,6 +773,36 @@ static void parse_address(struct names *on_hosts, struct d_address *address)
 	EXP(';');
 }
 
+// BSR-1409
+static void parse_groups(struct names *groups, char delimeter)
+{
+	char errstr[20];
+	struct d_name *name;
+	int nr_groups = 0;
+	int token;
+
+	while (1) {
+		token = yylex();
+		switch (token) {
+		case TK_STRING:
+			name = malloc(sizeof(struct d_name));
+			name->name = yylval.txt;
+			insert_tail(groups, name);
+			nr_groups++;
+			break;
+		default:
+			if (token == delimeter) {
+				if (nr_groups == 0)
+					pe_expected_got("TK_STRING", token);
+				return;
+			} else {
+				sprintf(errstr, "TK_STRING | '%c'", delimeter);
+				pe_expected_got(errstr, token);
+			}
+		}
+	}
+}
+
 static void parse_hosts(struct names *hosts, char delimeter)
 {
 	char errstr[20];
@@ -1246,6 +1276,7 @@ static void parse_host_section(struct d_resource *res,
 {
 	struct d_host_info *host;
 	struct d_name *h;
+	struct d_group_info *group;
 	int in_braces = 1;
 
 	c_section_start = line;
@@ -1350,7 +1381,10 @@ static void parse_host_section(struct d_resource *res,
 			host->node_id = yylval.txt;
 			STAILQ_FOREACH(h, on_hosts, link)
 				check_upr("node-id statement", "%s:%s:node-id", res->name, h->name);
+			// BSR-1409 duplicate node ID comparisons are performed during post-parsing to handle exceptions within the same group.
+#if 0 
 			check_upr("node-id", "%s:%s", res->name, host->node_id);
+#endif
 			EXP(';');
 			break;
 		case TK_OPTIONS:
@@ -1366,6 +1400,32 @@ static void parse_host_section(struct d_resource *res,
 		case TK_NODE_NAME:
 			EXP(TK_STRING);
 			host->node_name = yylval.txt;
+			EXP(';');
+			break;
+		// BSR-1409 create a group and set up a host for the group
+		case TK_GROUP:
+			EXP(TK_STRING);
+			bool already_group = false;
+			struct d_host_info *host_info;
+
+			host->group = yylval.txt;
+			for_each_group(group, &res->all_groups) {
+				if(group->name && !strcmp(group->name, host->group)) {
+					insert_link_tail(&group->members, host, group_link);
+					CLI_TRAC_LOG(false, "INSERT_TAIL, %s, already group %s, hosts %s", res->name, group->name, STAILQ_FIRST(&host->on_hosts)->name);
+					already_group = true;
+					break;
+				}
+			}
+			if(!already_group) {
+				group = calloc(1,sizeof(struct d_group_info));
+				STAILQ_INIT(&group->members);
+				group->name = host->group;
+				insert_link_tail(&group->members, host, group_link);
+				CLI_TRAC_LOG(false, "INSERT_TAIL, %s, new group %s, hosts %s", res->name, group->name, STAILQ_FIRST(&host->on_hosts)->name);
+				
+				insert_tail(&res->all_groups, group);
+			}
 			EXP(';');
 			break;
 		case '}':
@@ -1752,7 +1812,7 @@ static struct path *path0(struct connection *conn)
 static struct path *parse_path()
 {
 	struct path *path;
-	int hosts = 0, token;
+	int hosts_or_group = 0, token;
 
 	path = alloc_path();
 	path->config_line = line;
@@ -1766,11 +1826,26 @@ static struct path *parse_path()
 		case TK__THIS_HOST:
 		case TK__REMOTE_HOST:
 			insert_tail(&path->hname_address_pairs, parse_hname_address_pair(path, token));
-			if (++hosts >= 3) {
-				err("%s:%d: only two 'host' keywords per path allowed\n",
+			if (++hosts_or_group >= 3) {
+				err("%s:%d: only two 'host' or 'group' keywords per connection allowed\n",
 				    config_file, fline);
 				config_valid = 0;
 			}
+			break;
+		// BSR-1409 
+		case TK_GROUP:
+			EXP(TK_STRING);
+			struct hname_address *ha = NULL;
+			ha = calloc(1, sizeof(struct hname_address));
+			ha->config_line = line;
+			ha->group = yylval.txt;
+			insert_tail(&path->hname_address_pairs, ha);
+			if (++hosts_or_group >= 3) {
+				err("%s:%d: only two 'host' or 'group' keywords per connection allowed\n",
+				    config_file, fline);
+				config_valid = 0;
+			}
+			EXP(';');
 			break;
 		case '}':
 			return path;
@@ -1784,8 +1859,9 @@ static struct connection *parse_connection(enum pr_flags flags)
 {
 	struct connection *conn;
 	struct peer_device *peer_device;
-	int hosts = 0, token;
+	int hosts_or_group = 0, token;
 	struct path *path;
+	char *group;
 
 	conn = alloc_connection();
 	conn->config_line = line;
@@ -1810,10 +1886,62 @@ static struct connection *parse_connection(enum pr_flags flags)
 		case TK__REMOTE_HOST:
 			path = path0(conn);
 			insert_tail(&path->hname_address_pairs, parse_hname_address_pair(path, token));
-			if (++hosts >= 3) {
-				err("%s:%d: only two 'host' keywords per connection allowed\n",
+			if (++hosts_or_group >= 3) {
+				err("%s:%d: only two 'host' or 'group' keywords per connection allowed\n",
 				    config_file, fline);
 				config_valid = 0;
+			}
+			break;
+			// BSR-1409
+		case TK__PEER_NODE_GROUP:
+			EXP(TK_STRING);
+			group = yylval.txt;
+			if(strcmp(group, "")) 
+				conn->peer->group = group;
+			EXP(';');
+			break;
+			// BSR-1409 if you set up a group, save only the group name and obtain the group's host information from parse_hname_address_from_group_pair() to set hname_address.
+		case TK_GROUP:
+			EXP(TK_STRING);
+			struct hname_address *ha = NULL;
+			ha = calloc(1, sizeof(struct hname_address));
+			ha->config_line = line;
+			ha->group = yylval.txt;
+			path = path0(conn);
+			insert_tail(&path->hname_address_pairs, ha);
+			if (++hosts_or_group >= 3) {
+				err("%s:%d: only two 'host' or 'group' keywords per connection allowed\n",
+				    config_file, fline);
+				config_valid = 0;
+			}
+			int stoken = yylex();
+			switch (stoken) {
+			case TK_ADDRESS:
+				__parse_address(&ha->address);
+				ha->parsed_address = 1;
+				goto parse_optional_via;
+			case TK_PORT:
+				EXP(TK_INTEGER);
+				ha->address.port = yylval.txt;
+				ha->parsed_port = 1;
+			parse_optional_via:
+				stoken = yylex();
+				if (stoken == TK_VIA) {
+					EXP(TK_PROXY);
+					ha->proxy = parse_proxy_section();
+					ha->proxy->group = ha->group;
+				} else if (stoken != ';')
+					pe_expected_got( "via | ; ", stoken);
+				break;
+			case TK_VIA:
+				EXP(TK_PROXY);
+				ha->proxy = parse_proxy_section();
+				ha->proxy->group = ha->group;
+				break;
+			case ';':
+				break;
+			default:
+				pe_expected_got( "address | port | ;", stoken);
 			}
 			break;
 		case TK__PEER_NODE_ID:
@@ -1878,6 +2006,7 @@ void parse_connection_mesh(struct d_resource *res, enum pr_flags flags)
 	EXP('{');
 	mesh = calloc(1, sizeof(struct mesh));
 	STAILQ_INIT(&mesh->hosts);
+	STAILQ_INIT(&mesh->groups);
 	STAILQ_INIT(&mesh->net_options);
 
 	while (1) {
@@ -1885,6 +2014,10 @@ void parse_connection_mesh(struct d_resource *res, enum pr_flags flags)
 		switch(token) {
 		case TK_HOSTS:
 			parse_hosts(&mesh->hosts, ';');
+			break;
+		// BSR-1409
+		case TK_GROUPS:
+			parse_groups(&mesh->groups, ';');
 			break;
 		case TK_NET:
 			if (!STAILQ_EMPTY(&mesh->net_options)) {
@@ -1924,6 +2057,8 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 	STAILQ_INIT(&res->volumes);
 	STAILQ_INIT(&res->connections);
 	STAILQ_INIT(&res->all_hosts);
+	// BSR-1409
+	STAILQ_INIT(&res->all_groups);
 	STAILQ_INIT(&res->net_options);
 	STAILQ_INIT(&res->disk_options);
 	STAILQ_INIT(&res->pd_options);

@@ -1189,11 +1189,20 @@ static void free_options(struct options *options)
 static void free_config()
 {
 	struct d_resource *f, *t;
+	struct d_group_info *group, *gth;
 	struct d_host_info *host, *th;
 
 	f = STAILQ_FIRST(&config);
 	while (f) {
 		free(f->name);
+		// BSR-1409
+		group = STAILQ_FIRST(&f->all_groups);
+		while(group) {
+			gth = STAILQ_NEXT(group, link);
+			if(group)
+				free(group);
+			group = gth;
+		}
 		host = STAILQ_FIRST(&f->all_hosts);
 		while (host) {
 			th = STAILQ_NEXT(host, link);
@@ -2283,6 +2292,7 @@ int do_proxy_conn_down(const struct cfg_ctx *ctx)
 
 static int check_proxy(const struct cfg_ctx *ctx, int do_up)
 {
+	struct d_resource *res = ctx->res;
 	struct connection *conn = ctx->conn;
 	struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 	int rv;
@@ -2307,12 +2317,41 @@ static int check_proxy(const struct cfg_ctx *ctx, int do_up)
 #endif
 	}
 
-	if (!hostname_in_list(hostname, &path->my_proxy->on_hosts)) {
-		if (all_resources)
-			return 0;
-		err("The proxy config in resource %s is not for %s.\n",
-		    ctx->res->name, hostname);
-		exit(E_CONFIG_INVALID);
+	// BSR-1409
+	if(path->my_proxy->group) {
+		struct d_group_info *group_info = find_group_info_by_name(res, path->my_proxy->group);
+		struct d_host_info *host;
+		bool found = false;
+		if(!group_info) {
+			err("The proxy config in resource %s group %s is not for %s.\n",
+				ctx->res->name, path->my_proxy->group, hostname);
+			exit(E_CONFIG_INVALID);
+		}
+
+		for_each_host_link(host, &group_info->members, group_link) {
+			if (hostname_in_list(hostname, &host->on_hosts)) {
+				found = true;
+				break;
+			}
+		}
+
+		if(!found) {
+			if (all_resources)
+				return 0;
+				
+			err("The proxy config in resource %s group %s is not for %s.\n",
+				ctx->res->name, path->my_proxy->group, hostname);
+			exit(E_CONFIG_INVALID);
+		}
+
+	} else {
+		if (!hostname_in_list(hostname, &path->my_proxy->on_hosts)) {
+			if (all_resources)
+				return 0;
+			err("The proxy config in resource %s is not for %s.\n",
+				ctx->res->name, hostname);
+			exit(E_CONFIG_INVALID);
+		}
 	}
 
 	if (!path->peer_proxy) {
