@@ -1731,7 +1731,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				 "dropping connection.", r);
 			for_each_connection_rcu(connection, resource) 
 				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-			goto out;
+			goto fail;
 		}
 
 		// DW-839 not support diskless Primary
@@ -1784,7 +1784,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				 "dropping connection.", r);
 			for_each_connection_ref(connection, im, resource)
 				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-			goto out;
+			goto fail;
 		}
 
 #ifdef _WIN_MVFL
