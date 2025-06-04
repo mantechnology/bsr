@@ -48,7 +48,7 @@ static int confirmed(const char *text, bool force)
 	}
 	else {
 		fprintf(stderr, "[need to type '%s' to confirm] ", yes);
-		scanf_s("%s", answer);
+		scanf_s("%s", answer, sizeof(answer));
 		if (strlen(answer) == (N - 1) &&
 			!strncmp(answer, yes, N - 1)) {
 			ok = 1;
@@ -693,8 +693,10 @@ int cmd_release_vol(int *index, int argc, char* argv[])
 
 	minor = (letter > 'a') ? letter - 'c' : letter - 'C';
 	printf(" ==> Destroys the meta data of volume letter %c(%d)! <==\n", letter, minor);
-	if (!confirmed("The volume release unlocks the volume and destroy the meta data.\nDo you really want to release volume?\n", force))
+	if (!confirmed("The volume release unlocks the volume and destroy the meta data.\nDo you really want to release volume?\n", force)) {
+		printf("Cancelling volume release because the meta disk has not been destroyed.\n");
 		return ret;
+	}
 
 	// BSR-1444
 	MVOL_ReleaseReadonly(minor);
