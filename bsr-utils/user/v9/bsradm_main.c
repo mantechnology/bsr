@@ -1173,6 +1173,13 @@ static void free_host_info(struct d_host_info *hi)
 	free(hi->address.addr);
 	free(hi->address.af);
 	free(hi->address.port);
+
+	// BSR-1433
+	if(hi->public_address.addr) {
+		free(hi->public_address.addr);
+		free(hi->public_address.af);
+		free(hi->public_address.port);
+	}
 }
 
 static void free_options(struct options *options)

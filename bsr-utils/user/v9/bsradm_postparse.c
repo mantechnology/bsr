@@ -248,6 +248,9 @@ static void _set_host_info_in_host_address_pairs(struct d_resource *res,
 				else
 					have_port = false;
 			}
+			// BSR-1433
+			if(host_info->public_address.addr) 
+				ha->public_address = host_info->public_address;
 			if (!(have_address && have_port)) {
 				err("%s:%d: Resource %s, host %s: "
 				    "cannot determine which %s%s%s to use\n",
@@ -305,6 +308,22 @@ static struct hname_address *alloc_hname_address()
 	return ha;
 }
 
+static void hanme_set_host_config(struct hname_address *ha, struct d_host_info *host_info)
+{
+	ha->host_info = host_info;
+	if(!ha->proxy)
+		ha->proxy = host_info->proxy_compat_only;
+	ha->name = host_info->lower ? strdup(names_to_str_c(&host_info->on_hosts, '_')) : STAILQ_FIRST(&host_info->on_hosts)->name;
+	if (host_info->lower) {
+		ha->address = host_info->address;
+		ha->faked_hostname = 1;
+		ha->parsed_address = 1;
+	}
+	// BSR-1433
+	if(host_info->public_address.addr)
+		ha->public_address = host_info->public_address;
+}
+
 // BSR-1409 if hname_address is set to a group, obtain and set the host information from that group.
 static void parse_hname_address_from_group_pair(struct d_resource *res, struct path *path)
 {
@@ -326,22 +345,14 @@ static void parse_hname_address_from_group_pair(struct d_resource *res, struct p
 			const char *on_name = STAILQ_FIRST(&hi->on_hosts)->name;
 			if (ha->host_info && strcmp(hostname, on_name)) 
 				continue;
-			ha->host_info = hi;
-			ha->name = hi->lower ? strdup(names_to_str_c(&hi->on_hosts, '_')) : on_name;
+			hanme_set_host_config(ha, hi);
 			ha->group = group->name;
-			if (!strcmp(hostname, on_name)) 
-				local_group = group;
-			if (!ha->proxy) 
-				ha->proxy = hi->proxy_compat_only;
 			if (ha->proxy)
 				ha->proxy->group = group->name;
-			if (hi->lower) {
-				ha->address = hi->address;
-				ha->faked_hostname = 1;
-				ha->parsed_address = 1; 
-			}	
-			if(local_group == group)
+			if (!strcmp(hostname, on_name)) {
+				local_group = group;
 				break;
+			}
 		}
 	}
 
@@ -590,7 +601,11 @@ static void set_peer_in_connection(struct d_resource* res, struct connection *co
 				host_info = find_host_info_by_name(res, candidate->name);
 				conn->peer = host_info;
 			}
-			path->peer_address = candidate->address.addr ? &candidate->address : &host_info->address;
+			// BSR-1433
+			if(candidate->address.addr)
+				path->peer_address = candidate->public_address.addr ? &candidate->public_address : &candidate->address;
+			else 
+				path->peer_address = host_info->public_address.addr ? &host_info->public_address : &host_info->address;
 			path->peer_proxy = candidate->proxy;
 			path->connect_to = path->my_proxy ? &path->my_proxy->inside : path->peer_address;
 			continue;
@@ -984,22 +999,13 @@ static void create_implicit_connections(struct d_resource *res)
 			}
 			
 			for_each_host_link(host_info, &group_info->members, group_link) {
-				const char *first_on_name = STAILQ_FIRST(&host_info->on_hosts)->name;
-
 				if (found_local)
 					continue;
-				if (!strcmp(hostname, first_on_name)) {
+				if (!strcmp(hostname, STAILQ_FIRST(&host_info->on_hosts)->name)) {
 					ha = alloc_hname_address();
-					ha->host_info = host_info;
-					ha->proxy = host_info->proxy_compat_only;
+					hanme_set_host_config(ha, host_info);
 					if(ha->proxy) 
 						ha->proxy->group = group_info->name;
-					ha->name = host_info->lower ? strdup(names_to_str_c(&host_info->on_hosts, '_')) : first_on_name;
-					if (host_info->lower) {
-						ha->address = host_info->address;
-						ha->faked_hostname = 1;
-						ha->parsed_address = 1;
-					}
 					STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 					CLI_TRAC_LOG(false, "INSERT_TAIL, %s, group %s, hosts %s(local)", res->name, group_info->name, ha->name);
 					found_local = true;
@@ -1016,17 +1022,9 @@ static void create_implicit_connections(struct d_resource *res)
 			host_info = STAILQ_FIRST(&group_info->members);
 			if (host_info) {
 				ha = alloc_hname_address();
-				ha->host_info = host_info;
-				ha->proxy = host_info->proxy_compat_only;
+				hanme_set_host_config(ha, host_info);
 				if(ha->proxy) 
 					ha->proxy->group = group_info->name;
-					
-				ha->name = host_info->lower ? strdup(names_to_str_c(&host_info->on_hosts, '_')) : STAILQ_FIRST(&host_info->on_hosts)->name;
-				if (host_info->lower) {
-					ha->address = host_info->address;
-					ha->faked_hostname = 1;
-					ha->parsed_address = 1;
-				}
 				CLI_TRAC_LOG(false, "INSERT_TAIL, %s, group %s, hosts %s", res->name, group_info->name, ha->name);
 				STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 			}
@@ -1047,16 +1045,7 @@ static void create_implicit_connections(struct d_resource *res)
 
 		if (host_info->address.af && host_info->address.addr && host_info->address.port) {
 			ha = alloc_hname_address();
-			ha->host_info = host_info;
-			ha->proxy = host_info->proxy_compat_only;
-			if (!host_info->lower) {
-				ha->name = STAILQ_FIRST(&host_info->on_hosts)->name;
-			} else {
-				ha->name = strdup(names_to_str_c(&host_info->on_hosts, '_'));
-				ha->address = host_info->address;
-				ha->faked_hostname = 1;
-				ha->parsed_address = 1; /* not true, but makes dump nicer */
-			}			
+			hanme_set_host_config(ha, host_info);
 			CLI_TRAC_LOG(false, "INSERT_TAIL, %s, hosts %s", res->name, ha->name);
 			STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 		}
@@ -1083,8 +1072,6 @@ static struct d_host_info *find_host_info_or_invalid(struct d_resource *res, cha
 
 	return host_info;
 }
-
-
 
 static void create_connections_from_mesh(struct d_resource *res, struct mesh *mesh)
 {

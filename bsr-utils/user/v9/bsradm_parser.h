@@ -79,6 +79,7 @@ enum yytokentype {
 	TK_SCI,
 	TK_SDP,
 	TK_SSOCKS,
+	TK_PUBLIC_ADDRESS,	/* BSR-1433 address of the node to which another node attempts to connect */
 	TK_IPV4,
 	TK_IPV6,
 	TK_IPADDR6,

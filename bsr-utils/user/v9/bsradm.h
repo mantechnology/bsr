@@ -133,6 +133,8 @@ struct d_host_info
 	struct names on_hosts;
 	struct volumes volumes;
 	struct d_address address;
+	// BSR-1433
+	struct d_address public_address; 
 	struct d_proxy_info *proxy_compat_only; /* parsed here, only for 8.4 compatibility */
 	STAILQ_ENTRY(d_host_info) link;
 	struct d_resource* lower;  /* for device stacking */
@@ -169,6 +171,8 @@ struct hname_address
 	char *group;		/* BSR-1409 */
 	int config_line;		/* parsed here */
 	struct d_address address;	/* parsed */
+	// BSR-1433
+	struct d_address public_address;	
 	struct d_proxy_info *proxy;     /* parsed here */
 	struct d_host_info *host_info;	/* determined in post_parse */
 	unsigned int used_as_me:1;
