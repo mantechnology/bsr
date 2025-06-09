@@ -284,6 +284,9 @@ static void dump_host_info(struct d_host_info *hi)
 
 	if (!hi->by_address && hi->address.addr)
 		dump_address("address", &hi->address, ";\n");
+	// BSR-1433
+	if(hi->public_address.addr)
+		dump_address("public-address", &hi->public_address, ";\n");
 	if (hi->proxy_compat_only && !verbose)
 		dump_proxy_info("", hi->proxy_compat_only);
 	--indent;
@@ -305,7 +308,11 @@ static void dump_hname_address_pairs(struct hname_address_pairs *hname_address_p
 			else if (ha->parsed_port)
 				printf(" port %s", ha->address.port);
 		}
-
+		
+		// BSR-1433
+		if(ha->public_address.addr)
+			dump_address(" public-address", &ha->public_address, "");
+			
 		if (ha->proxy)
 			dump_proxy_info(" via ", ha->proxy);
 		else
@@ -541,6 +548,10 @@ static void dump_host_info_xml(struct d_host_info *hi)
 
 	printI("<address family=\"%s\" port=\"%s\">%s</address>\n",
 	       hi->address.af, hi->address.port, hi->address.addr);
+	// BSR-1433
+	if(hi->public_address.addr)
+		printI("<public-address family=\"%s\" port=\"%s\">%s</public-address>\n",
+			hi->public_address.af, hi->public_address.port, hi->public_address.addr);
 	--indent;
 	printI("</host>\n");
 }
@@ -563,6 +574,13 @@ static void dump_hname_address_pairs_xml(struct hname_address_pairs *hname_addre
 			printf("<address family=\"%s\" port=\"%s\">%s</address>",
 			       ha->host_info->address.af, ha->host_info->address.port,
 			       ha->host_info->address.addr);
+
+		// BSR-1433
+		if(ha->public_address.addr)
+			printf("<public-address family=\"%s\" port=\"%s\">%s</public-address>",
+			       ha->public_address.af, ha->public_address.port,
+			       ha->public_address.addr);
+
 		if (ha->proxy) {
 			printf("\n");
 			dump_proxy_info_xml(ha->proxy);
