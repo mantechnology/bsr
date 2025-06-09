@@ -1703,7 +1703,7 @@ static struct hname_address *parse_hname_address_pair(struct path *path, int pre
 			path->connect_to = &ha->public_address;
 			goto parse_optional_via;
 		} else if (token != ';')
-			pe_expected_got( "via | public | ; ", token);
+			pe_expected_got( "via | public-address | ; ", token);
 		break;
 	case TK_VIA:
 		EXP(TK_PROXY);
