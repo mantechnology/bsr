@@ -7051,6 +7051,7 @@ int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	/* resume from last known position, if possible */
 	parms.ov_start_sector = peer_device->ov_start_sector;
 	parms.ov_stop_sector = ULLONG_MAX;
+	parms.ov_auto_sync=false;
 	if (info->attrs[BSR_NLA_START_OV_PARMS]) {
 		int err = start_ov_parms_from_attrs(&parms, info);
 		if (err) {
@@ -7064,6 +7065,7 @@ int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	/* w_make_ov_request expects position to be aligned */
 	peer_device->ov_start_sector = parms.ov_start_sector & ~(BM_SECT_PER_BIT-1);
 	peer_device->ov_stop_sector = parms.ov_stop_sector;
+	peer_device->ov_auto_sync = parms.ov_auto_sync;
 
 	/* If there is still bitmap IO pending, e.g. previous resync or verify
 	 * just being finished, wait for it before requesting a new resync. */

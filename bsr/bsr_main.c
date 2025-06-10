@@ -4989,6 +4989,8 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 
 	// BSR-1213
 	atomic_set(&peer_device->start_init_sync, 0);
+	
+	peer_device->ov_auto_sync = false;
 
 	return peer_device;
 }
