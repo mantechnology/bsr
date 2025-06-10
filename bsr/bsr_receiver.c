@@ -8325,6 +8325,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 	bool peer_was_resync_target, try_to_get_resync = false;
 	// BSR-1074
 	bool consider_resync = true;
+	bool skip_resync  = false;
 	int rv;
 
 	if (pi->vnr != -1) {
@@ -8606,7 +8607,8 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 			try_to_get_resync = true;
 		}
 	}
-
+	if(peer_device->last_repl_state == L_VERIFY_T && !peer_device->ov_auto_sync)
+		skip_resync  = true;
 	bsr_info(8, BSR_LC_STATE, peer_device, "Receive new repl state \"%s\"", bsr_repl_str(new_repl_state));
 
 	spin_lock_irq(&resource->req_lock);
@@ -8695,7 +8697,7 @@ static int receive_state(struct bsr_connection *connection, struct packet_info *
 		// BSR-1257 if there is an OOS due to an I/O error, you must reconnect and proceed with resync.
 		!atomic_read(&device->io_error_count) &&
 		(peer_disk_state == D_OUTDATED || (old_peer_state.pdsk == D_OUTDATED || peer_disk_state == D_UP_TO_DATE)) && new_repl_state == L_ESTABLISHED &&
-		bsr_bm_total_weight(peer_device)) {
+		bsr_bm_total_weight(peer_device) && !skip_resync ) {
 		bsr_info(228, BSR_LC_RESYNC_OV, peer_device, "Resync of the replication area that occurs while setting the relative node state is performed. (%llu)", bsr_bm_total_weight(peer_device));
 		peer_device->start_resync_side = L_SYNC_SOURCE;
 		mod_timer(&peer_device->start_resync_timer, jiffies + HZ);

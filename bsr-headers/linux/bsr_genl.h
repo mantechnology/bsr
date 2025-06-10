@@ -217,6 +217,7 @@ GENL_struct(BSR_NLA_RESIZE_PARMS, 7, resize_parms,
 GENL_struct(BSR_NLA_START_OV_PARMS, 9, start_ov_parms,
 	__u64_field(1, BSR_GENLA_F_MANDATORY,	ov_start_sector)
 	__u64_field(2, BSR_GENLA_F_MANDATORY,	ov_stop_sector)
+	__flg_field(3, 0, ov_auto_sync)
 )
 
 GENL_struct(BSR_NLA_NEW_C_UUID_PARMS, 10, new_c_uuid_parms,

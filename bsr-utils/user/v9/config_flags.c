@@ -1209,6 +1209,7 @@ struct context_def verify_cmd_ctx = {
 		  .unit = "bytes" },
 		{ "stop", NUMERIC(ov_stop_sector, DISK_SIZE),
 		  .unit = "bytes" },
+		{ "auto-sync", FLAG(ov_auto_sync) },
 		{ } },
 };
 

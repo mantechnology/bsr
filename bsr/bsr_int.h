@@ -2072,6 +2072,7 @@ struct bsr_peer_device {
 	struct list_head ov_skipped_info_list;
 	int ov_skipped_info_list_cnt;
 	int ov_skipped_info_report_num;
+	bool ov_auto_sync;
 
 	int c_sync_rate; /* current resync rate after syncer throttle magic */
 	struct fifo_buffer *rs_plan_s; /* correction values of resync planer (RCU, connection->conn_update) */
