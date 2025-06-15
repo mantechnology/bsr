@@ -3974,8 +3974,14 @@ void bsr_destroy_device(struct kref *kref)
 	put_disk(device->vdisk);
 #endif
 #else
+// BSR-1512
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS
+    del_gendisk(device->vdisk);
+    put_disk(device->vdisk);
+#else
 	put_disk(device->vdisk);
 	blk_cleanup_queue(device->rq_queue);
+#endif
 #endif	
 
 	device->vdisk = NULL;
@@ -4195,6 +4201,7 @@ void bsr_cleanup_by_win_shutdown(PVOLUME_EXTENSION VolumeExtension)
 }
 #endif
 
+// BSR-1095 5.18 and later kernel support
 #ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 /**
  * bsr_congested() - Callback for the flusher thread
@@ -4239,12 +4246,7 @@ static int bsr_congested(void *congested_data, int bdi_bits)
 
 	if (get_ldev(device)) {
 		q = bdev_get_queue(device->ldev->backing_bdev);
-// BSR-1095 5.18 and later kernel support
-#ifdef COMPAT_HAVE_BDI_CONGESTED_FN
 		r = bdi_congested(q->backing_dev_info, bdi_bits);
-#else
-		r = 0;
-#endif
 		put_ldev(__FUNCTION__, device);
 	}
 
@@ -5037,6 +5039,21 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
     if ((minor < 1) || (minor > MINORMASK))
         return ERR_INVALID_REQUEST;
 #endif
+
+// BSR-1512
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS 
+	struct queue_limits lim = {
+		/*
+		 * Setting the max_hw_sectors to an odd value of 8kibyte here.
+		 * This triggers a max_bio_size message upon first attach or
+		 * connect.
+		 */
+		.max_hw_sectors		= BSR_MAX_BIO_SIZE_SAFE >> 8,
+		.features		= BLK_FEAT_WRITE_CACHE | BLK_FEAT_FUA |
+					  BLK_FEAT_ROTATIONAL |
+					  BLK_FEAT_STABLE_WRITES,
+	};
+#endif
 	device = minor_to_device(minor);
 	if (device)
 		return ERR_MINOR_OR_VOLUME_EXISTS;
@@ -5130,6 +5147,10 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #ifdef COMPAT_HAVE_BLK_ALLOC_DISK
 	disk = blk_alloc_disk(NUMA_NO_NODE);
 #else
+// BSR-1512
+#ifdef COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS
+	disk = blk_alloc_disk(&lim, NUMA_NO_NODE);
+#else
 	q = bsr_blk_alloc_queue();
 	if (!q)
 		goto out_no_q;
@@ -5138,6 +5159,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	q->queuedata   = device;
 #endif
 	disk = alloc_disk(1);	
+#endif
 #endif
 	if (!disk)
 		goto out_no_disk;
@@ -5151,7 +5173,8 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	disk->fops = &bsr_ops;
 #endif
 
-#ifdef COMPAT_HAVE_BLK_ALLOC_DISK
+// BSR-1512
+#if defined(COMPAT_HAVE_BLK_ALLOC_DISK) || defined(COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS)
 	device->rq_queue = disk->queue;
 	disk->minors = 1;
 #else
@@ -5182,8 +5205,12 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAKE_REQUEST
 	blk_queue_make_request(disk->queue, bsr_make_request);
 #endif
+// BSR-1512
+#ifdef COMPAT_HAVE_BLK_QUEUE_WRITE_CACHE_1_PARAMS
+    blk_queue_write_cache(disk->queue);
+#else
     blk_queue_write_cache(disk->queue, true, true);
-
+#endif
 #ifdef _LIN
 #ifdef COMPAT_HAVE_BLK_QUEUE_MERGE_BVEC
 	blk_queue_merge_bvec(disk->queue, bsr_merge_bvec);
@@ -5352,14 +5379,19 @@ out_no_bitmap:
 	__free_page(device->md_io.page);
 out_no_io_page:
 #ifdef _LIN 
-#if defined(COMPAT_HAVE_BLK_ALLOC_DISK) && defined(COMPAT_HAVE_BLK_CLEANUP_DISK)
+#if (defined(COMPAT_HAVE_BLK_ALLOC_DISK) && defined(COMPAT_HAVE_BLK_CLEANUP_DISK))
 	blk_cleanup_disk(disk);
+// BSR-1512
+#elif defined(COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS)
+    del_gendisk(device->vdisk);
+    put_disk(device->vdisk);
 #else
 	put_disk(disk);
 #endif
 #endif
+// BSR-1512
 out_no_disk:
-#ifndef COMPAT_HAVE_BLK_ALLOC_DISK
+#if !defined(COMPAT_HAVE_BLK_ALLOC_DISK) && !defined(COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS)
 	blk_cleanup_queue(q);
 out_no_q:
 #endif

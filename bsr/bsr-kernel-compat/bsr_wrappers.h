@@ -1037,7 +1037,12 @@ static inline void blk_queue_max_hw_sectors(struct request_queue *q, unsigned in
 #ifdef _WIN
 	q->max_hw_sectors = max;
 #else // _LIN
+// BSR-1512
+#ifdef COMPAT_HAVE_BLK_QUEUE_HELPER
 	blk_queue_max_sectors(q, max);
+#else 
+	q->limits.max_sectors = max;
+#endif
 #endif
 }
 #elif defined(COMPAT_USE_BLK_QUEUE_MAX_SECTORS_ANYWAYS)
@@ -1057,8 +1062,13 @@ static inline void blk_queue_max_segments(struct request_queue *q, unsigned shor
 	UNREFERENCED_PARAMETER(max_segments);
 
 #ifdef _LIN
+// BSR-1512
+#ifdef COMPAT_HAVE_BLK_QUEUE_HELPER
 	blk_queue_max_phys_segments(q, max_segments);
 	blk_queue_max_hw_segments(q, max_segments);
+#else
+    q->limits.max_segments  = max_segments;
+#endif
 #define BLK_MAX_SEGMENTS MAX_HW_SEGMENTS /* or max MAX_PHYS_SEGMENTS. Probably does not matter */
 #endif
 }
@@ -1075,7 +1085,8 @@ enum {
 #endif
 
 /* How do we tell the block layer to pass down flush/fua? */
-#ifndef COMPAT_HAVE_BLK_QUEUE_WRITE_CACHE
+// BSR-1512
+#if !defined(COMPAT_HAVE_BLK_QUEUE_WRITE_CACHE) && !defined(COMPAT_HAVE_BLK_QUEUE_WRITE_CACHE_1_PARAMS)
 static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, bool fua)
 {
 #if defined(REQ_FLUSH) && !defined(REQ_HARDBARRIER)
@@ -1320,7 +1331,9 @@ static inline void blk_queue_write_cache(struct request_queue *q, bool enabled, 
 		} \
 } while(0)
 
-#ifndef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
+#ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
+#define adjust_ra_pages(q, b) _adjust_ra_pages((q)->ra_pages, (b)->ra_pages)
+#else
 #ifdef COMPAT_HAVE_POINTER_BACKING_DEV_INFO
 #define bdi_from_device(device) (device->ldev->backing_bdev->bd_disk->queue->backing_dev_info)
 #define init_bdev_info(bdev_info, bsr_congested, device) do { \
@@ -2093,11 +2106,13 @@ extern int blkdev_issue_zeroout(struct block_device *bdev, sector_t sector,
 #endif
 #endif
 
+// BSR-1512
+#if 0
 #ifndef COMPAT_HAVE_GENL_LOCK
 static inline void genl_lock(void)  { }
 static inline void genl_unlock(void)  { }
 #endif
-
+#endif
 
 #if !defined(QUEUE_FLAG_DISCARD) || !defined(QUEUE_FLAG_SECDISCARD)
 #ifdef _WIN

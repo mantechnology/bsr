@@ -2772,6 +2772,8 @@ __bsr_next_peer_device_ref(u64 *, struct bsr_peer_device *, struct bsr_device *)
 #error Architecture not supported: BSR_MAX_BIO_SIZE > (BIO_MAX_VECS << PAGE_SHIFT)
 #endif
 #endif
+// BSR-1512
+#define BSR_MAX_BIO_SIZE_SAFE (1U << 12)       /* Works always = 4k */
 #define BSR_MAX_SIZE_H80_PACKET (1U << 15) /* Header 80 only allows packets up to 32KiB data */
 #define BSR_MAX_BIO_SIZE_P95    (1U << 17) /* Protocol 95 to 99 allows bios up to 128KiB */
 
@@ -3047,7 +3049,7 @@ static inline void sub_kvmalloc_mem_usage(void * objp, size_t size)
 }
 #endif
 
-#ifndef COMPAT_HAVE_BLK_ALLOC_DISK
+#if !defined(COMPAT_HAVE_BLK_ALLOC_DISK) && !defined(COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS)
 static inline struct request_queue *bsr_blk_alloc_queue(void) 
 {
 #ifdef _WIN
