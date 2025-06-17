@@ -343,16 +343,19 @@ static void parse_hname_address_from_group_pair(struct d_resource *res, struct p
 			continue; 
 		for_each_host_link(hi, &group->members, group_link) {
 			const char *on_name = STAILQ_FIRST(&hi->on_hosts)->name;
+			// BSR-1409
+			if(!hi->address.addr && ha->address.addr) {
+				hi->address = ha->address;
+				hi->address.is_hname_address = 1;
+			} else {
+				hi->address.is_hname_address = 0;
+			}
 			if (ha->host_info && strcmp(hostname, on_name)) 
 				continue;
 			hanme_set_host_config(ha, hi);
 			ha->group = group->name;
 			if (ha->proxy)
 				ha->proxy->group = group->name;
-			if (!strcmp(hostname, on_name)) {
-				local_group = group;
-				break;
-			}
 		}
 	}
 

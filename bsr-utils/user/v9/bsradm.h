@@ -56,6 +56,8 @@ struct d_address
 	char* port;
 	char* af;
 	int is_local_address : 1;
+	// BSR-1409
+	bool is_hname_address : 1;
 };
 
 struct d_proxy_info

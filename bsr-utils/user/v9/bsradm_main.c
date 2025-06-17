@@ -1170,15 +1170,12 @@ static void free_host_info(struct d_host_info *hi)
 		free_volume(vol);
 		vol = n;
 	}
-	free(hi->address.addr);
-	free(hi->address.af);
-	free(hi->address.port);
 
-	// BSR-1433
-	if(hi->public_address.addr) {
-		free(hi->public_address.addr);
-		free(hi->public_address.af);
-		free(hi->public_address.port);
+	// BSR-1409
+	if(!hi->address.is_hname_address) {
+		free(hi->address.addr);
+		free(hi->address.af);
+		free(hi->address.port);
 	}
 }
 
