@@ -1658,6 +1658,9 @@ static struct hname_address *parse_hname_address_pair(struct path *path, int pre
 		ha->name = "_remote_host";
 		path->connect_to = &ha->address;
 		goto parse_address;
+	// BSR-1409
+	case TK_GROUP:
+		break;
 	default:
 		assert(0);
 	case TK_HOST:
@@ -1665,7 +1668,11 @@ static struct hname_address *parse_hname_address_pair(struct path *path, int pre
 	}
 
 	EXP(TK_STRING);
-	ha->name = yylval.txt;
+	// BSR-1409
+	if(prev_token == TK_GROUP)
+		ha->group = yylval.txt;
+	else 
+		ha->name = yylval.txt;
 
 	token = yylex();
 	switch (token) {
@@ -1684,12 +1691,18 @@ static struct hname_address *parse_hname_address_pair(struct path *path, int pre
 		if (token == TK_VIA) {
 			EXP(TK_PROXY);
 			ha->proxy = parse_proxy_section();
+			// BSR-1409
+			if(prev_token == TK_GROUP)
+				ha->proxy->group = ha->group;
 		} else if (token != ';')
 			pe_expected_got( "via | ; ", token);
 		break;
 	case TK_VIA:
 		EXP(TK_PROXY);
 		ha->proxy = parse_proxy_section();
+		// BSR-1409
+		if(prev_token == TK_GROUP)
+			ha->proxy->group = ha->group;
 		break;
 	case ';':
 		break;
@@ -1834,18 +1847,12 @@ static struct path *parse_path()
 			break;
 		// BSR-1409 
 		case TK_GROUP:
-			EXP(TK_STRING);
-			struct hname_address *ha = NULL;
-			ha = calloc(1, sizeof(struct hname_address));
-			ha->config_line = line;
-			ha->group = yylval.txt;
-			insert_tail(&path->hname_address_pairs, ha);
+			insert_tail(&path->hname_address_pairs, parse_hname_address_pair(path, token));
 			if (++hosts_or_group >= 3) {
 				err("%s:%d: only two 'host' or 'group' keywords per connection allowed\n",
 				    config_file, fline);
 				config_valid = 0;
 			}
-			EXP(';');
 			break;
 		case '}':
 			return path;
@@ -1900,48 +1907,14 @@ static struct connection *parse_connection(enum pr_flags flags)
 				conn->peer->group = group;
 			EXP(';');
 			break;
-			// BSR-1409 if you set up a group, save only the group name and obtain the group's host information from parse_hname_address_from_group_pair() to set hname_address.
+			// BSR-1409 if the address is not set in the connection section, it will be set later by parse_hname_address_from_group_pair().
 		case TK_GROUP:
-			EXP(TK_STRING);
-			struct hname_address *ha = NULL;
-			ha = calloc(1, sizeof(struct hname_address));
-			ha->config_line = line;
-			ha->group = yylval.txt;
 			path = path0(conn);
-			insert_tail(&path->hname_address_pairs, ha);
+			insert_tail(&path->hname_address_pairs, parse_hname_address_pair(path, token));
 			if (++hosts_or_group >= 3) {
 				err("%s:%d: only two 'host' or 'group' keywords per connection allowed\n",
 				    config_file, fline);
 				config_valid = 0;
-			}
-			int stoken = yylex();
-			switch (stoken) {
-			case TK_ADDRESS:
-				__parse_address(&ha->address);
-				ha->parsed_address = 1;
-				goto parse_optional_via;
-			case TK_PORT:
-				EXP(TK_INTEGER);
-				ha->address.port = yylval.txt;
-				ha->parsed_port = 1;
-			parse_optional_via:
-				stoken = yylex();
-				if (stoken == TK_VIA) {
-					EXP(TK_PROXY);
-					ha->proxy = parse_proxy_section();
-					ha->proxy->group = ha->group;
-				} else if (stoken != ';')
-					pe_expected_got( "via | ; ", stoken);
-				break;
-			case TK_VIA:
-				EXP(TK_PROXY);
-				ha->proxy = parse_proxy_section();
-				ha->proxy->group = ha->group;
-				break;
-			case ';':
-				break;
-			default:
-				pe_expected_got( "address | port | ;", stoken);
 			}
 			break;
 		case TK__PEER_NODE_ID:
