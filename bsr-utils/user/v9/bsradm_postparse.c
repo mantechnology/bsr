@@ -1443,6 +1443,41 @@ void post_parse(struct resources *resources, enum pp_flags flags)
 		struct d_host_info *host;
 		bool any_implicit = false;
 		bool any_non_zero_vnr = false;
+		struct d_group_info *group;
+		struct d_host_info *first_host;
+
+		// BSR-1433
+		for_each_group(group, &res->all_groups) {
+			first_host = NULL;
+			for_each_host_link(host, &group->members, group_link) {
+				if(NULL == first_host) {
+					first_host = host;
+					continue;
+				}
+
+				if(!(((NULL != first_host->address.addr && NULL != host->address.addr) &&
+					!strcmp(first_host->address.addr, host->address.addr)) ||
+					(NULL == first_host->address.addr && NULL == host->address.addr))) {
+					err("resource %s, on %s { ... }: "
+						"%s address is not equal\n",
+						res->name, names_to_str(&first_host->on_hosts), names_to_str(&host->on_hosts));
+					config_valid = 0;
+					break;
+				}
+					
+				if(!(((NULL != first_host->public_address.addr && NULL != host->public_address.addr) &&
+					!strcmp(first_host->public_address.addr, host->public_address.addr)) ||
+					(NULL == first_host->public_address.addr && NULL == host->public_address.addr))) {
+					err("resource %s, on %s { ... }: "
+						"%s public-address is not equal\n",
+						res->name, names_to_str(&first_host->on_hosts), names_to_str(&host->on_hosts));
+					config_valid = 0;
+					break;
+				}
+
+			}
+		}
+
 		for_each_host(host, &res->all_hosts) {
 			struct d_volume *vol;
 
