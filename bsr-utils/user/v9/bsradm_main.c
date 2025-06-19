@@ -2349,12 +2349,14 @@ static int check_proxy(const struct cfg_ctx *ctx, int do_up)
 		}
 
 	} else {
-		if (!hostname_in_list(hostname, &path->my_proxy->on_hosts)) {
-			if (all_resources)
-				return 0;
-			err("The proxy config in resource %s is not for %s.\n",
-				ctx->res->name, hostname);
-			exit(E_CONFIG_INVALID);
+		if(!ignore_hostname){
+			if (!hostname_in_list(hostname, &path->my_proxy->on_hosts)) {
+				if (all_resources)
+					return 0;
+				err("The proxy config in resource %s is not for %s.\n",
+					ctx->res->name, hostname);
+				exit(E_CONFIG_INVALID);
+			}
 		}
 	}
 
@@ -3850,7 +3852,7 @@ int main(int argc, char **argv)
 		config_valid = temp_config_valid;
 	}
 
-	post_parse(&config, cmd->is_proxy_cmd ? MATCH_ON_PROXY : 0);
+	post_parse(&config, cmd->is_proxy_cmd && !ignore_hostname ? MATCH_ON_PROXY : 0);
 	CLI_TRAC_LOG(false, "post_parse called : cmd->is_proxy_cmd(%s)", cmd->is_proxy_cmd ? "true" : "false");
 
 	if (!is_dump || dry_run || verbose)
@@ -3987,7 +3989,7 @@ int main(int argc, char **argv)
 					    cmd->name, cmd->name, cmd->name, resource_names[i]);
 					exit(E_USAGE);
 				}
-				if (ctx.res->ignore && !is_dump) {
+				if (ctx.res->ignore && !is_dump && !ctx.cmd->is_proxy_cmd) {
 					err("'%s' ignored, since this host (%s) is not mentioned with an 'on' keyword.\n",
 					    ctx.res->name, hostname);
 					if (rv < E_USAGE)
