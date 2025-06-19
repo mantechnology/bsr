@@ -1278,6 +1278,7 @@ static void parse_host_section(struct d_resource *res,
 	struct d_name *h;
 	struct d_group_info *group;
 	int in_braces = 1;
+	char *address = NULL;
 
 	c_section_start = line;
 	fline = line;
@@ -1349,6 +1350,17 @@ static void parse_host_section(struct d_resource *res,
 				check_upr("meta-disk statement", "%s:%s:meta-disk", res->name, h->name);
 			goto vol0stmt;
 			break;
+			// BSR-1433
+		case TK_PUBLIC_ADDRESS:
+			parse_address(on_hosts, &host->public_address);
+			range_check(R_PORT, "port", host->public_address.port);
+			address = NULL;
+			if (!strcmp(host->public_address.af, "ipv6"))
+				m_asprintf(&address, "ipv6 [%s]:%s", host->public_address.addr, host->public_address.port);
+			else
+				m_asprintf(&address, "%s:%s", host->public_address.addr, host->public_address.port);
+			CLI_TRAC_LOG(false, "%s, %s, public %s", host->require_minor ? "TK_ON" : "TK__THIS_HOST", res->name, address);
+			break;
 		case TK_ADDRESS:
 			if (host->by_address) {
 				err("%s:%d: address statement not allowed for floating {} host sections\n",
@@ -1361,7 +1373,7 @@ static void parse_host_section(struct d_resource *res,
 			parse_address(on_hosts, &host->address);
 			range_check(R_PORT, "port", host->address.port);
 
-			char *address = NULL;
+			address = NULL;
 			if (!strcmp(host->address.af, "ipv6"))
 				m_asprintf(&address, "ipv6 [%s]:%s", host->address.addr, host->address.port);
 			else
@@ -1694,8 +1706,14 @@ static struct hname_address *parse_hname_address_pair(struct path *path, int pre
 			// BSR-1409
 			if(prev_token == TK_GROUP)
 				ha->proxy->group = ha->group;
+		} 
+		// BSR-1433
+		else if (token == TK_PUBLIC_ADDRESS) {
+            __parse_address(&ha->public_address);
+            path->connect_to = &ha->public_address;
+            goto parse_optional_via;
 		} else if (token != ';')
-			pe_expected_got( "via | ; ", token);
+			pe_expected_got( "via | public-address | ; ", token);
 		break;
 	case TK_VIA:
 		EXP(TK_PROXY);
