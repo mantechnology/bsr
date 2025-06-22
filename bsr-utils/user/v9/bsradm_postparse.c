@@ -1548,7 +1548,7 @@ void post_parse(struct resources *resources, enum pp_flags flags)
 		}
 	}
 
-	if (config_valid) {
+	if (config_valid && !global_options.disable_ip_verification) {
 		check_addr_conflict(addrtree, resources);
 	}
 
