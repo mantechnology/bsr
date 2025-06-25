@@ -76,6 +76,7 @@ port			{ DP; return TK_PORT;			}
 proxy			{ DP; return TK_PROXY;			}
 minor			{ DP; return TK_MINOR;			}
 inside			{ DP; return TK_INSIDE;			}
+public-inside	{ DP; return TK_PUBLIC_INSIDE;	}	/* BSR-1514 */
 volume			{ DP; return TK_VOLUME;			}
 cmd-timeout-short	{ DP; return TK_CMD_TIMEOUT_SHORT;	}
 cmd-timeout-medium	{ DP; return TK_CMD_TIMEOUT_MEDIUM;	}
@@ -87,6 +88,7 @@ global			{ DP; return TK_GLOBAL;			}
 common			{ DP; return TK_COMMON;			}
 options			{ DP; return TK_OPTIONS;		}
 outside			{ DP; return TK_OUTSIDE;		}
+public-outside  { DP; return TK_PUBLIC_OUTSIDE;	}	/* BSR-1514 */
 address			{ DP; return TK_ADDRESS;		}
 public-address		{ DP; return TK_PUBLIC_ADDRESS;			}	/* BSR-1433 */
 startup			{ DP; return TK_STARTUP;		}

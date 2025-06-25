@@ -167,7 +167,11 @@ static void dump_proxy_info(const char *prefix, struct d_proxy_info *pi)
 	printI("%sproxy on %s {\n", prefix, names_to_str(&pi->on_hosts));
 	++indent;
 	dump_address("inside", &pi->inside, ";\n");
+	if(pi->public_inside.addr)
+		dump_address("public-inside", &pi->public_inside, ";\n");
 	dump_address("outside", &pi->outside, ";\n");
+	if(pi->public_outside.addr)
+		dump_address("public-outside", &pi->public_outside, ";\n");
 	dump_options2("options", &pi->options, dump_proxy_plugins, &pi->plugins);
 	--indent;
 	printI("}\n");
@@ -467,8 +471,14 @@ static void dump_proxy_info_xml(struct d_proxy_info *pi)
 	++indent;
 	printI("<inside family=\"%s\" port=\"%s\">%s</inside>\n", pi->inside.af,
 	       pi->inside.port, pi->inside.addr);
+	if(pi->public_inside.addr)
+		printI("<public-inside family=\"%s\" port=\"%s\">%s</public-inside>\n",
+		       pi->public_inside.af, pi->public_inside.port, pi->public_inside.addr);
 	printI("<outside family=\"%s\" port=\"%s\">%s</outside>\n",
 	       pi->outside.af, pi->outside.port, pi->outside.addr);
+	if(pi->public_outside.addr)
+		printI("<public-outside family=\"%s\" port=\"%s\">%s</public-outside>\n",
+		       pi->public_outside.af, pi->public_outside.port, pi->public_outside.addr);
 	dump_options_xml2("options", &pi->options, dump_proxy_plugins_xml, &pi->plugins);
 	--indent;
 	printI("</proxy>\n");
