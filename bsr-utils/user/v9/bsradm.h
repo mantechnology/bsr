@@ -69,6 +69,9 @@ struct d_proxy_info
 	struct options plugins; /* named proxy_plugins in other places */
 	// BSR-1409
 	char* group;
+	// BSR-1514 setting up port forwarding for proxy
+	struct d_address public_inside;
+	struct d_address public_outside;
 };
 
 struct connection;

@@ -849,13 +849,20 @@ static struct d_proxy_info *parse_proxy_section(void)
 		case TK_OUTSIDE:
 			parse_address(&proxy->on_hosts, &proxy->outside);
 			break;
+			// BSR-1514 
+		case TK_PUBLIC_INSIDE:
+			parse_address(&proxy->on_hosts, &proxy->public_inside);
+			break;
+		case TK_PUBLIC_OUTSIDE:
+			parse_address(&proxy->on_hosts, &proxy->public_outside);
+			break;
 		case TK_OPTIONS:
 			parse_proxy_options(&proxy->options, &proxy->plugins);
 			break;
 		case '}':
 			goto break_loop;
 		default:
-			pe_expected("inside | outside");
+			pe_expected("inside | outside | public-inside | public-outside | options");
 
 		}
 	}

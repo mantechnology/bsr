@@ -609,8 +609,13 @@ static void set_peer_in_connection(struct d_resource* res, struct connection *co
 				path->peer_address = candidate->public_address.addr ? &candidate->public_address : &candidate->address;
 			else 
 				path->peer_address = host_info->public_address.addr ? &host_info->public_address : &host_info->address;
+			
 			path->peer_proxy = candidate->proxy;
-			path->connect_to = path->my_proxy ? &path->my_proxy->inside : path->peer_address;
+			// BSR-1514
+			if(path->my_proxy)
+				path->connect_to = path->my_proxy->public_inside.addr ? &path->my_proxy->public_inside : &path->my_proxy->inside;
+			else 
+				path->connect_to = path->peer_address;
 			continue;
 		}
 
