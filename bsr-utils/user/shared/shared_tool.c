@@ -360,7 +360,10 @@ uint64_t _bdev_size_nt(char * device_name)
 	
 	DWORD ret = _GetVolumeSize(device_name, &gli);
 
-	return ret ? 0 : gli.Length.QuadPart;
+	if(ret)
+		exit(ret);
+
+	return gli.Length.QuadPart;
 }
 
 int bdev_sect_size_nt(char * device_name, unsigned int *hard_sect_size)
