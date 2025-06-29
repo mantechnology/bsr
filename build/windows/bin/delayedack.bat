@@ -15,8 +15,8 @@ if "%IP%" == "all" (
 	goto query
 )
 
-SET cmd="wmic nicconfig get ipaddress,settingid |findstr %IP%"
-FOR /F "delims=\n" %%i IN (' %cmd% ') DO SET INFO=%%i
+set cmd=powerShell -Command "Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object { $_.IPAddress -ne $null -and $_.IPAddress -contains '%IP%' } | Select-Object IPAddress, SettingID"
+FOR /F "skip=2 delims=\n" %%i IN (' %cmd% ') DO SET INFO=%%i
 if "%INFO%" == "" (
 	echo %IP% not found.
 	goto error
@@ -92,14 +92,14 @@ if /i "%OsType%" == "Server" (
 if "%3" == "1" (
 	rem nic disable
 	echo network interface '%IP%' disable...
-	wmic path win32_networkadapter where GUID="%ID%" call disable |findstr /C:"ReturnValue = 0" >nul
+	powershell -Command "Get-WmiObject Win32_NetworkAdapter | Where-Object { $_.GUID -eq '%ID%' } | ForEach-Object { $_.Disable() } | Out-Null" >nul 2>&1
 	if %errorlevel% gtr 0 (
 		goto error
 	)
 
 	rem nic enable
 	echo network interface '%IP%' enable...
-	wmic path win32_networkadapter where GUID="%ID%" call enable |findstr /C:"ReturnValue = 0" >nul
+	powershell -Command "Get-WmiObject Win32_NetworkAdapter | Where-Object { $_.GUID -eq '%ID%' } | ForEach-Object { $_.Enable() } | Out-Null" >nul 2>&1
 	if %errorlevel% gtr 0 (
 		goto error
 	)

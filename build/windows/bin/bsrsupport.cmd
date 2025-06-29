@@ -263,11 +263,11 @@ exit /B 0
     call :logging "secPolicy.txt"
 
     @rem Service List
-    wmic service list full /format:csv > "%SYSTEM_DIR%\svcList.csv"
+    powerShell -Command "Get-WmiObject Win32_Service | ConvertTo-Csv -NoTypeInformation" > "%SYSTEM_DIR%\svcList.csv"
     call :logging "svcList.csv"
 
 	@rem Disk List
-	wmic diskdrive > "%SYSTEM_DIR%\diskList.txt"
+    powerShell -Command "Get-WmiObject Win32_DiskDrive" > "%SYSTEM_DIR%\diskList.txt"
     call :logging "diskList.txt"
 	
     @rem Running Process info
@@ -283,7 +283,7 @@ exit /B 0
     call :logging "devList.csv"
 
     @rem Device Driver info
-    1>NUL wmic sysdriver list full /format:csv > "%SYSTEM_DIR%\drvList.csv"
+    1>NUM powerShell -Command "Get-WmiObject Win32_SystemDriver | ConvertTo-Csv -NoTypeInformation" > "%SYSTEM_DIR%\drvList.csv"
     call :logging "drvList.csv"
 
     @rem Windows'etc folder copy
@@ -347,7 +347,7 @@ exit /B 0
     call :logging "netshresult.txt"
 
     @rem Processes
-    wmic /output:"%SYSTEM_DIR%\ProcInfo.html" process list full /format:htable
+    powerShell -Command "Get-WmiObject Win32_Process | ConvertTo-Csv -NoTypeInformation" > %SYSTEM_DIR%\ProcInfo.html
     call :logging "ProcInfo.html"
 
     @rem etc
@@ -369,6 +369,8 @@ exit /B 0
     call :logging "gi.txt"
     bsradm dump > "%STATUS_DIR%\dump.txt"
 	call :logging "dump.txt"
+    bsrsetup status --s --v all > "%STATUS_DIR%\status.txt"
+    call :logging "status.txt"
 	bsrsetup show > "%STATUS_DIR%\show.txt"
     call :logging "show.txt"
 exit /b 0
@@ -426,11 +428,10 @@ exit /b 0
 :Archive
     call :logging "Archive files..."
 
-    for /f "tokens=2 delims==" %%a in ('wmic OS Get localdatetime /value') do set "dt=%%a"
-    set "YY=%dt:~2,2%" & set "YYYY=%dt:~0,4%" & set "MM=%dt:~4,2%" & set "DD=%dt:~6,2%"
-    set "HH=%dt:~8,2%" & set "Min=%dt:~10,2%" & set "Sec=%dt:~12,2%"
-    set fullstamp=%YYYY%%MM%%DD%.%HH%%Min%%Sec%
-    set ARCHIVE_NAME=%COMPUTERNAME%-%fullstamp%.zip
+    set ARCHIVE_NAME=empty
+    powershell -Command "$now=Get-Date;$stamp=$now.ToString('yyyyMMdd.HHmmss');$name=\"$env:COMPUTERNAME-$stamp.zip\";Write-Output $name" > %temp%\cmdtemp
+    for /f "delims=" %%a in ('type %temp%\cmdtemp') do set ARCHIVE_NAME=%%a
+    del /q %temp%\cmdte
 
     @rem Archive gathered information.
     cd /d "%SUPPORT_HOME%"
