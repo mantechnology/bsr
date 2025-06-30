@@ -41,8 +41,9 @@ extern const char *bsr_buildtag(void);
 // BSR-842 protocol version 115 
 // BSR-1039 protocol version 116 starts to support AL OOS
 // BSR-1471 protocol version 117 node check is also performed on the meta stream at connection.
+// BSR-1512 protocol version 118
 // PRO_VERSION_MAX is the maximum version allowed. If the protocol is changed or the feature is incompatible with the sub-version, you must increase that version.
-#define PRO_VERSION_MAX 117
+#define PRO_VERSION_MAX 118
 
 #ifndef __CHECKER__   /* for a sparse run, we need all STATICs */
 #define DBG_ALL_SYMBOLS /* no static functs, improves quality of OOPS traces */

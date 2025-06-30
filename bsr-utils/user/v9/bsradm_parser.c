@@ -1689,7 +1689,8 @@ static struct hname_address *parse_hname_address_pair(struct path *path, int pre
 	EXP(TK_STRING);
 	// BSR-1409
 	if(prev_token == TK_GROUP)
-		ha->group = yylval.txt;
+		// BSR-1522
+		ha->name = ha->group = yylval.txt;
 	else 
 		ha->name = yylval.txt;
 

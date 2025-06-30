@@ -116,7 +116,8 @@ enum bsr_packet {
 
 	P_INITIAL_META	      = 0xfff1, /* First Packet on the MetaSock */
 	P_INITIAL_DATA	      = 0xfff2, /* First Packet on the Socket */
-
+	
+	P_NODE_FEATURES 	  = 0xfffd, /* BSR-1522 */
 	P_CONNECTION_FEATURES = 0xfffe	/* FIXED for the next century! */
 };
 
@@ -297,6 +298,11 @@ struct p_block_req {
  * set skip_block_zeroing=false.
  */
 #define BSR_FF_WZEROES 8
+
+// BSR-1522
+struct p_node_features {
+	char name[SHARED_SECRET_MAX];
+}  __packed;
 
 struct p_connection_features {
 	uint32_t protocol_min;

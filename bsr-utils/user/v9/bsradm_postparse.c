@@ -313,6 +313,9 @@ static void hanme_set_host_config(struct hname_address *ha, struct d_host_info *
 	ha->host_info = host_info;
 	if(!ha->proxy)
 		ha->proxy = host_info->proxy_compat_only;
+	// BSR-1522
+	if(host_info->group)
+		ha->name = ha->group;
 	ha->name = host_info->lower ? strdup(names_to_str_c(&host_info->on_hosts, '_')) : STAILQ_FIRST(&host_info->on_hosts)->name;
 	if (host_info->lower) {
 		ha->address = host_info->address;
@@ -634,11 +637,15 @@ void create_implicit_net_options(struct connection *conn)
 	if (find_opt(&conn->net_options, "_name"))
 		return;
 
-	if (conn->name)
+	if (conn->name) {
 		value = conn->name;
-	else if (conn->peer)
-		value = names_to_str_c(&conn->peer->on_hosts, '_');
-	else
+	} else if (conn->peer) {
+		// BSR-1522
+		if(conn->peer->group)
+			value = conn->peer->group;
+		else 
+			value = names_to_str_c(&conn->peer->on_hosts, '_');
+	} else
 		return;
 
 	insert_head(&conn->net_options, new_opt(strdup("_name"), strdup(value)));
@@ -653,7 +660,10 @@ void create_peer_node_name_options(struct connection *conn)
 	}
 
 	if (conn->peer) {
-		if (conn->peer->node_name)
+		// BSR-1522
+		if(conn->peer->group)
+			value = conn->peer->group;
+		else if (conn->peer->node_name)
 			value = conn->peer->node_name;
 		else 
 			value = names_to_str(&conn->peer->on_hosts);
