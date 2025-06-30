@@ -2599,7 +2599,12 @@ static void fixup_discard_if_not_supported(struct bsr_device *device, struct req
 	unsigned int discard_granularity = device->rq_queue->limits.discard_granularity >> SECTOR_SHIFT;
 
 	if (discard_granularity > max_discard) {
+		// BSR-1521
+#ifdef COMPAT_HAVE_BLK_QUEUE_HELPER
 		blk_queue_max_discard_sectors(q, 0);
+#else
+        q->limits.max_discard_sectors = 0;
+#endif
 #ifdef COMPAT_HAVE_QUEUE_FLAG_DISCARD
 		blk_queue_flag_clear(QUEUE_FLAG_DISCARD, q);
 #endif
@@ -2723,7 +2728,12 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 	blk_queue_max_hw_sectors(q, max_hw_sectors);
 	/* This is the workaround for "bio would need to, but cannot, be split" */
 #ifdef _LIN
+// BSR-1521
+#ifdef COMPAT_HAVE_BLK_QUEUE_HELPER
 	blk_queue_segment_boundary(q, PAGE_SIZE-1);
+#else 
+	q->limits.seg_boundary_mask = PAGE_SIZE - 1;
+#endif
 	decide_on_discard_support(device, q, b, discard_zeroes_if_aligned);
 #ifdef COMPAT_HAVE_BLK_QUEUE_MAX_WRITE_SAME_SECTORS
 	decide_on_write_same_support(device, q, b, o, disable_write_same);
@@ -2736,7 +2746,20 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 #elif defined(COMPAT_HAVE_BLK_QUEUE_UPDATE_READAHEAD)
 		blk_queue_update_readahead(q);
 #else
+// BSR-1521
+#ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
+		if(device->ldev->backing_bdev->bd_inode && 
+			bdev->backing_bdev->bd_inode) {
+
+			struct backing_dev_info *bdi1 = inode_to_bdi(device->ldev->backing_bdev->bd_inode);
+			struct backing_dev_info *bdi2 = inode_to_bdi(bdev->backing_bdev->bd_inode);
+
+			if(bdi1 && bdi2) 
+				adjust_ra_pages(bdi1, bdi2);
+		}
+#else
 		adjust_ra_pages(q, b);
+#endif
 #endif
 	}
 	fixup_discard_if_not_supported(device, q);
