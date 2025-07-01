@@ -313,9 +313,6 @@ static void hanme_set_host_config(struct hname_address *ha, struct d_host_info *
 	ha->host_info = host_info;
 	if(!ha->proxy)
 		ha->proxy = host_info->proxy_compat_only;
-	// BSR-1522
-	if(host_info->group)
-		ha->name = ha->group;
 	ha->name = host_info->lower ? strdup(names_to_str_c(&host_info->on_hosts, '_')) : STAILQ_FIRST(&host_info->on_hosts)->name;
 	if (host_info->lower) {
 		ha->address = host_info->address;

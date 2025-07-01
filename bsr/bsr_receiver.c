@@ -9808,6 +9808,7 @@ void conn_disconnect(struct bsr_connection *connection)
 	enum bsr_conn_state oc;
 	unsigned long irq_flags = 0;
 	int vnr, i;
+	char *group_name = NULL;
 	// BSR-930
 #ifdef _WIN
 	struct bsr_peer_request *peer_req;	
@@ -9931,6 +9932,7 @@ void conn_disconnect(struct bsr_connection *connection)
 	bsr_flush_workqueue(resource, &connection->sender_work);
 
 	rcu_read_lock();
+	group_name = rcu_dereference(connection->transport.net_conf->peer_node_group);
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		struct bsr_device *device = peer_device->device;
 
@@ -10059,6 +10061,17 @@ void conn_disconnect(struct bsr_connection *connection)
 		bsr_thread_restart_nowait(&connection->receiver);
 	}
 	end_state_change(resource, &irq_flags, __FUNCTION__);
+
+	// BSR-1522
+	if(group_name && group_name[0] != '\0') {
+		rcu_read_lock();
+		memcpy(rcu_dereference(connection->transport.net_conf->peer_node_name), group_name, sizeof(group_name));
+		mutex_lock(&notification_mutex);
+		notify_node_info(NULL, 0, connection->resource, connection, 
+				rcu_dereference(connection->transport.net_conf->peer_node_name), BSR_PEER_NODE_INFO, NOTIFY_CHANGE);
+		mutex_unlock(&notification_mutex);
+		rcu_read_unlock();
+	}
 
 	if (oc == C_DISCONNECTING)
 		change_cstate_ex(connection, C_STANDALONE, CS_VERBOSE | CS_HARD | CS_LOCAL_ONLY);
