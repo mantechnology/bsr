@@ -634,11 +634,15 @@ void create_implicit_net_options(struct connection *conn)
 	if (find_opt(&conn->net_options, "_name"))
 		return;
 
-	if (conn->name)
+	if (conn->name) {
 		value = conn->name;
-	else if (conn->peer)
-		value = names_to_str_c(&conn->peer->on_hosts, '_');
-	else
+	} else if (conn->peer) {
+		// BSR-1522
+		if(conn->peer->group)
+			value = conn->peer->group;
+		else 
+			value = names_to_str_c(&conn->peer->on_hosts, '_');
+	} else
 		return;
 
 	insert_head(&conn->net_options, new_opt(strdup("_name"), strdup(value)));
@@ -653,7 +657,10 @@ void create_peer_node_name_options(struct connection *conn)
 	}
 
 	if (conn->peer) {
-		if (conn->peer->node_name)
+		// BSR-1522
+		if(conn->peer->group)
+			value = conn->peer->group;
+		else if (conn->peer->node_name)
 			value = conn->peer->node_name;
 		else 
 			value = names_to_str(&conn->peer->on_hosts);
