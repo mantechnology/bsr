@@ -9932,7 +9932,7 @@ void conn_disconnect(struct bsr_connection *connection)
 	bsr_flush_workqueue(resource, &connection->sender_work);
 
 	rcu_read_lock();
-	group_name = rcu_dereference(connection->transport.net_conf->peer_node_group);
+	group_name = rcu_dereference(connection->transport.net_conf)->peer_node_group;
 	idr_for_each_entry_ex(struct bsr_peer_device *, &connection->peer_devices, peer_device, vnr) {
 		struct bsr_device *device = peer_device->device;
 
@@ -10065,10 +10065,10 @@ void conn_disconnect(struct bsr_connection *connection)
 	// BSR-1522
 	if(group_name && group_name[0] != '\0') {
 		rcu_read_lock();
-		memcpy(rcu_dereference(connection->transport.net_conf->peer_node_name), group_name, sizeof(group_name));
+		memcpy(rcu_dereference(connection->transport.net_conf)->peer_node_name, group_name, strlen(group_name) + 1);
 		mutex_lock(&notification_mutex);
 		notify_node_info(NULL, 0, connection->resource, connection, 
-				rcu_dereference(connection->transport.net_conf->peer_node_name), BSR_PEER_NODE_INFO, NOTIFY_CHANGE);
+				rcu_dereference(connection->transport.net_conf)->peer_node_name, BSR_PEER_NODE_INFO, NOTIFY_CHANGE);
 		mutex_unlock(&notification_mutex);
 		rcu_read_unlock();
 	}
@@ -10318,7 +10318,7 @@ int bsr_do_features(struct bsr_connection *connection)
 		}
 
 		rcu_read_lock();
-		peer_node_name = rcu_dereference(connection->transport.net_conf->peer_node_name);
+		peer_node_name = rcu_dereference(connection->transport.net_conf)->peer_node_name;
 		memcpy(peer_node_name, pp->name, sizeof(pp->name));
 
 		mutex_lock(&notification_mutex);
