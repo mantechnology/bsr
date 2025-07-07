@@ -9,6 +9,7 @@ ClassGuid   =   {71A27CDD-812A-11D0-BEC7-08002BE2092F}  ;This value is determine
 Provider    =   %Msft%
 DriverVer   =   12/01/2013,0.2.0.0
 CatalogFile = bsrvflt.cat
+PnpLockdown = 1
 
 
 [DestinationDirs]
