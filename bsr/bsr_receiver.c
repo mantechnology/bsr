@@ -7878,6 +7878,11 @@ static int process_twopc(struct bsr_connection *connection,
 							reply->tid, reply->target_node_id);
 
 					return -EIO;
+				}else if( resource->twopc_reply.initiator_node_id==-1 &&
+					mask.role == role_MASK && val.role == R_PRIMARY) {
+					bsr_err(15, BSR_LC_TWOPC, connection, "[TWOPC:%u] target_node_id (%d) expired promote packet",
+						reply->tid, reply->target_node_id);
+					return -EIO;
 				}
 			}
 
