@@ -1562,7 +1562,7 @@ static const char *from_attrs_err_to_txt(int err)
 }
 
 // BSR-1064
-bool wait_until_vol_ctl_mutex_is_used(struct bsr_resource *resource)
+static bool wait_until_vol_ctl_mutex_is_used(struct bsr_resource *resource)
 {
 	int try_val = 0, max_tries = 30;
 	
@@ -1671,7 +1671,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	if (info->attrs[BSR_NLA_SET_ROLE_PARMS]) {
 		err = set_role_parms_from_attrs(&parms, info);
 		if (err) {
-			retcode = ERR_MANDATORY_TAG;
+			retcode = (enum bsr_state_rv) ERR_MANDATORY_TAG;
 			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto out;
 		}
@@ -1682,7 +1682,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	// BSR-1064
 	if (!wait_until_vol_ctl_mutex_is_used(adm_ctx.resource)) {
 		mutex_unlock(&adm_ctx.resource->adm_mutex);
-		retcode = ERR_VOL_LOCK_ACQUISITION_TIMEOUT;
+		retcode = (enum bsr_state_rv) ERR_VOL_LOCK_ACQUISITION_TIMEOUT;
 		bsr_msg_put_info(adm_ctx.reply_skb, "Failed to change role");
 		goto out;
 	}
@@ -2686,11 +2686,11 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 #else
 // BSR-1512
 #ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
-		if(device->ldev->backing_bdev->bd_inode && 
-			bdev->backing_bdev->bd_inode) {
+		if(device->ldev->backing_bdev->bd_mapping->host &&
+			bdev->backing_bdev->bd_mapping->host) {
 
-			struct backing_dev_info *bdi1 = inode_to_bdi(device->ldev->backing_bdev->bd_inode);
-			struct backing_dev_info *bdi2 = inode_to_bdi(bdev->backing_bdev->bd_inode);
+			struct backing_dev_info *bdi1 = inode_to_bdi(device->ldev->backing_bdev->bd_mapping->host);
+			struct backing_dev_info *bdi2 = inode_to_bdi(bdev->backing_bdev->bd_mapping->host);
 
 			if(bdi1 && bdi2) 
 				adjust_ra_pages(bdi1, bdi2);
@@ -3612,7 +3612,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	stable_state_change(rv, resource,
 		change_disk_state(device, D_ATTACHING, CS_VERBOSE | CS_SERIALIZE, NULL));
 
-	retcode = rv;  /* FIXME: Type mismatch. */
+	retcode = (enum bsr_ret_code) rv;  /* FIXME: Type mismatch. */
 	if (rv >= SS_SUCCESS)
 		update_resource_dagtag(resource, nbc);
 	bsr_resume_io(device);
@@ -4021,7 +4021,7 @@ static int adm_detach(struct bsr_device *device, int force, struct sk_buff *repl
 	 // BSR-925 returns an error if the detaching is not completed during the wait time.
 	if (get_disk_state(device) == D_DETACHING) {
 		bsr_info(42, BSR_LC_GENL, NO_OBJECT, "Detach complete event wait timeout. time out(%ld) disk state(%s)", 3 * HZ, bsr_disk_str(device->disk_state[NOW]));
-		retcode = ERR_INTR;;
+		retcode = (enum bsr_state_rv) ERR_INTR;;
 	}
 	else {
 		if (retcode >= SS_SUCCESS) {
@@ -4075,7 +4075,7 @@ int bsr_adm_detach(struct sk_buff *skb, struct genl_info *info)
 	peer_device = NULL;
 	for_each_peer_device(peer_device, adm_ctx.device) {
 		if (peer_device->repl_state[NOW] > L_OFF && adm_ctx.device->resource->role[NOW] == R_PRIMARY) {
-			retcode = SS_CONNECTED_DISKLESS;
+			retcode = (enum bsr_ret_code) SS_CONNECTED_DISKLESS;
 			goto out;
 		}
 	}
@@ -4138,8 +4138,6 @@ _check_net_options(struct bsr_connection *connection, struct net_conf *old_net_c
 		if (new_net_conf->two_primaries != old_net_conf->two_primaries)
 			return ERR_NEED_APV_100;
 
-		if (!new_net_conf->integrity_alg != !old_net_conf->integrity_alg)
-			return ERR_NEED_APV_100;
 
 		if (strcmp(new_net_conf->integrity_alg, old_net_conf->integrity_alg))
 			return ERR_NEED_APV_100;
@@ -4460,7 +4458,7 @@ static int adjust_resync_fifo(struct bsr_peer_device *peer_device,
 #ifdef _WIN
 bool string_to_long(char *data, ULONG *num)
 #else 
-bool string_to_long(char *data, long *num)
+static bool string_to_long(char *data, long *num)
 #endif
 {
 #ifdef _WIN
@@ -4855,7 +4853,7 @@ fail:
 	return retcode;
 }
 
-bool addr_eq_nla(const SOCKADDR_STORAGE_EX *addr, const int addr_len, const struct nlattr *nla)
+static bool addr_eq_nla(const SOCKADDR_STORAGE_EX *addr, const int addr_len, const struct nlattr *nla)
 {
 	return	nla_len(nla) == addr_len && memcmp(nla_data(nla), addr, addr_len) == 0;
 }
@@ -5038,7 +5036,7 @@ int bsr_adm_connect(struct sk_buff *skb, struct genl_info *info)
 		bsr_md_mark_dirty(device);
 	}
 
-	retcode = change_cstate_ex(connection, C_UNCONNECTED, CS_VERBOSE);
+	retcode = (enum bsr_ret_code) change_cstate_ex(connection, C_UNCONNECTED, CS_VERBOSE);
 
 out:
 	// BSR-919
@@ -5271,7 +5269,7 @@ repeat:
 
 /* this cann only be called immediately after a successful
  * conn_try_disconnect, within the same resource->adm_mutex */
-void del_connection(struct bsr_connection *connection)
+static void del_connection(struct bsr_connection *connection)
 {
 	struct bsr_resource *resource = connection->resource;
 	struct bsr_peer_device *peer_device;
@@ -5328,7 +5326,7 @@ void del_connection(struct bsr_connection *connection)
 	bsr_put_connection(connection);
 }
 
-int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
+static int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 {
 	struct bsr_config_context adm_ctx;
 	struct disconnect_parms parms;
@@ -5365,7 +5363,7 @@ int adm_disconnect(struct sk_buff *skb, struct genl_info *info, bool destroy)
 		// mutex_unlock(&connection->resource->conf_update);
 	}
 	if (rv < SS_SUCCESS)
-		retcode = rv;  /* FIXME: Type mismatch. */
+		retcode = (enum bsr_ret_code) rv;  /* FIXME: Type mismatch. */
 	else
 		retcode = ERR_NO;
 out:
@@ -5608,7 +5606,7 @@ int bsr_adm_resize(struct sk_buff *skb, struct genl_info *info)
 		retcode = ERR_IMPLICIT_SHRINK;
 		goto fail;
 	} else if (dd == DS_2PC_ERR) {
-		retcode = SS_INTERRUPTED;
+		retcode = (enum bsr_ret_code) SS_INTERRUPTED;
 		goto fail;
 	}
 	
@@ -6245,7 +6243,7 @@ static int nla_put_bsr_cfg_context(struct sk_buff *skb,
 	if (connection) {
 		nla_put_u32(skb, T_ctx_peer_node_id, connection->peer_node_id);
 		rcu_read_lock();
-		if (connection->transport.net_conf && connection->transport.net_conf->name)
+		if (connection->transport.net_conf)
 			nla_put_string(skb, T_ctx_conn_name, connection->transport.net_conf->name);
 		rcu_read_unlock();
 	}
@@ -6593,7 +6591,7 @@ int bsr_adm_dump_connections_done(struct netlink_callback *cb)
 	return put_resource_in_arg0(cb, 6);
 }
 
-int connection_paths_to_skb(struct sk_buff *skb, struct bsr_connection *connection)
+static int connection_paths_to_skb(struct sk_buff *skb, struct bsr_connection *connection)
 {
 	struct bsr_path *path;
 	struct nlattr *tla = nla_nest_start(skb, BSR_NLA_PATH_PARMS);
@@ -7030,7 +7028,7 @@ int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	 * just being finished, wait for it before requesting a new resync. */
 	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
-	retcode = stable_change_repl_state(__FUNCTION__, peer_device,
+	retcode = (enum bsr_ret_code) stable_change_repl_state(__FUNCTION__, peer_device,
 		L_VERIFY_S, CS_VERBOSE | CS_SERIALIZE);
 	bsr_resume_io(device);
 
@@ -7064,7 +7062,7 @@ int bsr_adm_stop_ov(struct sk_buff *skb, struct genl_info *info)
 	// BSR-835 acquire volume control mutex, verify-stop does not run while getting bitmap
 	mutex_lock(&adm_ctx.resource->vol_ctl_mutex);
 
-	retcode = stable_change_repl_state(__FUNCTION__, peer_device,
+	retcode = (enum bsr_ret_code) stable_change_repl_state(__FUNCTION__, peer_device,
 		L_ESTABLISHED, CS_VERBOSE | CS_SERIALIZE);
 
 	mutex_unlock(&adm_ctx.resource->vol_ctl_mutex);
@@ -8640,7 +8638,7 @@ int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
 
 	err = forget_peer_parms_from_attrs(&parms, info);
 	if (err) {
-		retcode = ERR_MANDATORY_TAG;
+		retcode = (enum bsr_state_rv) ERR_MANDATORY_TAG;
 		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 		goto out_no_adm;
 	}
@@ -8649,12 +8647,12 @@ int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
 
 	peer_node_id = parms.forget_peer_node_id;
 	if (bsr_connection_by_node_id(resource, peer_node_id)) {
-		retcode = ERR_NET_CONFIGURED;
+		retcode = (enum bsr_state_rv) ERR_NET_CONFIGURED;
 		goto out;
 	}
 
 	if (peer_node_id < 0 || peer_node_id >= BSR_NODE_ID_MAX) {
-		retcode = ERR_INVALID_PEER_NODE_ID;
+		retcode = (enum bsr_state_rv) ERR_INVALID_PEER_NODE_ID;
 		goto out;
 	}
 
@@ -8667,7 +8665,7 @@ int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info)
 		peer_md = &device->ldev->md.peers[peer_node_id];
 		if (peer_md->bitmap_index == -1) {
 			put_ldev(__FUNCTION__, device);
-			retcode = ERR_INVALID_PEER_NODE_ID;
+			retcode = (enum bsr_state_rv) ERR_INVALID_PEER_NODE_ID;
 			break;
 		}
 

@@ -2408,7 +2408,7 @@ static void check_resync_ratio_and_wait(struct bsr_peer_device *peer_device)
 	}
 }
 
-int overlaps(sector_t s1, int l1, sector_t s2, int l2)
+static int overlaps(sector_t s1, int l1, sector_t s2, int l2)
 {
 	return !((s1 + (l1 >> 9) <= s2) || (s1 >= s2 + (l2 >> 9)));
 }
