@@ -2686,15 +2686,22 @@ static void bsr_setup_queue_param(struct bsr_device *device, struct bsr_backing_
 #else
 // BSR-1512
 #ifdef COMPAT_STRUCT_GENDISK_HAS_BACKING_DEV_INFO
-		if(device->ldev->backing_bdev->bd_mapping->host &&
-			bdev->backing_bdev->bd_mapping->host) {
+		#ifdef COMPAT_STRUCT_BLOCK_DEVICE_HAS_BD_INODE
+			if(device->ldev->backing_bdev->bd_inode && 
+				bdev->backing_bdev->bd_inode) {
 
-			struct backing_dev_info *bdi1 = inode_to_bdi(device->ldev->backing_bdev->bd_mapping->host);
-			struct backing_dev_info *bdi2 = inode_to_bdi(bdev->backing_bdev->bd_mapping->host);
+				struct backing_dev_info *bdi1 = inode_to_bdi(device->ldev->backing_bdev->bd_inode);
+				struct backing_dev_info *bdi2 = inode_to_bdi(bdev->backing_bdev->bd_inode);
+		#else
+			if(device->ldev->backing_bdev->bd_mapping->host &&
+				bdev->backing_bdev->bd_mapping->host) {
 
-			if(bdi1 && bdi2) 
-				adjust_ra_pages(bdi1, bdi2);
-		}
+				struct backing_dev_info *bdi1 = inode_to_bdi(device->ldev->backing_bdev->bd_mapping->host);
+				struct backing_dev_info *bdi2 = inode_to_bdi(bdev->backing_bdev->bd_mapping->host);			
+		#endif
+				if(bdi1 && bdi2) 
+					adjust_ra_pages(bdi1, bdi2);
+			}
 #else
 		adjust_ra_pages(q, b);
 #endif
