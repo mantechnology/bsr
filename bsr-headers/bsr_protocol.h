@@ -429,7 +429,7 @@ struct p_uuids110 {
 			       authoritative nodes when UUID_FLAG_STABLE not set */
 
 	uint64_t bitmap_uuids_mask; /* non zero bitmap UUIDS for these nodes */
-	uint64_t other_uuids[0]; /* the first hweight(bitmap_uuids_mask) slots carry bitmap uuids.
+	uint64_t other_uuids[]; /* the first hweight(bitmap_uuids_mask) slots carry bitmap uuids.
 				    The node with the lowest node_id first.
 				    The remaining slots carry history uuids */
 } __packed;
@@ -576,7 +576,7 @@ struct p_compressed_bm {
 	 */
 	uint8_t encoding;
 
-	uint8_t code[0];
+	uint8_t code[];
 } __packed;
 
 struct p_delay_probe93 {

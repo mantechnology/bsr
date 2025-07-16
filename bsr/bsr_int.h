@@ -1432,7 +1432,7 @@ struct fifo_buffer {
 	unsigned int head_index;
 	unsigned int size;
 	int total; /* sum of all values */
-	int values[0];
+	int values[];
 };
 #ifdef _WIN
 extern struct fifo_buffer *fifo_alloc(int fifo_size, ULONG Tag);
@@ -1883,7 +1883,7 @@ enum bsr_neighbor {
 #ifdef _LIN
 typedef struct bitmap_buffer {
     long long int BitmapSize;
-    unsigned char Buffer[1];
+    unsigned char Buffer[];
 
 } VOLUME_BITMAP_BUFFER, *PVOLUME_BITMAP_BUFFER;
 #endif
