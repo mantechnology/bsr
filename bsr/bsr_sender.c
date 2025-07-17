@@ -620,7 +620,7 @@ BIO_ENDIO_TYPE bsr_peer_request_endio BIO_ENDIO_ARGS(struct bio *bio)
 	BIO_ENDIO_FN_RETURN;
 }
 
-void bsr_panic_after_delayed_completion_of_aborted_request(struct bsr_device *device)
+static void bsr_panic_after_delayed_completion_of_aborted_request(struct bsr_device *device)
 {
 #ifdef _WIN
 	bsr_err(9, BSR_LC_IO, NO_OBJECT,"bsr minor:%u resource:%s / vnr:%u", device->minor, device->resource->name, device->vnr);
@@ -1740,7 +1740,7 @@ static int w_resync_finished(struct bsr_work *w, int cancel)
 }
 
 // BSR-863
-void bsr_uuid_peer(struct bsr_peer_device *peer_device)
+static void bsr_uuid_peer(struct bsr_peer_device *peer_device)
 {
 	clear_bit(GOT_UUID_ACK, &peer_device->connection->flags);
 	bsr_send_uuids(peer_device, 0, 0, NOW);
@@ -4298,6 +4298,7 @@ static void maybe_send_barrier(struct bsr_connection *connection, int epoch)
 #ifdef _WIN
 void sended_timer_fn(PKDPC Dpc, PVOID data, PVOID SystemArgument1, PVOID SystemArgument2)
 #else // _LIN
+void sended_timer_fn(BSR_TIMER_FN_ARG);
 void sended_timer_fn(BSR_TIMER_FN_ARG)
 #endif
 {

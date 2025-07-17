@@ -1,6 +1,6 @@
 #ifdef _LIN_FAST_SYNC
 
-#define BTRFS_SUPER_MAGIC "_BHRfS_M" 
+#define BTRFS_MAGIC "_BHRfS_M" 
 #define BTRFS_SUPER_BLOCK_OFFSET 0x10000
 #define BTRFS_FIRST_COPY_SUPER_BLOCK_OFFSET 0x4000000 
 #define BTRFS_SECOND_COPY_SUPER_BLOCK_OFFSET 0x4000000000 
@@ -157,4 +157,4 @@ bool is_btrfs_fs(struct btrfs_super_block *btrfs_sb);
 PVOLUME_BITMAP_BUFFER read_btrfs_bitmap(struct file *fd, struct btrfs_super_block *btrfs_sb);
 int bsr_read_data(struct file *fd, void *buf, size_t size, off_t offset);
 
-#endif
+#endif 

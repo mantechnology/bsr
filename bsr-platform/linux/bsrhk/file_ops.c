@@ -197,7 +197,7 @@ static int bsr_set_simul_perf_degrade(SIMULATION_PERF_DEGR __user * args)
 // BSR-1048 wrtie the received message in the bsr kernel log.
 LONG_PTR g_klog_last_time = 0;
 int g_skip_klog = 0;
-long bsr_write_log(WRITE_KERNEL_LOG __user * args) 
+static long bsr_write_log(WRITE_KERNEL_LOG __user * args) 
 {
 	int err;
 	WRITE_KERNEL_LOG writeLog;
@@ -272,7 +272,7 @@ long bsr_write_log(WRITE_KERNEL_LOG __user * args)
 extern atomic_t g_forced_kernel_panic;
 extern atomic_t g_panic_occurrence_time;
 
-long bsr_panic(KERNEL_PANIC_INFO __user * args) 
+static long bsr_panic(KERNEL_PANIC_INFO __user * args) 
 {
 	int err;
 	KERNEL_PANIC_INFO in;
@@ -304,7 +304,7 @@ long bsr_panic(KERNEL_PANIC_INFO __user * args)
 extern atomic_t g_hold_state_type;
 extern atomic_t g_hold_state;
 
-long bsr_hold_state(HOLD_STATE __user * args) 
+static long bsr_hold_state(HOLD_STATE __user * args) 
 {	
 	int err;
 	HOLD_STATE in;
@@ -351,7 +351,7 @@ long bsr_hold_state(HOLD_STATE __user * args)
 
 extern atomic_t g_fake_al_used;
 
-long bsr_fake_al_used(int __user * args) 
+static long bsr_fake_al_used(int __user * args) 
 {
 	
 	int err;

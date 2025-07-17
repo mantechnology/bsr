@@ -22,7 +22,7 @@ unsigned long long ext_block_bitmap(struct ext_super_block *sb,
 }
 
 // BSR-903
-__u32 ext_free_blocks_count(struct ext_super_block *sb,
+static __u32 ext_free_blocks_count(struct ext_super_block *sb,
 			       struct ext_group_desc *bg)
 {
 	return le16_to_cpu(bg->bg_free_blocks_count_lo) |

@@ -1432,7 +1432,7 @@ struct fifo_buffer {
 	unsigned int head_index;
 	unsigned int size;
 	int total; /* sum of all values */
-	int values[0];
+	int values[];
 };
 #ifdef _WIN
 extern struct fifo_buffer *fifo_alloc(int fifo_size, ULONG Tag);
@@ -1883,7 +1883,7 @@ enum bsr_neighbor {
 #ifdef _LIN
 typedef struct bitmap_buffer {
     long long int BitmapSize;
-    unsigned char Buffer[1];
+    unsigned char Buffer[];
 
 } VOLUME_BITMAP_BUFFER, *PVOLUME_BITMAP_BUFFER;
 #endif
@@ -3360,7 +3360,11 @@ static __inline sector_t bsr_get_capacity(struct block_device *bdev)
 	return bdev->d_size >> 9;
 #else // _LIN
 	/* return bdev ? get_capacity(bdev->bd_disk) : 0; */
-	return bdev ? i_size_read(bdev->bd_inode) >> 9 : 0;
+	#ifdef COMPAT_STRUCT_BLOCK_DEVICE_HAS_BD_INODE
+		return bdev ? i_size_read(bdev->bd_inode) >> 9 : 0;
+	#else
+		return bdev ? bdev_nr_bytes(bdev) >> 9 : 0;
+	#endif
 #endif
 }
 
