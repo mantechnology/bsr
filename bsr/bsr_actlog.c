@@ -376,7 +376,7 @@ out:
 	return NULL;
 }
 
-void
+static void
 set_bme_priority(struct get_activity_log_ref_ctx *al_ctx)
 {
 	struct bsr_peer_device *peer_device;
@@ -707,7 +707,7 @@ void bsr_al_begin_io_commit(struct bsr_device *device)
 	}
 }
 
-bool put_actlog(const char* caller, struct bsr_device *device, unsigned int first, unsigned int last)
+static bool put_actlog(const char* caller, struct bsr_device *device, unsigned int first, unsigned int last)
 {
 	struct lc_element *extent;
 	unsigned long flags;

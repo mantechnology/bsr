@@ -565,7 +565,7 @@ int bsr_version_show(struct seq_file *m, void *ignored)
 
 #ifdef _LIN
 // BSR-875 collecting memory usage of BSR module
-int bsr_alloc_mem_show(struct seq_file *m, void *ignored)
+static int bsr_alloc_mem_show(struct seq_file *m, void *ignored)
 {
 	int pages = PAGE_SIZE / 1024; // kbytes
 	int io_bio_set = 0, md_io_bio_set = 0;

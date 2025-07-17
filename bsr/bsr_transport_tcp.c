@@ -178,7 +178,7 @@ int bsr_kernel_sendmsg(struct bsr_transport *transport, struct socket *socket, s
 	return rv;
 }
 
-int bsr_kernel_recvmsg(struct bsr_transport *transport, struct socket *socket, struct msghdr *msg, struct kvec *iov) {
+static int bsr_kernel_recvmsg(struct bsr_transport *transport, struct socket *socket, struct msghdr *msg, struct kvec *iov) {
 	int rv;
 
 	rv = kernel_recvmsg(socket, msg, iov, 1, iov->iov_len, msg->msg_flags);
@@ -2539,6 +2539,7 @@ static int dtt_remove_path(struct bsr_transport *transport, struct bsr_path *bsr
 int __init dtt_initialize(void)
 #else // _LIN
 //static int __init dtt_initialize(void) // TODO
+int dtt_initialize(void);
 int dtt_initialize(void)
 #endif
 {

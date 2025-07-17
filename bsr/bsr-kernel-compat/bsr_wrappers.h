@@ -2301,7 +2301,9 @@ static inline int simple_positive(struct dentry *dentry)
 #endif
 
 #ifdef COMPAT___VMALLOC_HAS_2_PARAMS
-#define __vmalloc(s, g, p) __vmalloc(s, g)
+#define __vmalloc_wapper(s, g, p) __vmalloc(s, g)
+#else 
+#define __vmalloc_wapper(s, g, p) __vmalloc(s, g, p)
 #endif
 
 
@@ -2316,7 +2318,7 @@ static inline void *bsr_kvmalloc(size_t size, gfp_t flags)
 		// BSR-818 check interrupt context
 		if (in_interrupt())
 			return NULL;
-		ret = __vmalloc(size, flags, PAGE_KERNEL);
+		ret = __vmalloc_wapper(size, flags, PAGE_KERNEL);
 
 		if (ret)
 			atomic_add64(size, &mem_usage.vmalloc);
