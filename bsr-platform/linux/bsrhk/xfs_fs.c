@@ -25,7 +25,7 @@ inline bool xfs_sb_version_hascrc(struct xfs_sb *sbp)
 }
 
 // BSR-1370
-loff_t find_leaf_node(struct file *fd, loff_t str_offset, loff_t ag_blocks_offset, unsigned int ag_no, int blk_size) 
+static loff_t find_leaf_node(struct file *fd, loff_t str_offset, loff_t ag_blocks_offset, unsigned int ag_no, int blk_size) 
 {
     loff_t offset, cur_offset = str_offset;
     struct xfs_btree_block btsb;

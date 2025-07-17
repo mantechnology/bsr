@@ -256,7 +256,7 @@ signed long long get_ring_buffer_size(ring_buffer *ring)
 }
 
 // BSR-571
-void add_packet_list(ring_buffer *ring, const char *data, signed long long write_len)
+static void add_packet_list(ring_buffer *ring, const char *data, signed long long write_len)
 {
 	struct p_header80 *h80 = (struct p_header80*)data;
 	struct p_header95 *h95 = (struct p_header95*)data;
@@ -300,7 +300,7 @@ void add_packet_list(ring_buffer *ring, const char *data, signed long long write
 	ring->packet_size[ring->last_send_cmd] += write_len;
 }
 
-void remove_packet_list(ring_buffer *ring, signed long long length)
+static void remove_packet_list(ring_buffer *ring, signed long long length)
 {
 	struct send_buf_packet_info *packet_info, *tmp;
 
@@ -578,7 +578,7 @@ int do_send(struct bsr_transport *transport, bsr_stream stream, struct socket *s
 	return ret;
 }
 #else // _LIN_SEND_BUF
-int do_send(struct bsr_transport *transport, bsr_stream stream, struct socket *socket, struct ring_buffer *bab, int timeout)
+static int do_send(struct bsr_transport *transport, bsr_stream stream, struct socket *socket, struct ring_buffer *bab, int timeout)
 {
 	int rv = 0;
 	int msg_flags = 0;
@@ -710,6 +710,7 @@ done:
 	PsTerminateSystemThread(STATUS_SUCCESS);
 }
 #else // _LIN_SEND_BUF
+int send_buf_thread(void *p);
 int send_buf_thread(void *p)
 {
 	// BSR-1322

@@ -4,7 +4,7 @@
 
 bool is_btrfs_fs(struct btrfs_super_block *btrfs_sb)
 {
-    if (memcmp(btrfs_sb->magic, BTRFS_SUPER_MAGIC, 8) == 0) 
+    if (memcmp(btrfs_sb->magic, BTRFS_MAGIC, 8) == 0) 
     {
         return true;
     } else {
@@ -35,7 +35,7 @@ int bsr_read_data(struct file *fd, void *buf, size_t size, off_t offset)
     │    ├── Leaf Node C (Level 0) → [Chunk Offset, Length]
     │    ├── Leaf Node D (Level 0) → [Chunk Offset, Length]
 */
-bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_BUFFER bitmap_buf) 
+static bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_BUFFER bitmap_buf) 
 {
     struct btrfs_header header;
     struct btrfs_chunk chunk;
@@ -123,7 +123,7 @@ bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_BITMAP_B
     return true;
 }
 
-void set_bitmap(uint8_t *bitmap_buf, uint64_t offset) 
+static void set_bitmap(uint8_t *bitmap_buf, uint64_t offset) 
 {
     uint64_t bit_index = offset >> BM_BLOCK_SHIFT;         
     uint64_t byte_index = bit_index / BITS_PER_BYTE;       

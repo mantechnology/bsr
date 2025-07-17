@@ -373,7 +373,7 @@ static struct page **bm_realloc_pages(struct bsr_bitmap *b, ULONG_PTR want)
 
 	if (!new_pages) {
 #ifdef _LIN
-		new_pages = __vmalloc(bytes,
+		new_pages = __vmalloc_wapper(bytes,
 				GFP_NOIO | __GFP_HIGHMEM | __GFP_ZERO,
 				PAGE_KERNEL);
 		if (new_pages) {
@@ -1450,7 +1450,10 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 	BSR_BIO_BI_SECTOR(bio) = on_disk_sector;
 	/* bio_add_page of a single page to an empty bio will always succeed,
 	 * according to api.  Do we want to assert that? */
-	bio_add_page(bio, page, len, 0);
+	if(bio_add_page(bio, page, len, 0) !=len){
+		bio_put(bio);
+		goto no_memory;
+	}
 	bio->bi_private = ctx;
 	bio->bi_end_io = bsr_bm_endio;
 #ifndef COMPAT_BIO_ALLOC_HAS_4_PARAMS
@@ -1484,7 +1487,7 @@ no_memory :
 }
 
 
-void wait_pre_async_io_done_or_force_detached(struct bsr_device *device, struct bsr_backing_dev *bdev,
+static void wait_pre_async_io_done_or_force_detached(struct bsr_device *device, struct bsr_backing_dev *bdev,
 	struct bsr_bm_aio_ctx *ctx)
 {
 	long dt;

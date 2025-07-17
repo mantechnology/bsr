@@ -761,6 +761,7 @@ void tl_clear(struct bsr_connection *connection)
  * tl_abort_disk_io() - Abort disk I/O for all requests for a certain device in the TL
  * @device:     BSR device.
  */
+void tl_abort_disk_io(struct bsr_device *device);
 void tl_abort_disk_io(struct bsr_device *device)
 {
         struct bsr_resource *resource = device->resource;
@@ -1231,7 +1232,7 @@ out:
 
 
 // DW-1145 it returns true if my disk is consistent with primary's
-bool is_consistent_with_primary(struct bsr_device *device, enum which_state which)
+static bool is_consistent_with_primary(struct bsr_device *device, enum which_state which)
 {
 	struct bsr_peer_device *peer_device = NULL;
 	int node_id = -1;
@@ -2107,7 +2108,7 @@ out:
 
 #ifdef _LIN
 /* communicated if (agreed_features & BSR_FF_WSAME) */
-void assign_p_sizes_qlim(struct bsr_device *device, struct p_sizes *p, struct request_queue *q)
+static void assign_p_sizes_qlim(struct bsr_device *device, struct p_sizes *p, struct request_queue *q)
 {
 	// BSR-1049 if request_queue is null then device->ldev is also null
 	if (q) {
@@ -2690,7 +2691,7 @@ static int _bsr_send_bitmap(struct bsr_device *device,
 	return err == 0;
 }
 
-bool bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bsr_peer_device *to_merge)
+static bool bsr_peer_device_merge_bitmap(struct bsr_peer_device *peer_device, struct bsr_peer_device *to_merge)
 {
 	// DW-1815 merge the peer_device bitmap into the same current_uuid.
 	ULONG_PTR offset, current_offset;
@@ -3004,7 +3005,7 @@ int _bsr_no_send_page(struct bsr_peer_device *peer_device, void * buffer,
 }
 #else // _LIN
 // BSR-1116 send to stream instead of page
-int _bsr_send_stream(struct bsr_peer_device *peer_device, void * buffer,
+static int _bsr_send_stream(struct bsr_peer_device *peer_device, void * buffer,
 	int offset, size_t size, unsigned msg_flags)
 {
 	struct bsr_connection *connection = peer_device->connection;
@@ -3025,7 +3026,7 @@ int _bsr_send_stream(struct bsr_peer_device *peer_device, void * buffer,
 	return err;
 }
 
-int _bsr_no_send_page(struct bsr_peer_device *peer_device, struct page *page,
+static int _bsr_no_send_page(struct bsr_peer_device *peer_device, struct page *page,
 			      int offset, size_t size, unsigned msg_flags)
 {
 	struct bsr_connection *connection = peer_device->connection;
@@ -4074,7 +4075,7 @@ static struct retry_worker {
 } retry;
 #endif
 
-void bsr_req_destroy_lock(struct kref *kref)
+static void bsr_req_destroy_lock(struct kref *kref)
 {
 	struct bsr_request *req = container_of(kref, struct bsr_request, kref);
 	struct bsr_resource *resource = req->device->resource;
@@ -4471,7 +4472,7 @@ void conn_free_crypto(struct bsr_connection *connection)
 	connection->int_dig_vv = NULL;
 }
 
-void wake_all_device_misc(struct bsr_resource *resource)
+static void wake_all_device_misc(struct bsr_resource *resource)
 {
 	struct bsr_device *device;
 	int vnr;
@@ -5748,7 +5749,7 @@ static int name_cmp(void *priv, list_cmp_t *a, list_cmp_t *b)
 	return strcmp(list_b->fileName, list_a->fileName);
 }
 
-int bsr_apply_max_count_of_backup_files(char * file_path, int max_file_count)
+static int bsr_apply_max_count_of_backup_files(char * file_path, int max_file_count)
 {
 	int backup_file_count = 0;
 
@@ -5837,7 +5838,7 @@ NTSTATUS bsr_backup_file(PHANDLE hFile, int max_file_count)
 }
 #else // _LIN
 
-int bsr_backup_file(char * file_path, int max_file_count) 
+static int bsr_backup_file(char * file_path, int max_file_count) 
 {
 	int err = 0;
 	
@@ -5921,7 +5922,7 @@ LONGLONG get_file_size(HANDLE hFile)
 	return 0;
 }
 #else // _LIN
-long get_file_size(struct file * fd)
+static long get_file_size(struct file * fd)
 {
 	long filesize;
 	mm_segment_t oldfs;
@@ -5938,7 +5939,7 @@ long get_file_size(struct file * fd)
 #endif
 
 // BSR-619
-void start_logging_thread(void)
+static void start_logging_thread(void)
 {
 #ifdef _WIN
 	NTSTATUS status = STATUS_UNSUCCESSFUL;
@@ -6329,7 +6330,7 @@ void init_logging(void)
 	start_logging_thread();
 #endif
 }
-
+void bsr_cleanup(void);
 void bsr_cleanup(void)
 {
 	/* first remove proc,
@@ -6366,6 +6367,7 @@ void bsr_cleanup(void)
 #ifdef _WIN
 int __init bsr_init(void)
 #else // _LIN
+int bsr_init(void);
 int bsr_init(void)
 #endif
 {
@@ -7901,7 +7903,7 @@ int bsr_bmio_set_n_write(struct bsr_device *device,
 #define GetBitPos(bytes, bitsInByte)	((bytes * BITS_PER_BYTE) + bitsInByte)
 			  
 // set out-of-sync from provided bitmap
-ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device *peer_device)
+static ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device *peer_device)
 {
 	ULONG_PTR llStartBit = BSR_END_OF_BITMAP, llEndBit = BSR_END_OF_BITMAP;
 	ULONG_PTR count = 0;
@@ -7913,7 +7915,6 @@ ULONG_PTR SetOOSFromBitmap(PVOLUME_BITMAP_BUFFER pBitmap, struct bsr_peer_device
 
 	
 	if (NULL == pBitmap ||
-		NULL == pBitmap->Buffer ||
 		NULL == peer_device)
 	{
 		bsr_err(43, BSR_LC_BITMAP, peer_device, "Failed to set bit out of sync due to invalid parameter, bitmap(0x%p), buffer(0x%p) peer device(0x%p)", pBitmap, pBitmap ? pBitmap->Buffer : NULL, peer_device);
@@ -8046,7 +8047,7 @@ ex:
         16 kb       ->    4096 bytes
         0110           00001111 11110000
 */
-bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG bytesPerCluster, ULONG ulBsrBitmapUnit)
+static bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG bytesPerCluster, ULONG ulBsrBitmapUnit)
 {
 	int readCount = 1;
 	int writeCount = 1;
@@ -8057,7 +8058,6 @@ bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG byt
 	LONGLONG bitmapSize;
 		
 	if (NULL == pVbb ||
-		NULL == pVbb->Buffer ||
 		NULL == pConverted)
 	{
 		bsr_err(68, BSR_LC_BITMAP, NO_OBJECT, "Failed to convert volume bitmap due to invalid parameter, volume bitmap(0x%p), buffer(0x%p), converted(0x%p)", pVbb, pVbb ? pVbb->Buffer : NULL, pConverted);
@@ -8098,7 +8098,7 @@ bool ConvertVolumeBitmap(PVOLUME_BITMAP_BUFFER pVbb, PCHAR pConverted, ULONG byt
 }
 
 
-PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulBsrBitmapUnit)
+static PVOLUME_BITMAP_BUFFER GetVolumeBitmapForBsr(struct bsr_device *device, ULONG ulBsrBitmapUnit)
 {
 	PVOLUME_BITMAP_BUFFER pVbb = NULL;
 	PVOLUME_BITMAP_BUFFER pBsrBitmap = NULL;

@@ -790,7 +790,7 @@ void connect_timer_fn(BSR_TIMER_FN_ARG)
 	spin_unlock_irqrestore(&resource->req_lock, irq_flags);
 }
 
-void conn_connect2(struct bsr_connection *connection)
+static void conn_connect2(struct bsr_connection *connection)
 {
 	struct bsr_peer_device *peer_device;
 	int vnr;
@@ -816,7 +816,7 @@ void conn_connect2(struct bsr_connection *connection)
 
 void conn_disconnect(struct bsr_connection *connection);
 
-int connect_work(struct bsr_work *work, int cancel)
+static int connect_work(struct bsr_work *work, int cancel)
 {
 	struct bsr_connection *connection =
 		container_of(work, struct bsr_connection, connect_timer_work);
@@ -3146,7 +3146,7 @@ int bsr_send_ack_ex(struct bsr_peer_device *peer_device, enum bsr_packet cmd,
 }
 
 // DW-2124
-int bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bsr_packet cmd, u32 state) {
+static int bsr_send_bitmap_exchange_state(struct bsr_peer_device *peer_device, enum bsr_packet cmd, u32 state) {
 	return _bsr_send_bitmap_exchange_state(peer_device, cmd, state);
 }
 
@@ -6890,15 +6890,15 @@ static union bsr_state convert_state(union bsr_state peer_state)
 	union bsr_state state;
 
 	static enum bsr_conn_state c_tab[] = {
-		[L_OFF] = L_OFF,
-		[L_ESTABLISHED] = L_ESTABLISHED,
+		[L_OFF] = (enum bsr_conn_state)L_OFF,
+		[L_ESTABLISHED] = (enum bsr_conn_state)L_ESTABLISHED,
 
-		[L_STARTING_SYNC_S] = L_STARTING_SYNC_T,
-		[L_STARTING_SYNC_T] = L_STARTING_SYNC_S,
-		[C_DISCONNECTING] = C_TEAR_DOWN, /* C_NETWORK_FAILURE, */
-		[C_CONNECTING] = C_CONNECTING,
-		[L_VERIFY_S]       = L_VERIFY_T,
-		[C_MASK]   = C_MASK,
+		[L_STARTING_SYNC_S] = (enum bsr_conn_state)L_STARTING_SYNC_T,
+		[L_STARTING_SYNC_T] = (enum bsr_conn_state)L_STARTING_SYNC_S,
+		[C_DISCONNECTING] = (enum bsr_conn_state)C_TEAR_DOWN, /* C_NETWORK_FAILURE, */
+		[C_CONNECTING] = (enum bsr_conn_state)C_CONNECTING,
+		[L_VERIFY_S]       = (enum bsr_conn_state)L_VERIFY_T,
+		[C_MASK]   = (enum bsr_conn_state)C_MASK,
 	};
 
 	state.i = peer_state.i;
@@ -10568,7 +10568,7 @@ int bsr_receiver(struct bsr_thread *thi)
 
 /* ********* acknowledge sender ******** */
 
-void req_destroy_after_send_peer_ack(struct kref *kref)
+static void req_destroy_after_send_peer_ack(struct kref *kref)
 {
 	struct bsr_request *req = container_of(kref, struct bsr_request, kref);
 	struct bsr_device *device = req->device;
