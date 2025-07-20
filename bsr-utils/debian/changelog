@@ -2,7 +2,13 @@ bsr-utils (1.7.5.0) unstable; urgency=medium
 
     * New upstream release
 
- -- Man Technology Inc. <bsr@mantech.co.kr>  Wed, 9 Jul 2025 00:00:00 +0900
+ -- Man Technology Inc. <bsr@mantech.co.kr>  Mon, 21 Jul 2025 00:00:00 +0900
+
+bsr-utils (1.7.4.5) unstable; urgency=medium
+
+    * New upstream release
+
+ -- Man Technology Inc. <bsr@mantech.co.kr>  Fri, 18 Jul 2025 00:00:00 +0900
 
 bsr-utils (1.7.4.4) unstable; urgency=medium
 
