@@ -1593,7 +1593,7 @@ static int need_filesystem_recovery(char * dev_name)
 	FILE *fp;
 	bool journal_recovery = false;
 	int type = 0;
-	char *argv[] = { NULL, NULL, NULL, NULL, NULL };
+	char *argv[] = { NULL, NULL, NULL, NULL, NULL , NULL };
 	int argc = 0;
 	char  *n_dev_name, *ptr;
 	char fs_check_log[256];
@@ -1695,6 +1695,7 @@ static int need_filesystem_recovery(char * dev_name)
 			argv[argc++] = "btrfs";
 			argv[argc++] = "check";
 			argv[argc++] = "--readonly";
+			argv[argc++] = "--force";
  			break;
 		default:
 			break;
@@ -1705,7 +1706,7 @@ static int need_filesystem_recovery(char * dev_name)
 	ret = run_check_fs(argv, journal_check_log);
 
 	if (ret != 0) {
-		CLI_ERRO_LOG_STDERR(false, "'%s' exits with error (%d)", cmd, ret);
+		CLI_ERRO_LOG_STDERR(false, "%s exits with error (%d)", argv[0] == NULL ? "unknow": argv[0], ret);
 		return 1;
 	}
 
@@ -1789,7 +1790,7 @@ static int need_filesystem_recovery(char * dev_name)
 
 	if (ret == -1 || ret == 127) {
 		CLI_ERRO_LOG_STDERR(false,
-			"could not be executed '%s'", cmd);
+			"could not be executed '%s'", argv[0] == NULL ? "unknow": argv[0]);
 	}
 	else if (ret != 0) {
 		CLI_ERRO_LOG_STDERR(false, "%s: Filesystem has errors", dev_name);
