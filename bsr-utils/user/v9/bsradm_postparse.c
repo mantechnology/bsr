@@ -548,6 +548,15 @@ void set_me_in_resource(struct d_resource* res, int match_on_proxy)
 				h->used_as_me = 1;
 				if (!path->my_address)
 					path->my_address = h->address.addr ? &h->address : &res->me->address;
+				// BSR-1514
+                if(!path->my_public_address) {
+                    if(h->public_address.addr)
+                        path->my_public_address = &h->public_address;
+                    else if(res->me->public_address.addr)
+                        path->my_public_address = &res->me->public_address;
+                    else 
+                        path->my_public_address = NULL;
+                }
 				path->my_proxy = h->proxy;
 			} else {
 				if (!conn->peer) /* Keep w/o addresses form "bsrsetup show" for adjust */
