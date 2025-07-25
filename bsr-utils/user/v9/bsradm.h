@@ -196,6 +196,7 @@ struct path
 	struct hname_address_pairs hname_address_pairs; /* parsed here */
 
 	struct d_address *my_address; /* determined in set_me_in_resource() */
+	struct d_address *my_public_address; // BSR-1514 used by external proxy support
 	struct d_address *peer_address;
 	struct d_address *connect_to;
 	struct d_proxy_info *my_proxy;
