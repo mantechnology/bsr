@@ -2196,8 +2196,8 @@ int do_proxy_conn_up(const struct cfg_ctx *ctx)
 				path->peer_proxy->public_outside.port ? path->peer_proxy->public_outside.port : path->peer_proxy->outside.port,
 				path->my_proxy->outside.addr,
 				path->my_proxy->outside.port,
-             	path->my_public_address->addr ? path->my_public_address->addr : path->my_address->addr,
-                path->my_public_address->port ? path->my_public_address->port : path->my_address->port);
+				(path->my_public_address && path->my_public_address->addr) ? path->my_public_address->addr : path->my_address->addr,
+				(path->my_public_address && path->my_public_address->port) ? path->my_public_address->port : path->my_address->port);
 
 		rv = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 		if (rv)
