@@ -4930,6 +4930,22 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 	}
 
 	*rule_nr = 60;
+	// BSR-1531 If the target has finished resync but is not updated on the source, compare the UUID under the following conditions.
+	peer = peer_device->bitmap_uuids[node_id] & ~UUID_PRIMARY;
+ 	for(i = 0; i < HISTORY_UUIDS; i++) {
+		self = bsr_history_uuid(device, i) & ~UUID_PRIMARY;
+		if (self != 0 && self == peer) {
+			self = bsr_current_uuid(device) & ~UUID_PRIMARY;
+			for(j = 0; j < HISTORY_UUIDS; j++) {
+				peer = peer_device->history_uuids[j] & ~UUID_PRIMARY;
+				if(self == peer) {
+					bsr_info(247, BSR_LC_RESYNC_OV, peer_device, "The bitmap UUID of the peer node is in the local history UUID. rule(%d), res(-2)", *rule_nr);
+					return -2;
+				}
+			}
+		}
+	}
+
 	self = bsr_current_uuid(device) & ~UUID_PRIMARY;
 	for (i = 0; i < ARRAY_SIZE(peer_device->history_uuids); i++) {
 		peer = peer_device->history_uuids[i] & ~UUID_PRIMARY;
@@ -4975,6 +4991,22 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 	}
 
 	*rule_nr = 80;
+	// BSR-1531 
+	self = bsr_bitmap_uuid(peer_device) & ~UUID_PRIMARY;
+	for(i = 0; i < HISTORY_UUIDS; i++) {
+		peer = peer_device->history_uuids[i] & ~UUID_PRIMARY;
+		if(self != 0 && self == peer) {
+			peer = peer_device->current_uuid & ~UUID_PRIMARY;
+			for(j = 0; j < HISTORY_UUIDS; j++) {
+				self = bsr_history_uuid(device, j) & ~UUID_PRIMARY;
+				if(self == peer) {
+					bsr_info(248, BSR_LC_RESYNC_OV, peer_device, "The history UUID of the peer node is in the local bitmap UUID. rule(%d), res(2)", *rule_nr);
+					return 2;
+				}
+			}
+		}
+	}
+
 	peer = peer_device->current_uuid & ~UUID_PRIMARY;
 	for (i = 0; i < HISTORY_UUIDS; i++) {
 		self = bsr_history_uuid(device, i) & ~UUID_PRIMARY;
