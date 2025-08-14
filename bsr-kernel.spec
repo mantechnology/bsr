@@ -9,7 +9,7 @@
 
 Name: bsr-kernel
 Summary: Kernel driver for BSR
-Version: 1.7.5.0
+Version: 1.7.6.0
 # do not modify Release field
 Release: 1%{?dist}
 
@@ -141,7 +141,10 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
-* Tue Jul 29 2025 Mantech Solution Inc. <bsr@mantech.co.kr> - 1.7.5.0
+* Thu Aug 14 2025 Mantech Solution Inc. <bsr@mantech.co.kr> - 1.7.6.0
+- New upstream release.
+
+* Thu Aug 14 2025 Mantech Solution Inc. <bsr@mantech.co.kr> - 1.7.5.0
 - New upstream release.
 
 * Fri Jul 18 2025 Man Technology Inc. <bsr@mantech.co.kr> - 1.7.4.5
