@@ -211,7 +211,7 @@ GetSystemInfo()
 		cp -L /etc/netplan/*  ${SYS_DIR}/
 	elif [ -e "/etc/network/interfaces" ]; then			# debian(legacy)
 		cp -L /etc/network/interfaces ${SYS_DIR}/sysconfignetworkfile
-	elif [ -e "/etc/NetworkManager/system-connections" ]; then	 # redhat	
+	elif [ -e /etc/NetworkManager/system-connections/* ]; then	 # redhat	
 		cp -L /etc/NetworkManager/system-connections/* ${SYS_DIR}/sysconfignetworkfile
 	elif [ -f "/etc/sysconfig/network" ]; then			# redhat(legacy)
 		cp -L /etc/sysconfig/network  ${SYS_DIR}/sysconfignetworkfile
