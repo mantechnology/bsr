@@ -2960,6 +2960,12 @@ int bsr_adm_disk_opts(struct sk_buff *skb, struct genl_info *info)
 
 	sanitize_disk_conf(device, new_disk_conf, device->ldev);
 
+	if (old_disk_conf->al_extents != new_disk_conf->al_extents ){
+		retcode = (enum bsr_ret_code) ERR_RES_IN_USE;
+		goto fail_unlock;		
+	}
+
+
 	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->al_wait, bsr_al_try_lock(device));
 	bsr_al_shrink(device);
