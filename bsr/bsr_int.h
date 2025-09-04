@@ -3926,7 +3926,7 @@ bsr_queue_notify_update_gi(struct bsr_device *device, struct bsr_peer_device *pe
 {
 	if (device || peer_device) {
 		struct bsr_updated_gi_work *w;
-		w = bsr_kmalloc(sizeof(*w), GFP_ATOMIC, 'W1DW');
+		w = bsr_kmalloc(sizeof(*w), GFP_ATOMIC, 'W1SB');
 		if (w) {
 			w->device = device;
 			w->peer_device = peer_device;
