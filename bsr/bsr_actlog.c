@@ -1280,6 +1280,8 @@ int w_notify_oos_if_a_zero_or_not(struct bsr_work *w, int cancel)
 	// NOTIFY_OOS does not initialize because it does not use peer_device_info.
 	notify_peer_device_state(NULL, 0, pw->peer_device, &peer_device_info, NOTIFY_OOS);
 	mutex_unlock(&notification_mutex);
+
+	return 0;
 }
 
 // DW-844
