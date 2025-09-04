@@ -1268,6 +1268,19 @@ static void maybe_schedule_on_disk_bitmap_update(struct bsr_peer_device *peer_de
 	bsr_peer_device_post_work(peer_device, RS_PROGRESS);
 }
 
+// BSR-1547
+int w_notify_oos_if_a_zero_or_not(struct bsr_work *w, int cancel) 
+{
+	struct peer_device_info peer_device_info;
+	struct bsr_peer_device_work *pw =
+		container_of(w, struct bsr_peer_device_work, w);
+
+	// set the NEW information in the peer_device state to prevent redundant state output.
+	mutex_lock(&notification_mutex);
+	// NOTIFY_OOS does not initialize because it does not use peer_device_info.
+	notify_peer_device_state(NULL, 0, pw->peer_device, &peer_device_info, NOTIFY_OOS);
+	mutex_unlock(&notification_mutex);
+}
 
 // DW-844
 ULONG_PTR update_sync_bits(const char* caller, struct bsr_peer_device *peer_device,
@@ -1349,12 +1362,14 @@ ULONG_PTR update_sync_bits(const char* caller, struct bsr_peer_device *peer_devi
 		// BSR-1470 forward "change peer-device" event in case of OOS trigger (new/release).
 		if((mode == SET_OUT_OF_SYNC && 0 == bm_total && bsr_bm_total_weight(peer_device)) ||
 			(mode == SET_IN_SYNC && bm_total && 0 == bsr_bm_total_weight(peer_device))) {
-			struct peer_device_info peer_device_info;
-			// set the NEW information in the peer_device state to prevent redundant state output.
-			mutex_lock(&notification_mutex);
-			// NOTIFY_OOS does not initialize because it does not use peer_device_info.
-			notify_peer_device_state(NULL, 0, peer_device, &peer_device_info, NOTIFY_OOS);
-			mutex_unlock(&notification_mutex);
+			// BSR-1547
+			struct bsr_peer_device_work *w;
+			w = bsr_kmalloc(sizeof(*w), GFP_ATOMIC, 'W1SB');
+			if (w) {
+				w->peer_device = peer_device;
+				w->w.cb = w_notify_oos_if_a_zero_or_not;
+				bsr_queue_work(&device->resource->work, &w->w);
+			}
 		}
 
 		wake_up(&device->al_wait);
