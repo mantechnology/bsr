@@ -639,10 +639,20 @@ NetlinkWorkThread(PVOID context)
 			
 			// BSR-1192
 			log_for_netlink_cli_recv(cmd);
-			status = mutex_lock_timeout(&g_genl_mutex, CMD_TIMEOUT_SHORT_DEF * 1000);
-
+            // BSR-1550 
+            if((BSR_ADM_GET_RESOURCES <= cmd) && (cmd <= BSR_ADM_GET_PEER_DEVICES)) {
+                if(BSR_ADM_PRIMARY == g_genl_run_cmd || BSR_ADM_SECONDARY == g_genl_run_cmd || BSR_ADM_APPLY_PERSIST_ROLE == g_genl_run_cmd) {
+                    status = STATUS_SUCCESS;
+                    locked = false;
+                } else {
+                    status = mutex_lock_timeout(&g_genl_mutex, CMD_TIMEOUT_SHORT_DEF * 1000);
+                }
+            } else {
+                status = mutex_lock_timeout(&g_genl_mutex, CMD_TIMEOUT_SHORT_DEF * 1000);
+            }
             // DW-1998 set STATUS_SUCNESS under the following conditions even if the mutex is not obtained.
-			mutex_lock(&g_genl_run_cmd_mutex);
+            mutex_lock(&g_genl_run_cmd_mutex);
+
 			// DW-1998 add an exception condition for the mutex when running BSR_ADM_GET_INITIAL_STATE
 			if (status != STATUS_SUCCESS &&
 				BSR_ADM_GET_INITIAL_STATE == cmd &&
@@ -652,7 +662,10 @@ NetlinkWorkThread(PVOID context)
 			}
 
 			if (STATUS_SUCCESS == status) {
-                g_genl_run_cmd = cmd;
+                // BSR-1550
+                if(cmd != BSR_ADM_GET_INITIAL_STATE && 
+                    !((BSR_ADM_GET_RESOURCES <= cmd) && (cmd <= BSR_ADM_GET_PEER_DEVICES)))
+                    g_genl_run_cmd = cmd;
 				// DW-1998 if locked is true, unlock before call _genl_ops().
 				if (locked)
 					mutex_unlock(&g_genl_run_cmd_mutex);
