@@ -10155,13 +10155,13 @@ static int bsr_recv_features(struct bsr_connection *connection, struct p_connect
 			bsr_err(72, BSR_LC_PROTOCOL, connection,"fail header err %d", err);
 			if (err == -EAGAIN)
 				bsr_err(73, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features header packet due to timeout while waiting for feature packet");
-			return err;
+			return -EAGAIN;
 		}
 		err = decode_header(connection, buffer, &pi);
 		if (pi.cmd != P_CONNECTION_FEATURES) {
 			bsr_err(74, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features packet due to expected ConnectionFeatures packet, received: %s (0x%04x)",
 				 bsr_packet_name(pi.cmd), pi.cmd);
-			return -1;
+			return -EINVAL;
 		}
 	}
 	else {
@@ -10170,20 +10170,20 @@ static int bsr_recv_features(struct bsr_connection *connection, struct p_connect
 			bsr_debug_conn("fail bsr_recv_header ");
 			if (err == -EAGAIN)
 				bsr_err(48, BSR_LC_PROTOCOL, connection, "Failed to recevie features packet due to timeout while waiting for feature packet");
-			return err;
+			return -EAGAIN;
 		}
 		bsr_debug_conn("success bsr_recv_header");
 		if (pi.cmd != P_CONNECTION_FEATURES) {
 			bsr_err(49, BSR_LC_PROTOCOL, connection, "Failed to recevie features packet due to expected ConnectionFeatures packet, received: %s (0x%04x)",
 				bsr_packet_name(pi.cmd), pi.cmd);
-			return -1;
+			return -EINVAL;
 		}
 	} 
 
 	if (pi.size != (unsigned int)expect) {
 		bsr_err(50, BSR_LC_PROTOCOL, connection, "Failed to recevie features packet due to expected ConnectionFeatures length: %u, received: %u",
 		     expect, pi.size);
-		return -1;
+		return -EINVAL;
 	}
 	if(stream == CONTROL_STREAM) {
 		err = tr_ops->recv(transport, stream, (void **)p, expect, rflags);
@@ -10191,13 +10191,16 @@ static int bsr_recv_features(struct bsr_connection *connection, struct p_connect
 			bsr_err(76, BSR_LC_PROTOCOL, connection,"fail data err %d", err);
 			if (err == -EAGAIN)
 				bsr_err(77, BSR_LC_PROTOCOL, connection, "Failed to recevie meta features packet due to timeout while waiting for feature packet");
-			return err;
+			return -EAGAIN;
 		}
-
-		return 0;
 	}
-	else
-		return bsr_recv_all_warn(connection, (void **)p, expect);
+	else {
+		err = bsr_recv_all_warn(connection, (void **)p, expect);
+		if(err)
+			return -EAGAIN;
+	}
+
+	return 0;
 }
 
 // BSR-1522
@@ -10223,21 +10226,24 @@ static int bsr_recv_node_features(struct bsr_connection *connection, struct p_no
 	if (err) {
 		if (err == -EAGAIN)
 			bsr_err(80, BSR_LC_PROTOCOL, connection, "Failed to recevie features packet due to timeout while waiting for node feature packet");
-		return err;
+		return -EAGAIN;
 	}
 	if (pi.cmd != P_NODE_FEATURES) {
 		bsr_err(81, BSR_LC_PROTOCOL, connection, "Failed to recevie features packet due to expected NodeFeatures packet, received: %s (0x%04x)",
 			bsr_packet_name(pi.cmd), pi.cmd);
-		return -1;
+		return -EINVAL;
 	}
 
 	if (pi.size != (unsigned int)expect) {
 		bsr_err(82, BSR_LC_PROTOCOL, connection, "Failed to recevie features packet due to expected NodeFeatures length: %u, received: %u",
 		     expect, pi.size);
-		return -1;
+		return -EINVAL;
 	}
 
-	return bsr_recv_all_warn(connection, (void **)p, expect);
+	err = bsr_recv_all_warn(connection, (void **)p, expect);
+	if(err)
+		return -EAGAIN;
+	return 0;
 }
 
 /*
