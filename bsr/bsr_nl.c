@@ -1690,6 +1690,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	u64 im;
 	struct bsr_resource *resource;
 	struct bsr_connection *connection;
+	bool changed = false;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
@@ -1718,20 +1719,26 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	// DW-1317 acquire volume control mutex, not to conflict to (dis)mount volume.
 	mutex_lock(&resource->vol_ctl_mutex);
 
+	if(((resource->role[NOW] == R_PRIMARY) && (info->genlhdr->cmd != BSR_ADM_PRIMARY)) ||
+		((resource->role[NOW] == R_SECONDARY) && (info->genlhdr->cmd != BSR_ADM_SECONDARY)))
+		changed = true;
+
 	if (info->genlhdr->cmd == BSR_ADM_PRIMARY) {
-		// BSR-1438		
-		r = bsr_khelper(resource, NULL, NULL, "before-promote");
+		if (changed) {
+ 			// BSR-1438		
+			r = bsr_khelper(resource, NULL, NULL, "before-promote");
 #ifdef _WIN
-		r = r & 0xff;
+			r = r & 0xff;
 #else // _LIN
 		r = (r >> 8) & 0xff;
 #endif
-		if (r > 0) {
-			bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
-				 "dropping connection.", r);
-			for_each_connection_rcu(connection, resource) 
-				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-			goto fail;
+			if (r > 0) {
+				bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
+					"dropping connection.", r);
+				for_each_connection_rcu(connection, resource) 
+					change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+				goto fail;
+			}
 		}
 
 		// DW-839 not support diskless Primary
@@ -1763,8 +1770,10 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 					bsr_md_sync(device);
 				}
 			}
-			// BSR-1438
-			bsr_khelper(resource, NULL, NULL, "after-promote");
+			if (changed) {
+				// BSR-1438
+				bsr_khelper(resource, NULL, NULL, "after-promote");
+			}
 		}
 		else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 			goto fail;
@@ -1772,21 +1781,22 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			goto fail;
 	}
 	else {
-		// BSR-1438		
-		r = bsr_khelper(resource, NULL, NULL, "before-demote");
+		if (changed) {
+			// BSR-1438		
+			r = bsr_khelper(resource, NULL, NULL, "before-demote");
 #ifdef _WIN
-		r = r & 0xff;
+			r = r & 0xff;
 #else // _LIN
-		r = (r >> 8) & 0xff;
+			r = (r >> 8) & 0xff;
 #endif
-		if (r > 0) {
-			bsr_info(94, BSR_LC_GENL, resource, "before-demote handler returned %d, "
-				 "dropping connection.", r);
-			for_each_connection_ref(connection, im, resource)
-				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-			goto fail;
+			if (r > 0) {
+				bsr_info(94, BSR_LC_GENL, resource, "before-demote handler returned %d, "
+					"dropping connection.", r);
+				for_each_connection_ref(connection, im, resource)
+					change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+				goto fail;
+			}
 		}
-
 #ifdef _WIN_MVFL
 #ifdef _WIN_MULTI_VOLUME        
 		retcode = SS_SUCCESS;
@@ -1881,8 +1891,10 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				bsr_md_clear_flag(device, MDF_WAS_PRIMARY);
 				bsr_md_sync(device);
 			}
-			// BSR-1438
-			bsr_khelper(resource, NULL, NULL, "after-demote");
+			if (changed) {
+				// BSR-1438
+				bsr_khelper(resource, NULL, NULL, "after-demote");
+			}
 		}
 	}
 fail:
