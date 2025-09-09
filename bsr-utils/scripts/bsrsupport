@@ -207,12 +207,13 @@ GetSystemInfo()
 		ss -nap > ${SYS_DIR}/ss
 	fi
 
-	if [ -e "/etc/netplan" ]; then # debian 
-		cp -L /etc/netplan/*  ${SYS_DIR}/
-	elif [ -e "/etc/network/interfaces" ]; then			# debian(legacy)
+	if [ -e "/etc/network/interfaces" ]; then			# debian(legacy)
 		cp -L /etc/network/interfaces ${SYS_DIR}/sysconfignetworkfile
-	elif [ -e /etc/NetworkManager/system-connections/* ]; then	 # redhat	
-		cp -L /etc/NetworkManager/system-connections/* ${SYS_DIR}/sysconfignetworkfile
+	elif [ -e "/etc/netplan" ]; then # debian 
+		cp -L /etc/netplan/*  ${SYS_DIR}/
+	elif compgen -G "/etc/NetworkManager/system-connections/*" > /dev/null; then	 # redhat 
+		# BSR-1555 Check files exist in system-connections using compgen
+		cp -L /etc/NetworkManager/system-connections/* ${SYS_DIR}/
 	elif [ -f "/etc/sysconfig/network" ]; then			# redhat(legacy)
 		cp -L /etc/sysconfig/network  ${SYS_DIR}/sysconfignetworkfile
 		cp -L /etc/sysconfig/network-scripts/*  ${SYS_DIR}/
@@ -221,7 +222,7 @@ GetSystemInfo()
 			if [ -f "$file" ]; then
 				filename=$(basename "$file")
 				if [ "$filename" != "ifcfg-lo" ] && [ "$filename" != "ifcfg.template" ]; then
-					cp -L "$file" ${SYS_DIR}/sysconfignetworkfile
+					cp -L "$file" ${SYS_DIR}/
 				fi
 			fi
 		done
