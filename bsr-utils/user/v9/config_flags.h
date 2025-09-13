@@ -115,7 +115,10 @@ extern struct context_def handlers_ctx;
 extern struct context_def proxy_options_ctx;
 extern struct context_def startup_options_ctx;
 extern struct context_def wildcard_ctx;
-
+// BSR-1552
+#ifdef _LIN
+extern struct context_def minor_mount_path_cmd_ctx; 
+#endif 
 extern const char *double_quote_string(const char *str);
 
 #endif  /* __BSR_CONFIG_FLAGS_H */

@@ -104,6 +104,10 @@ int bsr_adm_node_opts(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
 int bsr_adm_forget_peer(struct sk_buff *skb, struct genl_info *info);
+// BSR-1552
+#ifdef _LIN
+int bsr_adm_minor_mount_path(struct sk_buff *skb, struct genl_info *info);
+#endif
 /* .dumpit */
 int bsr_adm_dump_resources(struct sk_buff *skb, struct netlink_callback *cb);
 int bsr_adm_dump_devices(struct sk_buff *skb, struct netlink_callback *cb);
@@ -8775,6 +8779,56 @@ out_no_adm:
 	return 0;
 
 }
+// BSR-1552
+#ifdef _LIN
+int bsr_adm_minor_mount_path(struct sk_buff *skb, struct genl_info *info)
+{	struct bsr_config_context adm_ctx;
+	enum bsr_state_rv retcode;
+	int err;
+	struct minor_mount_path_params *parms = NULL;
+	struct bsr_resource * resource;
+	struct bsr_device * device;
+
+	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
+	if (!adm_ctx.reply_skb)
+		return retcode;
+		
+	parms = bsr_kmalloc(sizeof(struct minor_mount_path_params), GFP_KERNEL, '');	
+	if(!parms) {
+		retcode = ERR_NOMEM;
+		goto out_no_adm;
+	}
+	err = minor_mount_path_params_from_attrs(parms, info);
+	if (err) {
+		retcode = (enum bsr_state_rv)ERR_MANDATORY_TAG;
+		bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+		goto out_no_adm;
+	}
+	device = adm_ctx.device;
+	resource = device->resource;
+	mutex_lock(&resource->adm_mutex);
+	
+	if(device->mount_path) {
+		kfree(device->mount_path);
+		device->mount_path = NULL;
+	}
+	device->mount_path = bsr_kmalloc(strlen(parms->minor_mount_path) + 1, GFP_KERNEL, '');
+	if (!device->mount_path) {
+		retcode = ERR_NOMEM;
+		goto out_unlock;
+	}
+	strcpy(device->mount_path, parms->minor_mount_path);
+	bsr_info(93, BSR_LC_ETC, device, "minor-%d mount path : %s", device->minor, device->mount_path);
+out_unlock:
+	mutex_unlock(&resource->adm_mutex);
+out_no_adm:
+	if(parms)
+		kfree(parms);
+	bsr_adm_finish(&adm_ctx, info, (enum bsr_ret_code)retcode);
+	return 0;
+}
+#endif 
+
 #ifdef _WIN
 // DW-1229 using global attr may cause BSOD when we receive plural netlink requests. use local attr.
 int bsr_tla_parse(struct nlmsghdr *nlh, struct nlattr **attr)

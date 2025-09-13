@@ -526,7 +526,7 @@ static const char * const __log_category_names[] = {
 
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
-#define BSR_LC_VOLUME_MAX_INDEX 101
+#define BSR_LC_VOLUME_MAX_INDEX 111
 #define BSR_LC_IO_MAX_INDEX 65
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
 #define BSR_LC_BITMAP_MAX_INDEX 139
@@ -551,7 +551,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LATENCY_MAX_INDEX 8
 #define BSR_LC_VERIFY_MAX_INDEX 20
 #define BSR_LC_OUT_OF_SYNC_MAX_INDEX 7
-#define BSR_LC_ETC_MAX_INDEX 92
+#define BSR_LC_ETC_MAX_INDEX 93
 #define BSR_LC_REF_MAX_INDEX 2
 
 
@@ -2347,6 +2347,10 @@ struct bsr_device {
 	
 	// BSR-1220 mutex used to synchronize replication data and synchronization data during delay processing.
 	struct mutex submit_mutex;
+	// BSR-1552
+#ifdef _LIN
+	char *mount_path;
+#endif
 };
 
 

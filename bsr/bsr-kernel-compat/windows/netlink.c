@@ -51,6 +51,10 @@ extern int bsr_adm_get_status(struct sk_buff *skb, struct genl_info *info);
 extern int bsr_adm_get_timeout_type(struct sk_buff *skb, struct genl_info *info);
 // BSR-1392
 extern int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info);
+// BSR-1552
+#ifdef _LIN
+extenr int bsr_adm_minor_mount_path(struct sk_buff *skb, struct genl_info *info);
+#endif
 /* .dumpit */
 extern int bsr_adm_send_reply(struct sk_buff *skb, struct genl_info *info);
 

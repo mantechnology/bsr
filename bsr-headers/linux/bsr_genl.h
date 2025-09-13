@@ -340,6 +340,7 @@ GENL_struct(BSR_NLA_FORGET_PEER_PARMS, 26, forget_peer_parms,
 	__s32_field_def(1, BSR_GENLA_F_MANDATORY, forget_peer_node_id, BSR_SYNC_FROM_NID_DEF)
 )
 
+
 GENL_struct(BSR_NLA_PEER_DEVICE_OPTS, 27, peer_device_conf,
 	__u32_field_def(1,	BSR_GENLA_F_MANDATORY,	resync_rate, BSR_RESYNC_RATE_DEF)
 	__u32_field_def(2,	BSR_GENLA_F_MANDATORY,	c_plan_ahead, BSR_C_PLAN_AHEAD_DEF)
@@ -424,6 +425,13 @@ GENL_struct(BSR_NLA_SPLIT_BRAIN, 37, bsr_split_brain_info,
 GENL_struct(BSR_NLA_NODE_INFO, 38, bsr_node_info,
 	__str_field_def(1, BSR_GENLA_F_MANDATORY, _nodename, SHARED_SECRET_MAX)
 )
+
+// BSR-1552
+#if _LIN
+GENL_struct(BSR_NLA_MINOR_MOUNT_PATH_PARMS, 39, minor_mount_path_params,
+	__str_field_def(1, BSR_GENLA_F_MANDATORY, minor_mount_path, 4096)
+)
+#endif
 
 /*
  * Notifications and commands (genlmsghdr->cmd)
@@ -712,4 +720,13 @@ GENL_op(
 	BSR_ADM_APPLY_PERSIST_ROLE, 57,
 	GENL_doit(bsr_adm_apply_persist_role),
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
-	GENL_tla_expected(BSR_NLA_SET_ROLE_PARMS, BSR_F_REQUIRED))
+	GENL_tla_expected(BSR_NLA_SET_ROLE_PARMS, BSR_F_REQUIRED))	
+
+// BSR-1552
+#ifdef _LIN
+GENL_op(
+	BSR_ADM_MINOR_MOUNT_PATH, 58, 
+	GENL_doit(bsr_adm_minor_mount_path),
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED) 
+	GENL_tla_expected(BSR_NLA_MINOR_MOUNT_PATH_PARMS, BSR_F_REQUIRED))
+#endif
