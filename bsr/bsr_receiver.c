@@ -11254,6 +11254,11 @@ static int got_OVResult(struct bsr_connection *connection, struct packet_info *p
 	sector = be64_to_cpu(p->sector);
 	size = be32_to_cpu(p->blksize);
 
+	if(be64_to_cpu(p->block_id) == ID_OV_SKIPPED){
+		verify_progress(peer_device, sector, size, true);
+		return 0;		
+	}
+
 	update_peer_seq(peer_device, be32_to_cpu(p->seq_num));
 
 	if (be64_to_cpu(p->block_id) == ID_OUT_OF_SYNC)
