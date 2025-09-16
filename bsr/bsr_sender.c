@@ -1696,6 +1696,7 @@ skipped:
 		bsr_rs_complete_io(peer_device, sector, __FUNCTION__);
 		bsr_debug(221, BSR_LC_RESYNC_OV, peer_device, "skipped sector %llu size(%d)", sector, size >> 9);
 		verify_skipped_block(peer_device, sector, size, false);
+		bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, size, ID_OV_SKIPPED);
 next_sector:
 		if (peer_device->ov_split_position) {			
 			peer_device->ov_position = peer_device->ov_split_position;
@@ -2852,7 +2853,7 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 		bsr_advance_rs_marks(peer_device, peer_device->ov_left);
 		// peer needs to receive ack to execute bsr_rs_complete_io()
 		// send P_OV_RESULT for sector, set size to 0
-		err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, 0, ID_IN_SYNC);
+		err = bsr_send_ack_ex(peer_device, P_OV_RESULT, sector, peer_device->ov_last_skipped_size << 9, ID_IN_SYNC); // BSR-1553 send skipped_size to target
 	}
 
 	dec_unacked(peer_device);

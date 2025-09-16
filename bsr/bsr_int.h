@@ -172,6 +172,7 @@ extern int log_consumer_thread(void *unused);
 #define ID_IN_SYNC      (4711ULL)
 #define ID_OUT_OF_SYNC  (4712ULL)
 #define ID_CSUM_SYNC_IO_ERROR		(4713ULL) // BSR-448 io-error of SyncTarget during checksum synchronization
+#define ID_OV_SKIPPED  (4714ULL) // BSR-1553
 #ifdef _WIN
 #define ID_SYNCER (UINT64_MAX)
 #else // _LIN
