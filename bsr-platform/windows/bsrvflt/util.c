@@ -1431,7 +1431,7 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 		}
 	}
 	else {
-		atomic_set(&g_handler_timeout, BSR_TIMEOUT_DEF * 100);
+		atomic_set(&g_handler_timeout, BSR_HANDLER_TIMEOUT_MIN);
 	}	
 	
 	bsr_info(88, BSR_LC_ETC, NO_OBJECT, "handler state %s, timeout %dms", g_handler_use ? "enable" : "disable", atomic_read(&g_handler_timeout));
