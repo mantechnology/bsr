@@ -1422,8 +1422,10 @@ int initRegistry(__in PUNICODE_STRING RegPath_unicode)
 	
 	status = GetRegistryValue(L"handler_timeout", &ulLength, (UCHAR*) &aucTemp, RegPath_unicode);
 	if (status == STATUS_SUCCESS){
-		if (*(int*)aucTemp < 0) {
-			atomic_set(&g_handler_timeout, BSR_TIMEOUT_DEF * 100);
+		if (*(int*)aucTemp < BSR_HANDLER_TIMEOUT_MIN) {
+			bsr_info(170, BSR_LC_DRIVER, NO_OBJECT, "handler timeout value too low (%d ms). Using minimum: %d ms",
+                         *(int*)aucTemp, BSR_HANDLER_TIMEOUT_MIN);
+			atomic_set(&g_handler_timeout, BSR_HANDLER_TIMEOUT_MIN);
 		} else {
 			atomic_set(&g_handler_timeout, *(int*)aucTemp);
 		}

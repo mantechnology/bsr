@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <Shlwapi.h>
 #include <Wincrypt.h>
+#include "linux/bsr_limits.h"
 #else // _LIN
 #include <sys/stat.h>
 #include <errno.h>

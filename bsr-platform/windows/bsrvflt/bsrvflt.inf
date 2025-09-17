@@ -79,7 +79,7 @@ HKR,,"loglink_usage",0x00010003,1
 HKR,,"netlink_tcp_port",0x00010003,5678
 HKR,,"daemon_tcp_port",0x00010003,5679
 HKR,,"handler_use",0x00010003,0
-HKR,,"handler_timeout",0x00010003,1
+HKR,,"handler_timeout",0x00010003,1000
 HKR,,"handler_retry",0x00010003,0
 ; BSR-1431
 HKR,,"boot_not_completed",0x00000000, "" 

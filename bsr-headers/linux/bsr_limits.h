@@ -62,6 +62,7 @@
 // TODO _WIN_SEND_BUF
 // DW-1524 fix infinite send retry on low-bandwith
 #define BSR_TIMEOUT_DEF (50)     /* 5 seconds */
+#define BSR_HANDLER_TIMEOUT_MIN 1000 /* 1000ms */
 #else // _LIN
 #define BSR_TIMEOUT_DEF 60       /* 6 seconds */
 #endif
