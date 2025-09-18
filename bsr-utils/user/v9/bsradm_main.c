@@ -145,6 +145,10 @@ static int adm_forget_peer(const struct cfg_ctx *);
 static int adm_peer_device(const struct cfg_ctx *);
 // BSR-823
 static int adm_primary(const struct cfg_ctx *);
+// BSR-1552
+#ifdef _LIN
+static int adm_minor_mount_path(const struct cfg_ctx *);
+#endif 
 
 int ctx_by_name(struct cfg_ctx *ctx, const char *id, checks check);
 int was_file_already_seen(char *fn);
@@ -421,6 +425,10 @@ static struct adm_cmd proxy_down_cmd = {"proxy-down", adm_proxy_down, ACF2_PROXY
 /*  */ struct adm_cmd new_resource_cmd = {"new-resource", adm_resource, &resource_options_ctx, ACF2_SH_RESNAME};
 /*  */ struct adm_cmd new_minor_cmd = {"new-minor", adm_new_minor, &device_options_ctx, ACF4_ADVANCED};
 /*  */ struct adm_cmd del_minor_cmd = { "del-minor", adm_bsrsetup, ACF1_MINOR_ONLY.show_in_usage = 4, .disk_required = 0, };
+// BSR-1552
+#ifdef _LIN
+/*  */ struct adm_cmd minor_mount_path_cmd = {"minor-mount-path", adm_minor_mount_path, ACF1_MINOR_ONLY.show_in_usage = 4, .disk_required = 0, };
+#endif 
 
 // BSR-1392
 /*  */ struct adm_cmd apply_persist_role_cmd = { "apply-persist-role", adm_bsrsetup, ACF1_RESNAME.takes_long = 1 };
@@ -541,7 +549,10 @@ struct adm_cmd *cmds[] = {
 
 	// BSR-1392
 	&apply_persist_role_cmd,
-
+	// BSR-1552
+#ifdef _LIN
+	&minor_mount_path_cmd,
+#endif
 	&khelper01_cmd,
 	&khelper02_cmd,
 	&khelper03_cmd,
@@ -1448,6 +1459,44 @@ bool del_opt(struct options *base, const char * const name)
 	return false;
 }
 
+// BSR-1552
+#ifdef _LIN
+int adm_minor_mount_path(const struct cfg_ctx *ctx)
+{
+	int argc = 0, ex;
+	char *argv[MAX_ARGS];
+    char mounts_cmd[256];
+    char mount_path[4096];
+	FILE *fp = NULL; 
+
+    snprintf(mounts_cmd, sizeof(mounts_cmd),
+             "cat /proc/mounts | grep /dev/bsr%d | cut -d ' ' -f2", ctx->vol->device_minor);
+
+    fp = popen(mounts_cmd, "r");
+    if (!fp) {
+		CLI_ERRO_LOG(false, "%s mount cmd, popen error\n", mounts_cmd);
+		return 1;
+	}
+	memset(mount_path, 0, sizeof(mount_path));
+    if (fgets(mount_path, sizeof(mount_path), fp)) {
+        mount_path[strcspn(mount_path, "\n")] = 0;
+	} else  {
+		if(ferror(fp)) {
+			pclose(fp);
+			CLI_ERRO_LOG(false, "%s, mount cmd, fgets error %d\n", mounts_cmd, ferror(fp));
+			return 1;
+		}
+	}
+	argv[NA(argc)] = bsrsetup;
+	argv[NA(argc)] = "minor-mount-path";
+	argv[NA(argc)] = ssprintf("%u", ctx->vol->device_minor);
+	argv[NA(argc)] = ssprintf("%s", mount_path);
+	argv[NA(argc)] = NULL;
+	ex = m_system_ex(argv, SLEEPS_SHORT, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
+	pclose(fp);
+	return ex;
+}
+#endif 
 
 int adm_new_minor(const struct cfg_ctx *ctx)
 {

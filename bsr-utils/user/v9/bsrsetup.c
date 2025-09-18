@@ -301,6 +301,7 @@ static int conv_md_idx(struct bsr_argument *ad, struct msg_buff *msg, struct bsr
 static int conv_u32(struct bsr_argument *, struct msg_buff *, struct bsr_genlmsghdr *, char *);
 static int conv_addr(struct bsr_argument *ad, struct msg_buff *msg, struct bsr_genlmsghdr *dhdr, char* arg);
 
+static int conv_string(struct bsr_argument *ad, struct msg_buff *msg, struct bsr_genlmsghdr *dhdr, char *arg);
 struct resources_list {
 	struct resources_list *next;
 	char *name;
@@ -626,6 +627,16 @@ struct bsr_cmd commands[] = {
 		 { "peer_node_id",	T_forget_peer_node_id,	conv_u32 },
 		 { } },
 	 .summary = "Completely remove any reference to a unconnected peer from meta-data." },
+	 // BSR-1552
+	 #ifdef _LIN
+	{"minor-mount-path", CTX_MINOR, BSR_ADM_MINOR_MOUNT_PATH,
+		BSR_NLA_MINOR_MOUNT_PATH_PARMS, F_CONFIG_CMD,
+		.bsr_args = (struct bsr_argument[]) {
+			{ "mount_path", T_minor_mount_path, conv_string },
+			{ }
+		},
+	.summary = "Set the mount path for a minor." },
+	#endif 
 };
 
 bool show_defaults;
@@ -845,6 +856,18 @@ static int conv_u32(struct bsr_argument *ad, struct msg_buff *msg,
 	nla_put_u32(msg, ad->nla_type, i);
 
 	return ERR_NO;
+}
+
+// BSR-1553
+static int conv_string(struct bsr_argument *ad, struct msg_buff *msg,
+                       struct bsr_genlmsghdr *dhdr, char *arg)
+{
+    int len = strlen(arg) + 1;
+
+    if (nla_put(msg, ad->nla_type, len, arg))
+        return OTHER_ERROR;
+
+    return ERR_NO;
 }
 
 static void resolv6(const char *name, struct sockaddr_in6 *addr)

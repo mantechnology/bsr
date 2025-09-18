@@ -3997,6 +3997,11 @@ void bsr_destroy_device(struct kref *kref)
 
 	kref_debug_destroy(&device->kref_debug);
 
+	// BSR-1552
+#ifdef _LIN
+	if(device->mount_path)
+		bsr_kfree(device->mount_path);
+#endif
 	bsr_kfree(device);
 
 	kref_debug_put(&resource->kref_debug, 4);
@@ -5134,6 +5139,9 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	init_waitqueue_head(&device->misc_wait);
 	init_waitqueue_head(&device->al_wait);
 	init_waitqueue_head(&device->seq_wait);
+#ifdef _LIN
+	device->mount_path = NULL;
+#endif
 #ifdef _WIN
 	// DW-1698 Only when bsr_device is created, it requests to update information about target device To fixup the frequency of calls to update_targetdev
     PVOLUME_EXTENSION pvext = get_targetdev_by_minor(minor, TRUE);

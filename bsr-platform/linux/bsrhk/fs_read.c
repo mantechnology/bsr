@@ -38,6 +38,9 @@ static void try_update_superblock(struct bsr_device *device, struct file *fd, st
     }
 }
 
+#include <linux/kmod.h>
+#include <linux/namei.h>
+
 PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG * pbytes_per_block)
 {
 	struct file *fd;
@@ -45,10 +48,8 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	char * super_block = NULL;
 	char disk_name[512] = {0};
 	bool freezed = false;
-	
-#ifndef COMPAT_HAVE_BD_SUPER
-	struct super_block *sb;
-#endif
+	struct super_block *sb = NULL;
+	struct path p;
 
 #ifdef COMPAT_HAVE_SET_FS
 	mm_segment_t old_fs = get_fs();
@@ -81,28 +82,105 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 		// BSR-1360
 		// journal log flush
 #ifdef COMPAT_FREEZE_BDEV_RETURNS_INT
-        if(freeze_bdev(bdev))
-            goto close;
-#else
-		if(IS_ERR(freeze_bdev(bdev)))
+        if(freeze_bdev(bdev)) {
+			bsr_warn(103, BSR_LC_VOLUME, device, "Failed to freeze bdev %s", disk_name);
 			goto close;
+		}
+#else
+		if(IS_ERR(freeze_bdev(bdev))) {
+			bsr_warn(104, BSR_LC_VOLUME, device, "Failed to freeze bdev %s", disk_name);
+			goto close;
+		}
 #endif
 		freezed = true;
 		// meta flush
-		if(fsync_bdev(bdev))
+		if(fsync_bdev(bdev)) {
+			bsr_warn(105, BSR_LC_VOLUME, device, "Failed to fsync bdev %s", disk_name);
 			goto close;
-		invalidate_bdev(bdev);
-	} 
-#else
-	// BSR-1360 based on kernel 6.8, bd_holder has super_block set.
-	sb = (struct super_block *)(bdev->bd_holder);
-	if(sb && (sb->s_bdev == bdev)) {
-		if(freeze_super(sb, FREEZE_HOLDER_KERNEL))
-			goto close;
-		freezed = true;
+		}
 		invalidate_bdev(bdev);
 	} 
 #endif
+
+	// BSR-1552 obtain the device's mount pointer path and get a super block. If it's mounted but doesn't get the mount pointer path, it works as a full sync.
+	if(!freezed) {
+		int len = snprintf(NULL, 0, "bsradm minor-mount-path minor-%d", device->minor);
+		char *cmd = bsr_kmalloc(len + 1, GFP_KERNEL, '');
+		char *argv[4];
+		int ret; 
+		
+		static char *envp[] = {
+			"HOME=/",
+			"PATH=/sbin:/usr/sbin:/bin:/usr/bin",
+			NULL
+		};
+
+		bsr_info(106, BSR_LC_VOLUME, device, "bdev for super block is not supported, checking mount information. %s", disk_name);
+		snprintf(cmd, len + 1, "bsradm minor-mount-path minor-%d", device->minor);
+
+		argv[0] = "/bin/sh";
+		argv[1] = "-c";
+		argv[2] = cmd;
+		argv[3] = NULL;
+
+		ret = call_usermodehelper(argv[0], argv, envp, UMH_WAIT_PROC);
+		kfree(cmd);
+		if (!ret) {
+			mutex_lock(&device->resource->adm_mutex);
+			if(device->mount_path != NULL) {
+				if(device->mount_path[0] != '\0') {
+					bsr_info(102, BSR_LC_VOLUME, device, "minor %d, mount path : %s", device->minor, device->mount_path);
+					ret = kern_path(device->mount_path, LOOKUP_FOLLOW, &p);
+					if (!ret) {
+						sb = p.dentry->d_inode->i_sb;
+#ifdef COMPAT_HAVE_FREEZE_SUPER
+						if(freeze_super(sb)) 
+#else
+	#ifdef COMPAT_FREEZE_SUPER_HAS_2_PARAMS
+						if(freeze_super(sb, FREEZE_HOLDER_KERNEL)) 
+	#else
+						bsr_warn(111, BSR_LC_VOLUME, device, "Freeze failed because the filesystem is mounted but does not support superblock freeze. %s", disk_name);
+						kfree(device->mount_path);
+						device->mount_path = NULL;
+						mutex_unlock(&device->resource->adm_mutex);
+						path_put(&p);
+						goto close;
+	#endif
+#endif
+						{
+							bsr_warn(106, BSR_LC_VOLUME, device, "Failed to freeze_super %s", disk_name);
+							kfree(device->mount_path);
+							device->mount_path = NULL;
+							mutex_unlock(&device->resource->adm_mutex);
+							path_put(&p);
+							goto close;
+						}
+						invalidate_bdev(bdev);
+						freezed = true;
+					} else {
+						bsr_warn(107, BSR_LC_VOLUME, device, "Failed to get superblock from mount path %s", device->mount_path);
+						kfree(device->mount_path);
+						device->mount_path = NULL;
+						mutex_unlock(&device->resource->adm_mutex);
+						goto close;
+					} 
+				} else {
+					bsr_info(110, BSR_LC_VOLUME, device, "minor %d is not mounted.", device->minor);
+				}
+				kfree(device->mount_path);
+				device->mount_path = NULL;
+			} else {
+				bsr_warn(109, BSR_LC_VOLUME, device, "FIXME: Unexpected situation, mount path is set to NULL.");
+				mutex_unlock(&device->resource->adm_mutex);
+				goto close;
+			}
+			mutex_unlock(&device->resource->adm_mutex);
+		} else {
+			bsr_warn(108, BSR_LC_VOLUME, device, "Failed to execute command for getting mount path. ret=%d", ret);
+			goto close;
+		}
+	}
+	
 	// BSR-1407 allocate as the superblock size of btrfs with the largest superblock size among ext, xfs, and btrfs supported.
 	super_block = bsr_kmalloc(BTRFS_SUPER_BLOCK_SIZE, GFP_ATOMIC|__GFP_NOWARN, '');
 	if(!read_ext_and_xfs_superblock(fd, super_block, BTRFS_SUPER_BLOCK_SIZE)) {
@@ -173,14 +251,35 @@ close:
 #ifdef COMPAT_HAVE_SET_FS
 	set_fs(old_fs);
 #endif
-	
+	if(freezed) {
 #ifdef COMPAT_HAVE_BD_SUPER
-	if(freezed)
-		thaw_bdev(bdev, bdev->bd_super);
-#else 
-	if(freezed)
-		thaw_super(sb, FREEZE_HOLDER_KERNEL);
+		if(bdev->bd_super)
+			thaw_bdev(bdev, bdev->bd_super);
+#ifdef COMPAT_HAVE_FREEZE_SUPER
+		else if(sb) {
+			thaw_super(sb);
+			path_put(&p);
+		}
+#else
+#ifdef COMPAT_FREEZE_SUPER_HAS_2_PARAMS
+		else if(sb) {
+			thaw_super(sb, FREEZE_HOLDER_KERNEL);
+			path_put(&p);
+		}
 #endif
+#endif
+#else 
+#ifdef COMPAT_HAVE_FREEZE_SUPER
+		thaw_super(sb);
+		path_put(&p);
+#else
+#ifdef COMPAT_FREEZE_SUPER_HAS_2_PARAMS
+		thaw_super(sb, FREEZE_HOLDER_KERNEL);
+		path_put(&p);
+#endif
+#endif
+#endif
+	}
 
 #if defined(COMPAT_HAVE_BDGRAB) || defined(COMPAT_HAVE_HD_STRUCT)
 	if (bdev)
