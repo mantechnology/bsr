@@ -1662,8 +1662,8 @@ static int need_filesystem_recovery(char * dev_name)
 			break;
 		case FS_BTRFS:
 			// BSR-1407
-			sprintf(journal_check_log, "%s/btrfcheck%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/btrfdumptree%s.log", lpath, n_dev_name);
+			sprintf(journal_check_log, "%s/btrfscheck%s.log", lpath, n_dev_name);
+			sprintf(fs_check_log, "%s/btrfsdumptree%s.log", lpath, n_dev_name);
 			break;
 		default:
 			break;
@@ -1793,7 +1793,17 @@ static int need_filesystem_recovery(char * dev_name)
 			"could not be executed '%s'", argv[0] == NULL ? "unknow": argv[0]);
 	}
 	else if (ret != 0) {
-		CLI_ERRO_LOG_STDERR(false, "%s: Filesystem has errors", dev_name);
+		// BSR-1566 if the dump-tree option is not available (ret == 1), run the btrfs-debug-tree command to check the btrfs filesystem.
+		if(type == FS_BTRFS && ret == 1) {
+			memset(argv, 0, sizeof(argv));
+			argc = 0;
+			argv[argc++] = "btrfs-debug-tree";	
+			argv[argc] = dev_name;
+			ret = run_check_fs(argv, fs_check_log);
+			if(!ret)
+				return ret;
+		}
+		CLI_ERRO_LOG_STDERR(false, "%s: Filesystem has errors %d", dev_name, ret);
 	}
 
 	return ret;
