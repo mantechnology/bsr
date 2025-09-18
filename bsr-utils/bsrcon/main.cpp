@@ -375,8 +375,10 @@ int cmd_handler_timeout(int *index, int argc, char* argv[])
 	(*index)++;
 	if (*index < argc) {
 		int timeout = atoi(argv[*index]);
-		if (timeout < 0) {
+		if (timeout < BSR_HANDLER_TIMEOUT_MIN) {
 			fprintf(stderr, "HANDLER_TIMEOUT_ERROR: %s: Invalid parameter\n", __FUNCTION__);
+			fprintf(stderr, "invalid handler_timeout value. minimum allowed is %d ms\n",
+					BSR_HANDLER_TIMEOUT_MIN);
 			usage(false);
 		}
 		else {
@@ -1016,7 +1018,7 @@ static struct cmd_struct commands[] = {
 	{ "/get_handler_info", cmd_get_handler_info, "", "", "", false },
 #ifdef _WIN
 	// BSR-1060
-	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(millisecond)}", "", "1", false },
+	{ "/handler_timeout", cmd_handler_timeout, "{handler timeout(millisecond)}", "", "1000", false },
 	// BSR-1444 remove the readonly set in the GPT meta.
 	{ "/release_readonly", cmd_release_readonly, "{minor}", "", "1", true },
 #ifdef _DEBUG_OOS

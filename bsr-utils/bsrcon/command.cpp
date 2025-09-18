@@ -319,15 +319,14 @@ BOOLEAN get_handler_use()
 int get_handler_timeout()
 {
 	DWORD lResult = ERROR_SUCCESS;
-	DWORD timeout = 50; // BSR_TIMEOUT_DEF 
+	DWORD timeout = BSR_HANDLER_TIMEOUT_MIN; 
 
 	lResult = get_value_of_vflt(_T("handler_timeout"), &timeout);
 
-	if (lResult == ERROR_FILE_NOT_FOUND) {
-		return timeout * 100;
-	}
 
-	return timeout * 100;
+	if(timeout < BSR_HANDLER_TIMEOUT_MIN) // BSR-1564
+			timeout = BSR_HANDLER_TIMEOUT_MIN;
+	return timeout;
 }
 #endif
 
