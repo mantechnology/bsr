@@ -10348,7 +10348,7 @@ int bsr_do_features(struct bsr_connection *connection)
 	// BSR-1522
 	if(connection->agreed_pro_version >= 118) {
 		struct p_node_features *pp;
-		char *peer_node_name;
+		struct net_conf *old, *new;
 		if (bsr_send_node_features(connection, DATA_STREAM)){
 			bsr_debug_conn("fail bsr_send_node_features err = %d", err); 
 			return 0;
@@ -10360,20 +10360,41 @@ int bsr_do_features(struct bsr_connection *connection)
 			return -1; 
 		}
 
+		// BSR-1558
 		rcu_read_lock();
-		peer_node_name = rcu_dereference(connection->transport.net_conf)->peer_node_name;
-		memcpy(peer_node_name, pp->name, sizeof(pp->name));
+		if(strcmp(pp->name, rcu_dereference(connection->transport.net_conf)->peer_node_name)) {
+			old = rcu_dereference(connection->transport.net_conf);
+			rcu_read_unlock();
 
-		mutex_lock(&notification_mutex);
-		notify_node_info(NULL, 0, connection->resource, connection, 
-				peer_node_name, BSR_PEER_NODE_INFO, NOTIFY_CHANGE);
+			new = bsr_kmalloc(sizeof(*old), GFP_ATOMIC, '51SB');
+			if(new) {
+				memcpy(new, old, sizeof(*old));
+				
+				memset(new->peer_node_name, 0, sizeof(new->peer_node_name));
+				strncpy(new->peer_node_name, pp->name, sizeof(new->peer_node_name) - 1);
+				new->peer_node_name_len = strlen(new->peer_node_name);
 
-		mutex_unlock(&notification_mutex);
+#ifdef _WIN
+				synchronize_rcu_w32_wlock();
+#endif
+				rcu_assign_pointer(connection->transport.net_conf, new);
+				synchronize_rcu();  
+				bsr_kfree(old);
+				rcu_read_lock();
+				mutex_lock(&notification_mutex);
+				notify_node_info(NULL, 0, connection->resource, connection, 
+						rcu_dereference(connection->transport.net_conf)->peer_node_name, BSR_PEER_NODE_INFO, NOTIFY_CHANGE);
+				mutex_unlock(&notification_mutex);
+			} else {
+				bsr_err(99, BSR_LC_MEMORY, connection, "Failed to allocate net_conf for node rename, keeping existing configuration.");
+				rcu_read_lock();
+			}
+		}
 		bsr_info(55, BSR_LC_PROTOCOL, connection, "Handshake to peer %d successful: "
 			"Agreed network protocol version %d, Peer node name %s",
 			connection->peer_node_id,
 			connection->agreed_pro_version,
-			peer_node_name);
+			rcu_dereference(connection->transport.net_conf)->peer_node_name);
 		rcu_read_unlock();
 	} else {
 		bsr_info(55, BSR_LC_PROTOCOL, connection, "Handshake to peer %d successful: "
