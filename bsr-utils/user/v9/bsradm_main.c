@@ -1150,7 +1150,8 @@ static int sh_peer_node_name(const struct cfg_ctx *ctx)
 // BSR-808 look up the peer's node-id and name list
 static int sh_peer_nodes(const struct cfg_ctx *ctx)
 {
-	printf("%s %s\n", ctx->conn->peer->node_id, ctx->conn->peer->on_hosts.stqh_first->name);
+	// BSR-1559
+	printf("%s %s\n", ctx->conn->peer->node_id, ctx->conn->peer->group ? ctx->conn->peer->group : ctx->conn->peer->on_hosts.stqh_first->name);
 	return 0;
 }
 
