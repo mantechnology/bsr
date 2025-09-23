@@ -4546,6 +4546,10 @@ int bsr_sender(struct bsr_thread *thi)
 			break;
 
 		err = process_sender_todo(connection);
+#ifdef _LIN 
+		if(err)
+			schedule();			
+#endif
 		// BSR-819 Fix to change to NetworkFailure only in connected state
 		if (err && connection->cstate[NOW] == C_CONNECTED) {
 			change_cstate_ex(connection, C_NETWORK_FAILURE, CS_HARD);
