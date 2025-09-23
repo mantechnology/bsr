@@ -1796,7 +1796,11 @@ void bsr_debugfs_connection_add(struct bsr_connection *connection)
 		return;
 
 	rcu_read_lock();
-	strncpy(conn_name, rcu_dereference(connection->transport.net_conf)->name, sizeof(conn_name) - 1);
+	// BSR-1559
+	if(rcu_dereference(connection->transport.net_conf)->peer_node_group[0] != '\0')
+		strncpy(conn_name, rcu_dereference(connection->transport.net_conf)->peer_node_group, sizeof(conn_name) - 1);
+	else
+		strncpy(conn_name, rcu_dereference(connection->transport.net_conf)->peer_node_name, sizeof(conn_name) - 1);
 	rcu_read_unlock();
 
 	dentry = debugfs_create_dir(conn_name, conns_dir);
