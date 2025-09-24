@@ -166,6 +166,14 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 					} 
 				} else {
 					bsr_info(110, BSR_LC_VOLUME, device, "minor %d is not mounted.", device->minor);
+					// BSR-1549 if the filesystem is not mounted, it should operate with a full sync; exceptionally, 
+					//			if the file system check has already completed during the initial promotion, it should operate with a fast sync.
+					if(!test_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags)) {
+						kfree(device->mount_path);
+						device->mount_path = NULL;
+						mutex_unlock(&device->resource->adm_mutex);
+						goto close;
+					}
 				}
 				kfree(device->mount_path);
 				device->mount_path = NULL;
