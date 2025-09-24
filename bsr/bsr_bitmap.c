@@ -1450,7 +1450,7 @@ static int bm_page_io_async(struct bsr_bm_aio_ctx *ctx, int page_nr) __must_hold
 	BSR_BIO_BI_SECTOR(bio) = on_disk_sector;
 	/* bio_add_page of a single page to an empty bio will always succeed,
 	 * according to api.  Do we want to assert that? */
-	if(bio_add_page(bio, page, len, 0) !=len){
+	if(bio_add_page(bio, page, len, 0) != (int)len){
 		bio_put(bio);
 		goto no_memory;
 	}

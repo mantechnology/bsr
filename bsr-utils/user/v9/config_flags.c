@@ -1026,6 +1026,7 @@ struct context_def primary_cmd_ctx = {
 	.nla_type = BSR_NLA_SET_ROLE_PARMS,
 	.fields = {
 		{ "force", FLAG(assume_uptodate) },
+		{ "full-sync", FLAG(full_sync), .argument_is_optional = true },	// BSR-1549
 		{ } },
 };
 
@@ -1035,6 +1036,7 @@ struct context_def primary_adm_cmd_ctx = {
 	.fields = {
 		{ "force", FLAG(assume_uptodate) },
 		{ "skip-check-fs", .argument_is_optional = true },	// BSR-823	
+		{ "full-sync-on-fail", .argument_is_optional = true },	// BSR-1549
 		{ } },
 };
 

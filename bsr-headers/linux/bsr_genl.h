@@ -204,6 +204,7 @@ GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
 
 GENL_struct(BSR_NLA_SET_ROLE_PARMS, 6, set_role_parms,
 	__flg_field(1, BSR_GENLA_F_MANDATORY,	assume_uptodate)
+	__flg_field_def(2, 0 /* OPTIONAL */, full_sync, BSR_FULL_SYNC_DEF) // BSR-1549
 )
 
 GENL_struct(BSR_NLA_RESIZE_PARMS, 7, resize_parms,

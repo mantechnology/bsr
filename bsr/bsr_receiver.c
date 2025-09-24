@@ -10372,7 +10372,7 @@ int bsr_do_features(struct bsr_connection *connection)
 				
 				memset(new->peer_node_name, 0, sizeof(new->peer_node_name));
 				strncpy(new->peer_node_name, pp->name, sizeof(new->peer_node_name) - 1);
-				new->peer_node_name_len = strlen(new->peer_node_name);
+				new->peer_node_name_len = (unsigned int)strlen(new->peer_node_name);
 
 #ifdef _WIN
 				synchronize_rcu_w32_wlock();

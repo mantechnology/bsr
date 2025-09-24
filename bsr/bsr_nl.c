@@ -1200,7 +1200,7 @@ restart:
 
 
 enum bsr_state_rv
-bsr_set_role(struct bsr_resource *resource, enum bsr_role role, bool force, struct sk_buff *reply_skb)
+bsr_set_role(struct bsr_resource *resource, enum bsr_role role, bool force, bool full_sync, struct sk_buff *reply_skb)
 {
 	struct bsr_device *device;
 	int vnr;
@@ -1497,8 +1497,11 @@ retry:
 			if (forced) {
 				// BSR-904
 #ifdef _LIN
-				if (UUID_JUST_CREATED == device->ldev->md.current_uuid) 
+				// BSR-1549
+				if (!full_sync && 
+					UUID_JUST_CREATED == device->ldev->md.current_uuid) {
 					set_bit(UUID_WERE_INITIAL_BEFORE_PROMOTION, &device->flags);
+				}
 #endif
 				bsr_uuid_new_current(device, true, false, true, __FUNCTION__);
 			}
@@ -1651,7 +1654,7 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 				}
 			}
 
-			retcode = bsr_set_role(resource, R_PRIMARY, false, NULL);
+			retcode = bsr_set_role(resource, R_PRIMARY, false, false, NULL);
 
 			if (retcode >= SS_SUCCESS) {
 				set_bit(EXPLICIT_PRIMARY, &resource->flags);
@@ -1752,8 +1755,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				goto fail;
 			}
 		}
-
-		retcode = bsr_set_role(resource, R_PRIMARY, parms.assume_uptodate,
+		retcode = bsr_set_role(resource, R_PRIMARY, parms.assume_uptodate, parms.full_sync,
 			adm_ctx.reply_skb);
 		if (retcode >= SS_SUCCESS) {
 			set_bit(EXPLICIT_PRIMARY, &resource->flags);
@@ -1777,6 +1779,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			if (changed) {
 				// BSR-1438
 				bsr_khelper(resource, NULL, NULL, "after-promote");
+
 			}
 		}
 		else if (retcode == SS_TARGET_DISK_TOO_SMALL)
@@ -1835,7 +1838,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		
 		if (retcode == SS_SUCCESS) {
 			resource->bPreSecondaryLock = TRUE;
-			retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+			retcode = bsr_set_role(resource, R_SECONDARY, false, false, adm_ctx.reply_skb);
 			resource->bPreSecondaryLock = FALSE;
 			resource->bPreDismountLock = FALSE;
 		}
@@ -1861,7 +1864,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 #else
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (D_DISKLESS == device->disk_state[NOW]) {
-				retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);				
+				retcode = bsr_set_role(resource, R_SECONDARY, false, false, adm_ctx.reply_skb);				
 			} else if (NT_SUCCESS(FsctlLockVolume(device->minor))) {
 				if (retcode < SS_SUCCESS) {
 					FsctlUnlockVolume(device->minor);
@@ -1877,7 +1880,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 					resource->bPreDismountLock = FALSE;
 					goto fail;
 				}
-				retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+				retcode = bsr_set_role(resource, R_SECONDARY, false, false, adm_ctx.reply_skb);
 				resource->bPreSecondaryLock = FALSE;
 				resource->bPreDismountLock = FALSE;
 			} else {
@@ -1886,7 +1889,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		}
 #endif
 #else
-		retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+		retcode = bsr_set_role(resource, R_SECONDARY, false, false, adm_ctx.reply_skb);
 #endif
 		if (retcode >= SS_SUCCESS) {
 			clear_bit(EXPLICIT_PRIMARY, &resource->flags);
@@ -7653,7 +7656,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 				
 	if (retcode == SS_SUCCESS) {
 		resource->bPreSecondaryLock = TRUE;
-		retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+		retcode = bsr_set_role(resource, R_SECONDARY, false, false, adm_ctx.reply_skb);
 		if (retcode < SS_SUCCESS)
 			bsr_msg_put_info(adm_ctx.reply_skb, "failed to demote");
 
@@ -7688,7 +7691,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 			SetBsrlockIoBlock(pvext, TRUE);
 
 		if (D_DISKLESS == device->disk_state[NOW]) {
-			retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+			retcode = bsr_set_role(resource, R_SECONDARY, false, false, adm_ctx.reply_skb);
 		} else if (NT_SUCCESS(FsctlLockVolume(device->minor))) {
 			
 			resource->bPreDismountLock = TRUE;
@@ -7702,7 +7705,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 				goto fail;
 			}
 
-			retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+			retcode = bsr_set_role(resource, R_SECONDARY, false, false, adm_ctx.reply_skb);
 			resource->bPreSecondaryLock = FALSE;
 			resource->bPreDismountLock = FALSE;
 			if (retcode < SS_SUCCESS) {
@@ -7717,7 +7720,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	}
 #endif
 #else
-	retcode = bsr_set_role(resource, R_SECONDARY, false, adm_ctx.reply_skb);
+	retcode = bsr_set_role(resource, R_SECONDARY, false, false, adm_ctx.reply_skb);
 	if (retcode < SS_SUCCESS) {
 		bsr_msg_put_info(adm_ctx.reply_skb, "failed to demote");
 		goto fail;
