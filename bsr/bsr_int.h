@@ -2995,7 +2995,7 @@ bsr_determine_dev_size(struct bsr_device *, sector_t peer_current_size,
 extern void resync_after_online_grow(struct bsr_peer_device *);
 extern void bsr_reconsider_queue_parameters(struct bsr_device *device,
 			struct bsr_backing_dev *bdev, struct o_qlim *o);
-extern enum bsr_state_rv bsr_set_role(struct bsr_resource *, enum bsr_role, bool, struct sk_buff *);
+extern enum bsr_state_rv bsr_set_role(struct bsr_resource *, enum bsr_role, bool, bool, struct sk_buff *);
 
 #ifdef _WIN
 extern enum bsr_state_rv bsr_set_secondary_from_shutdown(struct bsr_resource *);

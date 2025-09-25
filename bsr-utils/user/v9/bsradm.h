@@ -157,6 +157,8 @@ struct d_host_info
 	char* platform; // BSR-867
 	char* group; // BSR-1409
 	STAILQ_ENTRY(d_host_info) group_link; // BSR-1409
+	// BSR-1549
+	bool full_sync_on_fail;
 };
 
 STAILQ_HEAD(hosts, d_host_info);

@@ -3465,7 +3465,7 @@ static int try_to_promote(struct bsr_device *device)
 	long timeout = resource->res_opts.auto_promote_timeout * HZ / 10;
 	int rv, retry = timeout / (HZ / 5); /* One try every 200ms */
 	do {
-		rv = bsr_set_role(resource, R_PRIMARY, false, NULL);
+		rv = bsr_set_role(resource, R_PRIMARY, false, false, NULL);
 		if (rv >= SS_SUCCESS || timeout == 0) {
 #ifdef _WIN		
 			resource->bPreSecondaryLock = FALSE;
@@ -3640,7 +3640,7 @@ BSR_RELEASE_RETURN bsr_release(struct gendisk *gd, fmode_t mode)
 		if (open_cnt == 0 &&
 		    resource->role[NOW] == R_PRIMARY &&
 		    !test_bit(EXPLICIT_PRIMARY, &resource->flags)) {
-			rv = bsr_set_role(resource, R_SECONDARY, false, NULL);
+			rv = bsr_set_role(resource, R_SECONDARY, false, false, NULL);
 			if (rv < SS_SUCCESS)
 				bsr_warn(83, BSR_LC_DRIVER, resource, "Failed to set secondary in auto-demote. err(%s)",
 					  bsr_set_st_err_str(rv));

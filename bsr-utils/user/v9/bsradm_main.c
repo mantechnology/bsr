@@ -1747,6 +1747,9 @@ static void __adm_bsrsetup(const struct cfg_ctx *ctx, int flags, pid_t *pid, int
 	if (ctx->cmd == &invalidate_setup_cmd && ctx->conn)
 		argv[NA(argc)] = ssprintf("--sync-from-peer-node-id=%s", ctx->conn->peer->node_id);
 
+	if(ctx->cmd == &primary_cmd && ctx->res->me->full_sync_on_fail)
+		argv[NA(argc)] = "--full-sync";
+
 	argv[NA(argc)] = 0;
 
 	if (ctx->res)
@@ -1771,11 +1774,15 @@ static int adm_bsrsetup(const struct cfg_ctx *ctx)
 static int adm_primary(const struct cfg_ctx *ctx)
 {
 	const char *opt_name = "--skip-check-fs";
+	const char *opt_name2 = "--full-sync-on-fail";
 	struct d_name *opt;
 	opt = find_backend_option(opt_name);
 
+	ctx->res->me->full_sync_on_fail = false;
+
 	if (force_primary) {
 		bool do_check_fs = true;
+		bool fs_check_failed = false;
 
 		if (opt) {
 			if (strlen(opt->name) > strlen(opt_name)) {
@@ -1787,6 +1794,20 @@ static int adm_primary(const struct cfg_ctx *ctx)
 				do_check_fs = false;
 			}
 		}
+
+		// BSR-1549
+		opt = find_backend_option(opt_name2);
+		if (opt) {
+			if (strlen(opt->name) > strlen(opt_name2)) {
+				char *opt_val = NULL;
+				opt_val = ssprintf("%s", opt->name + strlen(opt_name2) + 1);
+				if (opt_val && strcmp(opt_val, "false"))
+					ctx->res->me->full_sync_on_fail = true;
+			} else {
+				ctx->res->me->full_sync_on_fail = true;
+			}
+		}
+
 		// run bsrsetup check-fs if --force primary and no --skip-check-fs option
 		if (do_check_fs) {
 			char *argv[4] = {bsrsetup, "check-fs", NULL, NULL};
@@ -1798,10 +1819,19 @@ static int adm_primary(const struct cfg_ctx *ctx)
 				tmp_ctx.vol = vol;
 				argv[2] = ssprintf("%d", tmp_ctx.vol->device_minor);
 				rv = m_system_ex(argv, SLEEPS_LONG, tmp_ctx.res->name, sh_varname, adjust_with_progress, dry_run, verbose);
-				if (rv)
+				if (rv) {
+					fs_check_failed = true;
+					CLI_ERRO_LOG_STDERR(false, "bsrsetup check-fs failed for minor %d, exit code %d.", tmp_ctx.vol->device_minor, rv);
+					if(ctx->res->me->full_sync_on_fail)
+						continue;
 					return rv;
+				}
+
 			}    
 		}
+
+		if(!fs_check_failed) 
+			ctx->res->me->full_sync_on_fail = false;
 	}
 
 	if (opt)
