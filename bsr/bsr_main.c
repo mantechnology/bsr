@@ -8505,6 +8505,9 @@ int w_fast_ov_get_bm(struct bsr_work *w, int cancel) {
 
 		if (err) {
 			bsr_info(211, BSR_LC_RESYNC_OV, peer_device, "Online verify canceled.");
+			peer_device->ov_left = 0;
+			peer_device->ov_left_sectors = BM_BIT_TO_SECT(peer_device->ov_left);	
+			bsr_peer_device_post_work(peer_device, RS_DONE);
 		} 
 		else {
 			bsr_info(32, BSR_LC_RESYNC_OV, peer_device, "Starting Online Verify as %s, bitmap index(%d) start sector(%llu) (will verify %llu KB [%llu bits set]).",
