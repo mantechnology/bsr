@@ -9,4 +9,7 @@
 # BSR-971 kmod-bsr depends on bsr-utils
 # BSR-1077 kmod-bsr depends on the same kernel version
 # BSR-1316
-Requires: bsr-utils = %{version}-%{?release}, kernel = %{_rel_version}-%{_minor_fix}
+%define _minor_fix_num %(echo %{_minor_fix} | sed -E 's/\.el[0-9_]+$//') 
+%define _minor_fix_el %(echo %{_minor_fix} | grep -oE '\.el[0-9_]+$')
+# BSR-1563 kmod-bsr allow install on OEL-RHCK kernel with .0.1 suffix.
+Requires: bsr-utils = %{version}-%{?release}, (kernel = %{_rel_version}-%{_minor_fix} or kernel = %{_rel_version}-%{_minor_fix_num}.0.1%{_minor_fix_el})
