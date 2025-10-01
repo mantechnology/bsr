@@ -223,6 +223,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
 {
     TCHAR pTemp[1024] = { 0, };
     DWORD err = ERROR_SUCCESS;
+    TCHAR quotedPath[MAX_PATH] = {0};
 
     SC_HANDLE schSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_CREATE_SERVICE);
     if (schSCManager == 0) {
@@ -231,6 +232,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
         WriteLog(pTemp);
         return err;
     }
+    _sntprintf_s(quotedPath, _countof(quotedPath), _TRUNCATE, _T("\"%s\""), full_path);
 
     SC_HANDLE schService = CreateService(
         schSCManager,				/* SCManager database      */
@@ -240,7 +242,7 @@ DWORD Install(const TCHAR * full_path, const TCHAR * pName)
         SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS, /* service type            */
         SERVICE_AUTO_START,			/* start type              */
         SERVICE_ERROR_NORMAL,		/* error control type      */
-        full_path,					/* service's binary        */
+        quotedPath,					/* service's binary        */
         NULL,						/* no load ordering group  */
         NULL,						/* no tag identifier       */
         NULL,						/* no dependencies         */
