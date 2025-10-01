@@ -1747,8 +1747,10 @@ static void __adm_bsrsetup(const struct cfg_ctx *ctx, int flags, pid_t *pid, int
 	if (ctx->cmd == &invalidate_setup_cmd && ctx->conn)
 		argv[NA(argc)] = ssprintf("--sync-from-peer-node-id=%s", ctx->conn->peer->node_id);
 
-	if(ctx->cmd == &primary_cmd && ctx->res->me->full_sync_on_fail)
+	if(ctx->cmd == &primary_cmd && ctx->res->me->full_sync_on_fail) {
 		argv[NA(argc)] = "--full-sync";
+		CLI_INFO_LOG_PRINT(false, "A full sync will be performed because the --full-sync-on-fail option is used.");
+	}
 
 	argv[NA(argc)] = 0;
 
@@ -1821,9 +1823,9 @@ static int adm_primary(const struct cfg_ctx *ctx)
 				rv = m_system_ex(argv, SLEEPS_LONG, tmp_ctx.res->name, sh_varname, adjust_with_progress, dry_run, verbose);
 				if (rv) {
 					fs_check_failed = true;
-					CLI_ERRO_LOG_STDERR(false, "bsrsetup check-fs failed for minor %d, exit code %d.", tmp_ctx.vol->device_minor, rv);
 					if(ctx->res->me->full_sync_on_fail)
 						continue;
+					CLI_ERRO_LOG_STDERR(false, "bsrsetup check-fs failed for minor %d, exit code %d.", tmp_ctx.vol->device_minor, rv);
 					return rv;
 				}
 

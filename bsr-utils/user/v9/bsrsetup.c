@@ -1730,10 +1730,10 @@ static int need_filesystem_recovery(char * dev_name)
 
 	if (ret != 0) {
 		if(type == FS_BTRFS && ret == 1) {
-			CLI_ERRO_LOG_STDERR(false, "The file system check failed. \
-										The option is not supported by btrfs-progs, or the file system check itself failed. \
-										btrfs-progs version 4.13 or later is required, and if no issues are found after checking the file system separately, \
-										run with the --skip-check-fs option.");
+			CLI_ERRO_LOG_STDERR(false, "The file system check failed. "
+										"The option is not supported by btrfs-progs, or the file system check itself failed. "
+										"btrfs-progs version 4.13 or later is required, and if no issues are found after checking the file system separately, "
+										"run with the --skip-check-fs option.");
 		}
 		CLI_ERRO_LOG_STDERR(false, "%s exits with error (%d)", argv[0] == NULL ? "unknow": argv[0], ret);
 		return 1;
