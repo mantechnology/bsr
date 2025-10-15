@@ -14,6 +14,9 @@
 
 #define BTRFS_CHUNK_ITEM_KEY 228
 
+// BSR-1574
+#define BTRFS_SYSTEM_CHUNK_ARRAY_SIZE 2048
+
 typedef uint64_t XXH64_hash_t;
 
 union btrfs_super_block_csum {
@@ -68,7 +71,10 @@ struct btrfs_super_block {
 		uint8_t fsid[16];
 	} __attribute__ ((__packed__)) dev_item;
 	uint8_t label[256];
-	uint8_t padding[3541]; /* pad to BTRFS_SUPER_INFO_SIZE for csum calculation */
+    __le64 cache_generation;
+    __le64 uuid_tree_generation;
+    __le64 reserved[30];
+    u8 sys_chunk_array[BTRFS_SYSTEM_CHUNK_ARRAY_SIZE]; // BSR-1574
 } __attribute__ ((__packed__));
 
 struct btrfs_header {
