@@ -48,15 +48,55 @@ static bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_B
     bsr_debug(-1, BSR_LC_BITMAP, NO_OBJECT, "traversing mode @ %llu, level: %u, items: %u", node_offset, header.level, le32_to_cpu(header.nritems));
     if (header.level > 0) {
         // internal node
-        for (i = 0; i < le32_to_cpu(header.nritems); i++) {
-            uint64_t child_offset;
-            off_t child_offset_position = node_offset + sizeof(struct btrfs_header) + i * sizeof(uint64_t);
+        if (le32_to_cpu(header.nritems) == 0) {
+            bsr_err(148, BSR_LC_BITMAP, NO_OBJECT,
+                    "Corrupt internal node: zero nritems (node_offset=%llu level=%u)",
+                    (unsigned long long)node_offset, header.level);
+            return false;
+        }
 
-            if (bsr_read_data(fd, &child_offset, sizeof(uint64_t), child_offset_position) < 0) {
-                bsr_err(134, BSR_LC_BITMAP, NO_OBJECT, "Failed to read child offset. offset = %llu", child_offset_position);
+        for (i = 0; i < le32_to_cpu(header.nritems); i++) {
+            struct btrfs_key_ptr kptr;
+            uint64_t child_offset;
+            off_t child_offset_position = node_offset + sizeof(struct btrfs_header) + (off_t)i * sizeof(struct btrfs_key_ptr);
+
+            if (bsr_read_data(fd, &kptr, sizeof(struct btrfs_key_ptr), child_offset_position) < 0) {
+                bsr_err(134, BSR_LC_BITMAP, NO_OBJECT, "Failed to read key pointer. offset = %llu", child_offset_position);
                 return false;
             }
-            if(!traverse_chunk_tree(fd, child_offset, bitmap_buf)) {
+            child_offset = le64_to_cpu(kptr.blockptr);
+            if (child_offset == 0) {
+                bsr_err(149, BSR_LC_BITMAP, NO_OBJECT,
+                        "Zero child blockptr i=%u pos=%llu",
+                        i, (unsigned long long)child_offset_position);
+                return false;
+            }
+            if (child_offset == node_offset) {
+                bsr_err(150, BSR_LC_BITMAP, NO_OBJECT,
+                        "Self-referencing child blockptr i=%u node=%llu",
+                        i, (unsigned long long)node_offset);
+                return false;
+            }
+
+            bsr_debug(-1, BSR_LC_BITMAP, NO_OBJECT,
+                      "chunk_tree: internal node=%llu level=%u idx=%u nritems=%u key_ptr_pos=%llu child_logical=%llu gen=%llu key.objectid=%llu key.type=%u key.offset=%llu",
+                      (unsigned long long)node_offset, header.level, i, le32_to_cpu(header.nritems),
+                      (unsigned long long)child_offset_position,
+                      (unsigned long long)child_offset,
+                      (unsigned long long)le64_to_cpu(kptr.generation),
+                      (unsigned long long)le64_to_cpu(kptr.key.objectid),
+                      kptr.key.type,
+                      (unsigned long long)le64_to_cpu(kptr.key.offset));
+            
+            // BSR-1584 Fast sync for internal nodes is not validated yet; unsupported path.
+            // Abort traversal here to avoid unverified internal node fast sync handling.
+            // TODO: Remove this early abort once internal node fast sync logic is verified.
+            bsr_err(151, BSR_LC_BITMAP, NO_OBJECT,
+                    "Fast sync unsupported for chunk tree internal node (node=%llu level=%u)",
+                    (unsigned long long)node_offset, header.level);
+            return false;
+
+            if (!traverse_chunk_tree(fd, child_offset, bitmap_buf)) {
                 bsr_err(135, BSR_LC_BITMAP, NO_OBJECT, "Failed to traverse chunk tree. offset = %llu", child_offset);
                 return false;
             }
