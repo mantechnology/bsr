@@ -78,7 +78,7 @@ static bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_B
                 return false;
             }
 
-            bsr_debug(-1, BSR_LC_BITMAP, NO_OBJECT,
+            bsr_info(152, BSR_LC_BITMAP, NO_OBJECT,
                       "chunk_tree: internal node=%llu level=%u idx=%u nritems=%u key_ptr_pos=%llu child_logical=%llu gen=%llu key.objectid=%llu key.type=%u key.offset=%llu",
                       (unsigned long long)node_offset, header.level, i, le32_to_cpu(header.nritems),
                       (unsigned long long)child_offset_position,
