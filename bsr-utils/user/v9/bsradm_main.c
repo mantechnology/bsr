@@ -1795,6 +1795,8 @@ static int adm_primary(const struct cfg_ctx *ctx)
 			} else {
 				do_check_fs = false;
 			}
+			// BSR-1602 remove --skip-check-fs from backend options
+			STAILQ_REMOVE(&backend_options, opt, d_name, link);
 		}
 
 		// BSR-1549
@@ -1808,6 +1810,8 @@ static int adm_primary(const struct cfg_ctx *ctx)
 			} else {
 				ctx->res->me->full_sync_on_fail = true;
 			}
+			// BSR-1602 remove --full-sync-on-fail from backend options
+			STAILQ_REMOVE(&backend_options, opt, d_name, link);
 		}
 
 		// run bsrsetup check-fs if --force primary and no --skip-check-fs option
@@ -1836,8 +1840,6 @@ static int adm_primary(const struct cfg_ctx *ctx)
 			ctx->res->me->full_sync_on_fail = false;
 	}
 
-	if (opt)
-		STAILQ_REMOVE(&backend_options, opt, d_name, link);
 	return _adm_bsrsetup(ctx, ctx->cmd->takes_long ? SLEEPS_LONG : SLEEPS_SHORT);
 }
 
