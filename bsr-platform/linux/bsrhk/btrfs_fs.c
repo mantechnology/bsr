@@ -41,21 +41,24 @@ static bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_B
     struct btrfs_chunk chunk;
     struct btrfs_item item;
     uint32_t i, j;
+    uint32_t nritems;
 
     if (bsr_read_data(fd, &header, sizeof(struct btrfs_header), node_offset) < 0) 
         return false;
 
-    bsr_debug(-1, BSR_LC_BITMAP, NO_OBJECT, "traversing mode @ %llu, level: %u, items: %u", node_offset, header.level, le32_to_cpu(header.nritems));
+    nritems = le32_to_cpu(header.nritems);
+    bsr_debug(-1, BSR_LC_BITMAP, NO_OBJECT, "traversing mode @ %llu, level: %u, items: %u", node_offset, header.level, nritems);
+
     if (header.level > 0) {
         // internal node
-        if (le32_to_cpu(header.nritems) == 0) {
+        if (nritems == 0) {
             bsr_err(148, BSR_LC_BITMAP, NO_OBJECT,
                     "Corrupt internal node: zero nritems (node_offset=%llu level=%u)",
                     (unsigned long long)node_offset, header.level);
             return false;
         }
 
-        for (i = 0; i < le32_to_cpu(header.nritems); i++) {
+        for (i = 0; i < nritems; i++) {
             struct btrfs_key_ptr kptr;
             uint64_t child_offset;
             off_t child_offset_position = node_offset + sizeof(struct btrfs_header) + (off_t)i * sizeof(struct btrfs_key_ptr);
@@ -80,7 +83,7 @@ static bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_B
 
             bsr_info(152, BSR_LC_BITMAP, NO_OBJECT,
                       "chunk_tree: internal node=%llu level=%u idx=%u nritems=%u key_ptr_pos=%llu child_logical=%llu gen=%llu key.objectid=%llu key.type=%u key.offset=%llu",
-                      (unsigned long long)node_offset, header.level, i, le32_to_cpu(header.nritems),
+                      (unsigned long long)node_offset, header.level, i, nritems,
                       (unsigned long long)child_offset_position,
                       (unsigned long long)child_offset,
                       (unsigned long long)le64_to_cpu(kptr.generation),
@@ -103,7 +106,7 @@ static bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_B
         }
     } else if (header.level == 0) {
         // leaf node
-        for (i = 0; i < header.nritems; i++) {
+        for (i = 0; i < nritems; i++) {
             off_t chunk_offset, item_offset = node_offset + sizeof(struct btrfs_header) + i * sizeof(struct btrfs_item);
             struct btrfs_stripe stripe;
             if (bsr_read_data(fd, &item, sizeof(struct btrfs_item), item_offset) < 0) {
@@ -114,7 +117,7 @@ static bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_B
             if(item.key.type != BTRFS_CHUNK_ITEM_KEY)
                 continue;
 
-            chunk_offset = node_offset + sizeof(struct btrfs_header) + le64_to_cpu(item.offset);  
+            chunk_offset = node_offset + sizeof(struct btrfs_header) + le32_to_cpu(item.offset);
             if (bsr_read_data(fd, &chunk, sizeof(struct btrfs_chunk), chunk_offset) < 0) {
                 bsr_err(137, BSR_LC_BITMAP, NO_OBJECT, "Failed to read chunk. offset = %llu", chunk_offset);
                 return false;
@@ -151,7 +154,7 @@ static bool traverse_chunk_tree(struct file *fd, uint64_t node_offset, PVOLUME_B
                 }
 
                 bsr_debug(-1, BSR_LC_BITMAP, NO_OBJECT, "node offset = %llu, item offset = %llu offset = %llu, chunk offset %llu, stripe offset = %llu, size = %llu",
-                   node_offset, item_offset, le64_to_cpu(item.offset), chunk_offset, le64_to_cpu(stripe.offset), le64_to_cpu(chunk.length));
+                    node_offset, item_offset, le32_to_cpu(item.offset), chunk_offset, le64_to_cpu(stripe.offset), le64_to_cpu(chunk.length));
                 bsr_debug(-1, BSR_LC_BITMAP, NO_OBJECT, "bitmap buffer offset = %llu, end offset = %llu, start_mask %d, end_mask %d, BM_BLOCK_SHIFT %d", 
                     start_byte, end_byte, start_mask, end_mask, BM_BLOCK_SHIFT);
             }
