@@ -3596,7 +3596,8 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 	btrfs_detect_result = bsr_detect_btrfs_raid(device, new_disk_conf->backing_dev);
     if (btrfs_detect_result < 0) {
-        bsr_err(95, BSR_LC_GENL, device,  "Btrfs/RAID probe error (%d) on %s, stop attaching.", btrfs_detect_result, new_disk_conf->backing_dev);
+        bsr_err(95, BSR_LC_GENL, device,  "Verification failed: could not confirm it is Btrfs/RAID on %s.(%d)", new_disk_conf->backing_dev, btrfs_detect_result);
+		retcode = ERR_VERIFY_BTRFS_RAID;
 		goto fail;
     } else if (btrfs_detect_result == 1) {
 		retcode = ERR_UNSUPPORTED_BTRFS_RAID;
