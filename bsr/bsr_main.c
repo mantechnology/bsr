@@ -8959,6 +8959,15 @@ u64 directly_connected_nodes(struct bsr_resource *resource, enum which_state whi
 	return directly_connected;
 }
 
+int bsr_detect_btrfs_raid(struct bsr_device *device, const char *bdev_path)
+{
+#ifdef _LIN
+	return detect_btrfs_raid(device, bdev_path);
+#else
+	return 0;
+#endif
+}
+
 #ifdef CONFIG_BSR_FAULT_INJECTION
 /* Fault insertion support including random number generator shamelessly
  * stolen from kernel/rcutorture.c */

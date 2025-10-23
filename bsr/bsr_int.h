@@ -527,7 +527,7 @@ static const char * const __log_category_names[] = {
 
 // BSR-649 Maximum index value being used for log values.
 // As the index value used in the log increases, the same increase must be made.
-#define BSR_LC_VOLUME_MAX_INDEX 111
+#define BSR_LC_VOLUME_MAX_INDEX 118
 #define BSR_LC_IO_MAX_INDEX 65
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
 #define BSR_LC_BITMAP_MAX_INDEX 152
@@ -545,7 +545,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SOCKET_MAX_INDEX 109
 #define BSR_LC_DRIVER_MAX_INDEX 170
 #define BSR_LC_NETLINK_MAX_INDEX 36
-#define BSR_LC_GENL_MAX_INDEX 94
+#define BSR_LC_GENL_MAX_INDEX 97
 #define BSR_LC_PROTOCOL_MAX_INDEX 82
 #define BSR_LC_MEMORY_MAX_INDEX 99
 #define BSR_LC_LOG_MAX_INDEX 26
@@ -800,6 +800,7 @@ extern long twopc_timeout(struct bsr_resource *);
 extern long twopc_retry_timeout(struct bsr_resource *, int);
 extern void twopc_connection_down(struct bsr_connection *);
 extern u64 directly_connected_nodes(struct bsr_resource *, enum which_state);
+extern int bsr_detect_btrfs_raid(struct bsr_device *device, const char *bdev_path);
 extern int w_notify_io_error(struct bsr_work *w, int cancel);
 extern int w_notify_updated_gi(struct bsr_work *w, int cancel);
 /* sequence arithmetic for dagtag (data generation tag) sector numbers.
@@ -2611,6 +2612,7 @@ extern bool SetOOSAllocatedCluster(struct bsr_device *device, struct bsr_peer_de
 extern bool isFastInitialSync(void);
 extern PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * pullTotalCluster, ULONG * pulBytesPerCluster);
 #ifdef _LIN
+extern int detect_btrfs_raid(struct bsr_device *device, const char *bdev_path);
 extern bool isDeviceMounted(struct bsr_device *device);
 
 #endif

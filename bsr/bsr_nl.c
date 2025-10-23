@@ -3521,7 +3521,7 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_config_context adm_ctx;
 	struct bsr_device *device;
 	struct bsr_resource *resource;
-	int err;
+	int err, btrfs_detect_result;
 	enum bsr_ret_code retcode;
 	enum determine_dev_size dd;
 	sector_t max_possible_sectors;
@@ -3594,6 +3594,17 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	retcode = open_backing_devices(device, new_disk_conf, nbc);
 	if (retcode != ERR_NO)
 		goto fail;
+	btrfs_detect_result = bsr_detect_btrfs_raid(device, new_disk_conf->backing_dev);
+    if (btrfs_detect_result < 0) {
+        bsr_err(95, BSR_LC_GENL, device,  "Verification failed: could not confirm it is Btrfs/RAID on %s.(%d)", new_disk_conf->backing_dev, btrfs_detect_result);
+		retcode = ERR_VERIFY_BTRFS_RAID;
+		goto fail;
+    } else if (btrfs_detect_result == 1) {
+		retcode = ERR_UNSUPPORTED_BTRFS_RAID;
+        bsr_warn(96, BSR_LC_GENL, device, "bsr does not support btrfs multi-device or RAID profiles.");
+		bsr_warn(97, BSR_LC_GENL, device, "Please convert to single-device btrfs or use send/receive mode.");
+		goto fail;
+	 }
 
 	if ((nbc->backing_bdev == nbc->md_bdev) !=
 	    (new_disk_conf->meta_dev_idx == BSR_MD_INDEX_INTERNAL ||
