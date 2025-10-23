@@ -742,6 +742,7 @@ static const char *error_messages[] = {
 	EM(ERR_PEER_TARGET_ONLY) = "Failed because the peer node is set to target-only.",
 	// BSR-1412
 	EM(ERR_NODE_UNSTABLE) = "Failed because it is node unstable",
+	EM(ERR_UNSUPPORTED_BTRFS_RAID) = "Failed because it is unsupported btrfs raid",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 

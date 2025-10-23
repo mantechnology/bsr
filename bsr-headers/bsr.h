@@ -247,6 +247,7 @@ enum bsr_ret_code {
 	ERR_PEER_TARGET_ONLY = 180,
 	// BSR-1412
 	ERR_NODE_UNSTABLE = 181,
+	ERR_UNSUPPORTED_BTRFS_RAID = 182,
 	/* insert new ones above this line */
 	AFTER_LAST_ERR_CODE
 };

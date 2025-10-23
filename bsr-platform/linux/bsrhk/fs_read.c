@@ -317,3 +317,114 @@ PVOID GetVolumeBitmap(struct bsr_device *device, ULONGLONG * ptotal_block, ULONG
 	return NULL;
 }
 #endif
+
+int detect_btrfs_raid(struct bsr_device *device, const char *bdev_path)
+{
+    struct file *filp;
+    void *buf = NULL;
+    ssize_t ret = 0;
+    mm_segment_t oldfs;
+
+    if (!bdev_path || bdev_path[0] != '/')
+        return -EINVAL;
+
+    buf = kmalloc(BTRFS_SUPER_BLOCK_SIZE, GFP_KERNEL);
+    if (!buf)
+        return -ENOMEM;
+
+    filp = filp_open(bdev_path, O_RDONLY | O_LARGEFILE, 0);
+    if (IS_ERR(filp)) {
+        ret = PTR_ERR(filp);
+        kfree(buf);
+        return ret;
+    }
+
+    filp->f_pos = BTRFS_SUPER_BLOCK_OFFSET;
+    oldfs = get_fs();
+
+#ifdef COMPAT_HAVE_SET_FS
+    set_fs(KERNEL_DS);
+#endif
+    ret = bsr_read(filp, buf, BTRFS_SUPER_BLOCK_SIZE, &filp->f_pos);
+    set_fs(oldfs);
+
+    if (ret != BTRFS_SUPER_BLOCK_SIZE) {
+		bsr_err(112, BSR_LC_VOLUME, device, "Failed to read Btrfs super block (err=%zd)", ret);
+		if (ret >= 0)
+        	ret = -EIO;
+		goto out_close;
+    }
+
+    {
+        struct btrfs_super_block *sb = (struct btrfs_super_block *)buf; 
+        const u64 raid_any_mask =       
+            (BTRFS_BLOCK_GROUP_PROFILE_MASK & ~BTRFS_BLOCK_GROUP_DUP);
+		u8 *p, *end;
+		u16 ns;
+		u32 size;                    
+		u64 type, profile;                
+        bool any_raid = false;        
+        struct btrfs_disk_key *key;
+        struct btrfs_chunk *chunk;
+        size_t chunk_len;
+
+        if (!is_btrfs_fs(sb)) {
+			bsr_info(113, BSR_LC_VOLUME, device, "%s is not a btrfs filesystem", bdev_path);
+            ret = 0;
+            goto out_close;
+        }
+
+        size = le32_to_cpu(sb->sys_chunk_array_size);
+        if (size > (u32)BTRFS_SYSTEM_CHUNK_ARRAY_SIZE)
+            size = (u32)BTRFS_SYSTEM_CHUNK_ARRAY_SIZE;
+        if (size == 0) {
+			bsr_warn(114, BSR_LC_VOLUME, device, "%s no system chunk entries", bdev_path);
+            ret = 0;
+            goto out_close;
+        }
+
+        p   = sb->sys_chunk_array;
+        end = p + size;
+
+        while (p + sizeof(struct btrfs_disk_key) + sizeof(struct btrfs_chunk) <= end) {
+            key = (struct btrfs_disk_key *)p;
+
+            if (key->type != BTRFS_CHUNK_ITEM_KEY){
+				bsr_warn(115, BSR_LC_VOLUME, device,"non chunk item, stop parsing");             
+                break;            
+			}
+
+            p += sizeof(struct btrfs_disk_key);
+            if (p + sizeof(struct btrfs_chunk) > end) {
+				bsr_err(116, BSR_LC_VOLUME, device,"chunk header crosses end");
+                ret = -EIO;
+                goto out_close;
+            }
+            chunk = (struct btrfs_chunk *)p;
+            ns = le16_to_cpu(chunk->num_stripes);
+            chunk_len = sizeof(struct btrfs_chunk)
+                      + (ns ? (size_t)(ns - 1) * sizeof(struct btrfs_stripe) : 0);
+
+            if (p + chunk_len > end) {
+				bsr_err(117, BSR_LC_VOLUME, device,"chunk body crosses end");	
+                ret = -EIO;
+                goto out_close;
+            }
+
+            type    = le64_to_cpu(chunk->type);
+            profile = type & BTRFS_BLOCK_GROUP_PROFILE_MASK;
+
+            if (profile & raid_any_mask) {
+				bsr_info(118, BSR_LC_VOLUME, device,"RAID profile detected");
+                any_raid = true;
+                break;
+            }
+            p += chunk_len;
+        }
+        ret = any_raid ? 1 : 0;
+    }
+out_close:
+    filp_close(filp, NULL);
+    kfree(buf);
+    return ret;
+}
