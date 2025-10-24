@@ -1614,7 +1614,8 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 	mutex_lock(&resource->adm_mutex);
 	mutex_lock(&resource->vol_ctl_mutex);
 
-	if (resource->res_opts.persist_role) {
+	// BSR-1589 process only when persist_role is set and current role is secondary
+	if (resource->res_opts.persist_role && (resource->role[NOW] == R_SECONDARY)) {
 		idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 			if (bsr_md_test_flag(device, MDF_WAS_PRIMARY)) {
 				// BSR-1411
@@ -1623,30 +1624,31 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 					bsr_md_sync(device);
 				}
 				promote = true;
-				
-				// BSR-1438		
-				r = bsr_khelper(resource, NULL, NULL, "before-promote");
-#ifdef _WIN
-				r = r & 0xff;
-#else // _LIN
-				r = (r >> 8) & 0xff;
-#endif
-				if (r > 0) {
-					bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
-					"dropping connection.", r);
-					for_each_connection_rcu(connection, resource) 
-						change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-					goto fail;
-				}		
 			}
-		}
-		// BSR-1411
-		if (resource->node_opts.target_only && promote) {
-			bsr_info(93, BSR_LC_ETC, resource, "The target-only is set and will not be promoted.");
-			promote = false;
 		}
 
 		if (promote) {
+			// BSR-1411
+			if (resource->node_opts.target_only) {
+				bsr_info(93, BSR_LC_ETC, resource, "The target-only is set and will not be promoted.");
+				goto fail;
+			}
+
+			// BSR-1438
+			r = bsr_khelper(resource, NULL, NULL, "before-promote");
+#ifdef _WIN
+			r = r & 0xff;
+#else // _LIN
+			r = (r >> 8) & 0xff;
+#endif
+			if (r > 0) {
+				bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
+				"dropping connection.", r);
+				for_each_connection_rcu(connection, resource) 
+					change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+				goto fail;
+			}
+
 			idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 				if (D_DISKLESS == device->disk_state[NOW]) {
 					retcode = SS_IS_DISKLESS;
@@ -1669,11 +1671,12 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 #endif
 				// BSR-1438
 				bsr_khelper(resource, NULL, NULL, "after-promote");
+
+				bsr_info(94, BSR_LC_ETC, resource, "Promoted due to persist-role setting");
 			}
 			else if (retcode == SS_TARGET_DISK_TOO_SMALL)
 				goto fail;
 
-			bsr_info(94, BSR_LC_ETC, resource, "Promoted due to persist-role setting.");
 		}
 	}
 
