@@ -7599,6 +7599,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	int retcode; /* enum bsr_ret_code rsp. enum bsr_state_rv */
 	enum bsr_ret_code ret;
 	int i;
+	bool was_primary = false;
 	u64 im;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info,
@@ -7628,7 +7629,24 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		retcode = SS_NOTHING_TO_DO;
 		goto fail;
 	}
-	
+
+	// BSR-1598 before-demote handler
+	if(resource->role[NOW] == R_PRIMARY) {
+		was_primary = true;
+		ret = bsr_khelper(resource, NULL, NULL, "before-demote");
+#ifdef _WIN
+		ret = ret & 0xff;
+#else // _LIN
+		ret = (ret >> 8) & 0xff;
+#endif
+		if (ret > 0) {
+			bsr_info(94, BSR_LC_GENL, resource, "before-demote handler returned %d, "
+				 "dropping connection.", ret);
+			for_each_connection_ref(connection, im, resource)
+				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+			goto out;
+		}
+	}
 	/* demote */
 #ifdef _WIN_MVFL
     // continue to dismount volume after bsradm down is done.
@@ -7737,7 +7755,9 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 	}
 #endif
-
+	// BSR-1598  after-demote handler
+	if (retcode >= SS_SUCCESS &&  was_primary)
+		bsr_khelper(resource, NULL, NULL, "after-demote");
 	for_each_connection_ref(connection, im, resource) {
 		// DW-2035
 		retcode = conn_try_disconnect(connection, false, true, adm_ctx.reply_skb);
