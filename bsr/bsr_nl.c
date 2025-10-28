@@ -7647,7 +7647,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 				 "dropping connection.", ret);
 			for_each_connection_ref(connection, im, resource)
 				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-			goto out;
+			goto fail;
 		}
 	}
 	/* demote */
