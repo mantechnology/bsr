@@ -141,7 +141,7 @@ echo "override bsr * weak-updates" \
 rm -rf %{buildroot}
 
 %changelog
-* Mon Oct 27 2025 Mantech Solution Inc. <bsr@mantech.co.kr> - 1.7.6.3
+* Tue Oct 28 2025 Mantech Solution Inc. <bsr@mantech.co.kr> - 1.7.6.3
 - New upstream release.
 
 * Mon Sep 29 2025 Mantech Solution Inc. <bsr@mantech.co.kr> - 1.7.6.2
