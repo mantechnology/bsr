@@ -645,7 +645,7 @@ NetlinkWorkThread(PVOID context)
 			log_for_netlink_cli_recv(cmd);
             // BSR-1550 
             if((BSR_ADM_GET_RESOURCES <= cmd) && (cmd <= BSR_ADM_GET_PEER_DEVICES)) {
-                if(BSR_ADM_PRIMARY == g_genl_run_cmd || BSR_ADM_SECONDARY == g_genl_run_cmd || BSR_ADM_APPLY_PERSIST_ROLE == g_genl_run_cmd) {
+                if(BSR_ADM_PRIMARY == g_genl_run_cmd || BSR_ADM_SECONDARY == g_genl_run_cmd || BSR_ADM_APPLY_PERSIST_ROLE == g_genl_run_cmd|| BSR_ADM_DOWN == g_genl_run_cmd) {
                     status = STATUS_SUCCESS;
                     locked = false;
                 } else {

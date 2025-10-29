@@ -7640,7 +7640,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		ret = (ret >> 8) & 0xff;
 #endif
 		if (ret > 0) {
-			bsr_info(94, BSR_LC_GENL, resource, "before-demote handler returned %d, "
+			bsr_info(98, BSR_LC_GENL, resource, "before-demote handler returned %d, "
 				 "dropping connection.", ret);
 			for_each_connection_ref(connection, im, resource)
 				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
