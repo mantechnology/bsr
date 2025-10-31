@@ -2097,3 +2097,46 @@ void global_validate_maybe_expand_die_if_invalid(int expand, enum pp_flags flags
 		}
 	}
 }
+
+static bool res_has_none_address(const struct d_resource *res)
+{
+    const struct connection *conn;
+
+	if(STAILQ_EMPTY(&res->connections))
+		return true;
+
+    for_each_connection(conn, &res->connections) {
+        const struct path *path;
+        STAILQ_FOREACH(path, &conn->paths, link) {
+            const struct hname_address *ha;
+            STAILQ_FOREACH(ha, &path->hname_address_pairs, link) {
+                if (!ha->parsed_address)
+                    return true; 
+            }
+        }
+    }
+    return false; 
+}
+
+void check_required_config_complete(void)
+{
+    struct d_resource *res;
+
+    for_each_resource(res, &config) {
+        const bool res_any_null_parsed = res_has_none_address(res);
+        const bool res_has_any_volume  = !STAILQ_EMPTY(&res->volumes);
+
+        struct d_host_info *host;
+        for_each_host(host, &res->all_hosts) {
+            if (!host->node_id)
+                derror(host, res, "node-id");
+
+            if (!host->address.addr && res_any_null_parsed)
+                derror(host, res, "address");
+
+            if (!res_has_any_volume && STAILQ_EMPTY(&host->volumes))
+                derror(host, res, "volume");			
+        }
+    }
+}
+
