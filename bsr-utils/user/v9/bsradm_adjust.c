@@ -758,7 +758,7 @@ struct d_volume *new_to_be_deleted_minor_from_template(struct d_volume *kern)
  * We may need to conjure dummy volumes to issue "del-minor" on,
  * and insert these into the conf list.
  */
-void compare_volumes(struct volumes *conf_head, struct volumes *kern_head)
+int compare_volumes(struct volumes *conf_head, struct volumes *kern_head, const char *res_name)
 {
 	struct volumes to_be_deleted = STAILQ_HEAD_INITIALIZER(to_be_deleted);
 	struct d_volume *conf = STAILQ_FIRST(conf_head);
@@ -784,6 +784,19 @@ void compare_volumes(struct volumes *conf_head, struct volumes *kern_head)
 			ASSERT(kern);
 			ASSERT(conf->vnr == kern->vnr);
 
+			// BSR-1576 fix adjust to prevent volume changes when the resource disk is configured
+			// compare disk
+			if (conf->disk != NULL && kern->disk != NULL && strcmp(conf->disk, kern->disk)) {
+				err("Resource '%s' disk (%s) is configured, cannot change disk config (%s)\n", res_name, kern->disk, conf->disk);
+				return 0;
+			}
+			
+			// compare meta-disk
+			if (conf->meta_disk != NULL && kern->meta_disk != NULL && strcmp(conf->meta_disk, kern->meta_disk)) {
+				err("Resource '%s' meta-disk (%s) is configured, cannot change meta-disk config (%s)\n", res_name, kern->meta_disk, conf->meta_disk);
+				return 0;
+			}
+
 			compare_volume(conf, kern);
 			conf = STAILQ_NEXT(conf, link);
 			kern = STAILQ_NEXT(kern, link);
@@ -791,6 +804,7 @@ void compare_volumes(struct volumes *conf_head, struct volumes *kern_head)
 	}
 	for_each_volume_safe(conf, next, &to_be_deleted)
 		insert_volume(conf_head, conf);
+	return 1;
 }
 
 static struct peer_device *matching_peer_device(struct peer_device *pattern, struct peer_devices *pool)
@@ -1077,6 +1091,7 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 	/* necessary per resource actions */
 	int do_res_options = 0;
 	int do_node_options = 0;
+	int do_adjust = 1;
 	
 	/* necessary per volume actions are flagged
 	 * in the vol->adj_* members. */
@@ -1145,7 +1160,12 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 	if (!running && verbose > 2)
 		err("New resource %s\n", ctx->res->name);
 	
-	compare_volumes(&ctx->res->me->volumes, running ? &running->me->volumes : &empty);
+	do_adjust = compare_volumes(&ctx->res->me->volumes, running ? &running->me->volumes : &empty, ctx->res->name);
+
+	// BSR-1576 fix adjust to prevent volume changes when the resource disk is configured
+	if (!do_adjust) {
+		return 10; // E_CONFIG_INVALID
+	}
 
 	if (running) {
 		do_res_options = !opts_equal(&resource_options_ctx, &ctx->res->res_options, &running->res_options);
