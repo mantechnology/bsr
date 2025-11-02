@@ -486,6 +486,7 @@ extern struct d_group_info *find_group_info_by_name(struct d_resource* res, char
 extern int addresses_cmp(struct d_address *addr1, struct d_address *addr2);
 extern bool addresses_equal(struct d_address *addr1, struct d_address *addr2);
 extern int btree_key_cmp(const void *a, const void *b);
+extern void check_required_config_complete(void);
 int parse_proxy_options_section(struct d_proxy_info **proxy);
 /* conn_name is optional and mostly for compatibility with dcmd */
 int do_proxy_conn_up(const struct cfg_ctx *ctx);

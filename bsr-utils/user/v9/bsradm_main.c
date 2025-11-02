@@ -3911,6 +3911,7 @@ int main(int argc, char **argv)
 		config_save = saved_config_save;
 	}
 
+	check_required_config_complete();
 
 	if (!config_valid) {
 		CLI_ERRO_LOG(false, true, "invalid config");
