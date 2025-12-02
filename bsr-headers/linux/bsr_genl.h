@@ -200,6 +200,8 @@ GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
 	__str_field_def(38,	BSR_GENLA_F_MANDATORY, peer_node_name, SHARED_SECRET_MAX)
 	// BSR-1409
 	__str_field_def(39,	BSR_GENLA_F_MANDATORY, peer_node_group, SHARED_SECRET_MAX)
+	// BSR-1618
+	__u32_field_def(40, BSR_GENLA_F_MANDATORY, tcp_ack_timeout, BSR_TCP_ACK_TIMEOUT_DEF)
 )
 
 GENL_struct(BSR_NLA_SET_ROLE_PARMS, 6, set_role_parms,

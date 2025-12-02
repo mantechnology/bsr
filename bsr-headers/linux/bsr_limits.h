@@ -94,6 +94,16 @@
 #define BSR_PING_TIMEO_DEF  30 /* 1/10 seconds */
 #define BSR_PING_TIMEO_SCALE '1'
 
+// BSR-1618
+#define BSR_TCP_ACK_TIMEOUT_MIN 1
+#define BSR_TCP_ACK_TIMEOUT_MAX 300
+#ifdef _LIN
+#define BSR_TCP_ACK_TIMEOUT_DEF 5
+#else // _WIN
+#define BSR_TCP_ACK_TIMEOUT_DEF 0 /* disable on Windows */
+#endif
+#define BSR_TCP_ACK_TIMEOUT_SCALE '1'
+
 // BSR-838 
 #define BSR_RATIO_LENGTH_MIN 3
 #define BSR_RATIO_LENGTH_MAX 12

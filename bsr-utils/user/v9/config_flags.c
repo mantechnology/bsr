@@ -986,6 +986,9 @@ const struct en_map quorum_map[] = {
           .unit = "1/10 seconds" },							\
 	{ "data-integrity-alg", STRING(integrity_alg) },				\
 	{ "tcp-cork", BOOLEAN(tcp_cork, TCP_CORK) },					\
+	/* BSR-1618 */				\
+	{ "tcp_ack_timeout", NUMERIC(tcp_ack_timeout, TCP_ACK_TIMEOUT),			\
+          .unit = "seconds" },	\
 	{ "on-congestion", ENUM(on_congestion, ON_CONGESTION) },			\
 	{ "congestion-fill", NUMERIC(cong_fill, CONG_FILL),				\
           .unit = "bytes" },								\

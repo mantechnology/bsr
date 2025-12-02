@@ -242,6 +242,35 @@ static void dtt_nodelay(struct socket *socket)
 #endif
 }
 
+#ifdef _LIN
+/*
+ * BSR-1618 TCP_USER_TIMEOUT setting:
+ * Specifies the maximum time (in milliseconds) that transmitted data
+ * is allowed to remain in the send queue without being acknowledged.
+ * If this time is exceeded, TCP forcibly terminates the connection
+ * with ETIMEDOUT.
+*/
+static void bsr_set_tcp_user_timeout(struct socket *socket, int timeout_ms)
+{
+#ifdef COMPAT_HAVE_TCP_SOCK_SET_USER_TIMEOUT
+	tcp_sock_set_user_timeout(socket->sk, timeout_ms);
+#else
+	(void) kernel_setsockopt(socket, SOL_TCP, TCP_USER_TIMEOUT, (char *)&timeout_ms, sizeof(timeout_ms));
+#endif
+}
+
+// BSR-1618
+static void bsr_set_keepalive(struct socket *socket)
+{
+#ifdef COMPAT_HAVE_SOCK_SET_KEEPALIVE
+	sock_set_keepalive(socket->sk);
+#else
+	int val = 1;
+	(void) kernel_setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, (char *)&val, sizeof(val));
+#endif
+}
+#endif
+
 int dtt_init(struct bsr_transport *transport)
 {
 	struct bsr_tcp_transport *tcp_transport =
@@ -1836,6 +1865,9 @@ static int dtt_connect(struct bsr_transport *transport)
 #endif
 	dsocket = NULL;
 	csocket = NULL;
+#ifdef _LIN
+	int tcp_ack_timeout = 0;
+#endif
 
 	for_each_path_ref(bsr_path, transport) {
 		struct dtt_path *path = container_of(bsr_path, struct dtt_path, path);
@@ -2124,6 +2156,9 @@ randomize:
 	rcu_read_lock();
 	nc = rcu_dereference(transport->net_conf);
 	timeout = nc->timeout * HZ / 10;
+#ifdef _LIN
+	tcp_ack_timeout = nc->tcp_ack_timeout * HZ;
+#endif
 	rcu_read_unlock();
 
 #ifdef _WIN
@@ -2132,6 +2167,10 @@ randomize:
 #else // _LIN
 	dsocket->sk->sk_sndtimeo = timeout;
 	csocket->sk->sk_sndtimeo = timeout;
+
+	// BSR-1618 set TCP_USER_TIMEOUT and SO_KEEPALIVE
+	bsr_set_tcp_user_timeout(dsocket, tcp_ack_timeout);
+	bsr_set_keepalive(dsocket);
 #endif
 
 	return 0;
