@@ -3890,6 +3890,12 @@ Enomem:
 
 static void free_peer_device(struct bsr_peer_device *peer_device)
 {
+	// BSR-1606 cancel timers before freeing peer_device
+	// to avoid use-after-free in timer handlers.
+	del_timer_sync(&peer_device->start_resync_timer);
+	del_timer_sync(&peer_device->resync_timer);
+	del_timer_sync(&peer_device->sended_timer);
+
 	lc_destroy(peer_device->resync_lru);
 	bsr_kfree(peer_device->rs_plan_s);
 	bsr_kfree(peer_device->conf);
