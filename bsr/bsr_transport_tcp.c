@@ -1859,15 +1859,15 @@ static int dtt_connect(struct bsr_transport *transport)
 	struct net_conf *nc;
 	int timeout, err;
 	bool ok;
+#ifdef _LIN
+	int tcp_ack_timeout = 0;
+#endif
 #ifdef _WIN
 	char sbuf[128], dbuf[128];
 	ok = FALSE;
 #endif
 	dsocket = NULL;
 	csocket = NULL;
-#ifdef _LIN
-	int tcp_ack_timeout = 0;
-#endif
 
 	for_each_path_ref(bsr_path, transport) {
 		struct dtt_path *path = container_of(bsr_path, struct dtt_path, path);
