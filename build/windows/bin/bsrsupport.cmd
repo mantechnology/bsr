@@ -347,7 +347,7 @@ exit /B 0
     call :logging "netshresult.txt"
 
     @rem Processes
-    powerShell -Command "Get-WmiObject Win32_Process | ConvertTo-Csv -NoTypeInformation" > %SYSTEM_DIR%\ProcInfo.html
+    powerShell -Command "Get-WmiObject Win32_Process | ConvertTo-Csv -NoTypeInformation" > "%SYSTEM_DIR%\ProcInfo.html"
     call :logging "ProcInfo.html"
 
     @rem etc
