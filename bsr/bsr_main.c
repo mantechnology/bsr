@@ -5043,7 +5043,7 @@ enum bsr_ret_code bsr_create_device(struct bsr_config_context *adm_ctx, unsigned
 	struct bsr_device *device;
 	struct bsr_peer_device *peer_device, *tmp_peer_device;
 	struct gendisk *disk;
-#ifndef COMPAT_HAVE_BLK_ALLOC_DISK
+#if !defined(COMPAT_HAVE_BLK_ALLOC_DISK) && !defined(COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS)
     struct request_queue *q = NULL;
 #endif
 

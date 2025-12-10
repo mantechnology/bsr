@@ -1269,7 +1269,7 @@ static void maybe_schedule_on_disk_bitmap_update(struct bsr_peer_device *peer_de
 }
 
 // BSR-1547
-int w_notify_oos_if_a_zero_or_not(struct bsr_work *w, int cancel) 
+static int w_notify_oos_if_a_zero_or_not(struct bsr_work *w, int cancel) 
 {
 	struct peer_device_info peer_device_info;
 	struct bsr_peer_device_work *pw =

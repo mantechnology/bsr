@@ -46,7 +46,11 @@
 #include <linux/blkpg.h>
 #include <linux/cpumask.h>
 #include <linux/random.h>
+#ifdef COMPAT_HAVE_LINUX_UNALIGNED_H
+#include <linux/unaligned.h>
+#else
 #include <asm/unaligned.h>
+#endif
 #include <linux/kthread.h>
 #include <linux/security.h>
 #include <net/genetlink.h>
@@ -1721,7 +1725,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 	// BSR-1064
 	if (!wait_until_vol_ctl_mutex_is_used(resource)) {
 		mutex_unlock(&resource->adm_mutex);
-		retcode = ERR_VOL_LOCK_ACQUISITION_TIMEOUT;
+		retcode = (enum bsr_state_rv) ERR_VOL_LOCK_ACQUISITION_TIMEOUT;
 		bsr_msg_put_info(adm_ctx.reply_skb, "Failed to change role");
 		goto out;
 	}
@@ -3175,9 +3179,6 @@ static struct block_device *open_backing_dev(
 #endif
 	struct block_device *bdev = NULL;
 	int err = 0;
-	int retry = 0;
-
-retry:
 	// BSR-1452
 #ifdef COMPAT_HAVE_BLKDEV_FILE
 	file = bdev_file_open_by_path(bdev_path, BLK_OPEN_READ | BLK_OPEN_WRITE, claim_ptr, NULL);
@@ -3191,6 +3192,9 @@ retry:
 		return file;
 	bdev = file_bdev(file);
 #else
+	int retry = 0;
+
+retry:
 #ifdef COMPAT_HAVE_BLKDEV_HANDLE
 	handle = bdev_open_by_path(bdev_path, BLK_OPEN_READ | BLK_OPEN_WRITE, claim_ptr, NULL);
 	if (!handle) {
@@ -8832,7 +8836,7 @@ int bsr_adm_minor_mount_path(struct sk_buff *skb, struct genl_info *info)
 		
 	parms = bsr_kmalloc(sizeof(struct minor_mount_path_params), GFP_KERNEL, '');	
 	if(!parms) {
-		retcode = ERR_NOMEM;
+		retcode = (enum bsr_state_rv) ERR_NOMEM;
 		goto out_no_adm;
 	}
 	err = minor_mount_path_params_from_attrs(parms, info);
@@ -8851,7 +8855,7 @@ int bsr_adm_minor_mount_path(struct sk_buff *skb, struct genl_info *info)
 	}
 	device->mount_path = bsr_kmalloc(strlen(parms->minor_mount_path) + 1, GFP_KERNEL, '');
 	if (!device->mount_path) {
-		retcode = ERR_NOMEM;
+		retcode = (enum bsr_state_rv) ERR_NOMEM;
 		goto out_unlock;
 	}
 	strcpy(device->mount_path, parms->minor_mount_path);
