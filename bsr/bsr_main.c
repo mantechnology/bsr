@@ -3987,7 +3987,6 @@ void bsr_destroy_device(struct kref *kref)
 #else
 // BSR-1521
 #ifdef COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS
-    del_gendisk(device->vdisk);
     put_disk(device->vdisk);
 #else
 	put_disk(device->vdisk);
@@ -5375,10 +5374,14 @@ out_remove_peer_device:
 			idr_remove(&connection->peer_devices, device->vnr);
 			list_del(&peer_device->peer_devices);
 			bsr_kfree(peer_device);
+			kref_debug_put(&device->kref_debug, 1);
 		}
+		idr_remove(&resource->devices, vnr);
+		kref_debug_put(&device->kref_debug, 1);
     }
 out_idr_remove_minor:
 	idr_remove(&bsr_devices, minor);
+	kref_debug_put(&device->kref_debug, 1);
 
 out_no_minor_idr:
 	if (locked)
@@ -5404,7 +5407,6 @@ out_no_io_page:
 	blk_cleanup_disk(disk);
 // BSR-1521
 #elif defined(COMPAT_HAVE_BLK_ALLOC_DISK_2_PARAMS)
-    del_gendisk(device->vdisk);
     put_disk(device->vdisk);
 #else
 	put_disk(disk);
@@ -5416,6 +5418,9 @@ out_no_disk:
 	blk_cleanup_queue(q);
 out_no_q:
 #endif
+	kref_debug_put(&resource->kref_debug, 4);
+	kref_debug_put(&device->kref_debug, 1);
+	kref_debug_destroy(&device->kref_debug);
 	kref_put(&resource->kref, bsr_destroy_resource);
 	bsr_kfree(device);
 	return err;
