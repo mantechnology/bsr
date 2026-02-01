@@ -1,0 +1,2 @@
+%define _bsr_utils_release %(echo %{release} | sed 's/%{?dist}$//')
+Requires: bsr-utils = %{version}-%{_bsr_utils_release}, kernel-uname-r = %{kernel_version}

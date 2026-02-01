@@ -18,6 +18,7 @@ Release: 1%{?dist}
 
 %global tarball_version %(echo "%{version}" | sed -e "s,%{?dist}$,,")
 Source: bsr-%{tarball_version}.tar.gz
+Source1: kmodtool-no-weak-modules
 License: GPLv2+
 Group: System Environment/Kernel
 # URL: 
@@ -64,8 +65,12 @@ installed kernel.
 # BSR-861 modified to use the appropriate preamble according to uek
 %define _this_uek_kmp_version %(echo %kernel_version | grep -o 'uek.*' || echo '')
 %define _this_kmp_version %{version}_%(echo %kernel_version | sed -r 'y/-/_/; s/\.el.\.(x86_64|i.86)$//;')
+%define _this_amzn_kmp_version %(echo %kernel_version | grep -o 'amzn.*' || echo '')
 %if %{defined _this_uek_kmp_version} && "%{_this_uek_kmp_version}" != ""
 %kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble-uek
+%elif %{defined _this_amzn_kmp_version} && "%{_this_amzn_kmp_version}" != ""
+%global __requires_exclude ^kernel(\(.*\)|[[:space:]]*=[[:space:]]*.*)$
+%kernel_module_package -s %{SOURCE1} -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble-amzn
 %else
 %kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble
 %endif
