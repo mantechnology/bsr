@@ -1,0 +1,35 @@
+#!/bin/sh
+set -eu
+
+# Wrapper around the system kmodtool that removes weak-modules integration.
+# Intended to be used via %kernel_module_package -s ... for Amazon builds.
+
+if [ -x /usr/lib/rpm/amazon/kmodtool ]; then
+	kmodtool=/usr/lib/rpm/amazon/kmodtool
+else
+	kmodtool=/usr/lib/rpm/redhat/kmodtool
+fi
+
+if [ "${1:-}" != "rpmtemplate" ]; then
+	exec "$kmodtool" "$@"
+fi
+
+"$kmodtool" "$@" | awk '
+	BEGIN { skip_weak = 0 }
+	# Drop explicit scriptlet requires for weak-modules.
+	/^Requires\(post\):[[:space:]]*\/usr\/sbin\/weak-modules[[:space:]]*$/ { next }
+	/^Requires\(postun\):[[:space:]]*\/usr\/sbin\/weak-modules[[:space:]]*$/ { next }
+
+	# Drop the weak-modules invocation blocks in %post/%postun scriptlets.
+	# We only skip the block that starts with the weak-modules check.
+	skip_weak {
+		if ($0 ~ /^[[:space:]]*fi[[:space:]]*$/) { skip_weak = 0 }
+		next
+	}
+	/^[[:space:]]*if[[:space:]]+\[[[:space:]]+-x[[:space:]]+"\/usr\/sbin\/weak-modules"[[:space:]]*\];[[:space:]]*then[[:space:]]*$/ {
+		skip_weak = 1
+		next
+	}
+
+	{ print }
+'
