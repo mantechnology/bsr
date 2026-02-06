@@ -2553,7 +2553,10 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 
 		// BSR-1145 allocate accelbuf only when it is less than or equal to the specified size.
 		// the purpose of accelbuf is to improve the local write performance of small-sized writes.
-		if (req->i.size <= device->resource->res_opts.max_accelbuf_blk_size) {
+		// BSR-1646 Skip accelbuf allocation for operations without data (DISCARD, WRITE_ZEROES)
+		if (req->bio_status.op != REQ_OP_DISCARD
+			&& req->bio_status.op != REQ_OP_WRITE_ZEROES
+			&& req->i.size <= device->resource->res_opts.max_accelbuf_blk_size) {
 			// BSR-1280 ring adjust(accelbuf) can call vmalloc, so change the location of the call
 			if (bsr_offset_ring_adjust(&device->accelbuf, device->resource->res_opts.accelbuf_size, "accelbuf"))
 				alloc_accelbuf = true;
