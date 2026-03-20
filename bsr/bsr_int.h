@@ -1736,6 +1736,11 @@ struct bsr_connection {
 	atomic_t ap_in_flight_cnt; /* App cnt in flight (waiting for ack) */
 	atomic_t rs_in_flight_cnt; /* resync-data cnt in flight*/
 
+	// BSR-1672 in_flight timeout check for stuck detection
+	ULONG_PTR in_flight_last_change;
+	int64_t in_flight_last_rs_value;
+	int64_t in_flight_last_ap_value;
+
 	struct bsr_work connect_timer_work;
 	struct timer_list connect_timer;
 
