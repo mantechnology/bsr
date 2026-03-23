@@ -532,7 +532,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_IO_ERROR_MAX_INDEX 11
 #define BSR_LC_BITMAP_MAX_INDEX 152
 #define BSR_LC_LRU_MAX_INDEX 42
-#define BSR_LC_REQUEST_MAX_INDEX 38
+#define BSR_LC_REQUEST_MAX_INDEX 39
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
 #define BSR_LC_RESYNC_OV_MAX_INDEX 248
 #define BSR_LC_REPLICATION_MAX_INDEX 33
@@ -1735,6 +1735,11 @@ struct bsr_connection {
 	// BSR-839 implement congestion-highwater
 	atomic_t ap_in_flight_cnt; /* App cnt in flight (waiting for ack) */
 	atomic_t rs_in_flight_cnt; /* resync-data cnt in flight*/
+
+	// BSR-1672 in_flight timeout check for stuck detection
+	ULONG_PTR in_flight_last_change;
+	int64_t in_flight_last_rs_value;
+	int64_t in_flight_last_ap_value;
 
 	struct bsr_work connect_timer_work;
 	struct timer_list connect_timer;

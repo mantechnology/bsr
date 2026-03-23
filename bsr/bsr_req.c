@@ -3674,6 +3674,7 @@ void request_timer_fn(BSR_TIMER_FN_ARG)
         ULONG_PTR ent = 0;
         ULONG_PTR pre_send_jif = 0;
 		unsigned int ko_count = 0, timeout = 0;
+		int64_t cur_ap, cur_rs;
 
 		rcu_read_lock();
 		nc = rcu_dereference(connection->transport.net_conf);
@@ -3691,6 +3692,28 @@ void request_timer_fn(BSR_TIMER_FN_ARG)
 		if (!ent)
 			continue;
 
+		// BSR-1672
+		cur_rs = atomic_read64(&connection->rs_in_flight);
+		cur_ap = atomic_read64(&connection->ap_in_flight);
+
+		if (cur_rs == 0 && cur_ap == 0) {
+			connection->in_flight_last_change = 0;
+			connection->in_flight_last_rs_value = 0;
+			connection->in_flight_last_ap_value = 0;
+		} else if (connection->in_flight_last_change == 0 ||
+			connection->in_flight_last_rs_value != cur_rs ||
+			connection->in_flight_last_ap_value != cur_ap) {
+			connection->in_flight_last_change = now;
+			connection->in_flight_last_rs_value = cur_rs;
+			connection->in_flight_last_ap_value = cur_ap;
+		} else if (time_after(now, connection->in_flight_last_change + ent) &&
+			!time_in_range(now, connection->last_reconnect_jif, connection->last_reconnect_jif + ent)){
+			bsr_warn(39, BSR_LC_REQUEST, connection,"in_flight stuck: ap=%lld, rs=%lld, timeout", cur_ap, cur_rs);
+				
+			begin_state_change_locked(device->resource, CS_VERBOSE | CS_HARD);
+			__change_cstate(connection, C_TIMEOUT);
+			end_state_change_locked(device->resource, false, __FUNCTION__);
+		}		
 		/* maybe the oldest request waiting for the peer is in fact still
 		 * blocking in tcp sendmsg.  That's ok, though, that's handled via the
 		 * socket send timeout, requesting a ping, and bumping ko-count in
