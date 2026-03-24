@@ -1737,9 +1737,8 @@ struct bsr_connection {
 	atomic_t rs_in_flight_cnt; /* resync-data cnt in flight*/
 
 	// BSR-1672 in_flight timeout check for stuck detection
-	ULONG_PTR in_flight_last_change;
-	int64_t in_flight_last_rs_value;
-	int64_t in_flight_last_ap_value;
+	ULONG_PTR in_flight_last_ap_change;
+	ULONG_PTR in_flight_last_rs_change;
 
 	struct bsr_work connect_timer_work;
 	struct timer_list connect_timer;
@@ -4016,12 +4015,16 @@ static inline void set_ap_in_flight(struct bsr_connection *connection, unsigned 
 	atomic_set64(&connection->ap_in_flight, i);
 	// BSR-839
 	atomic_set(&connection->ap_in_flight_cnt, i);
+	// BSR-1672 
+	connection->in_flight_last_ap_change = 0;
 }
 static inline void add_ap_in_flight(unsigned int size, struct bsr_connection *connection)
 {
 	atomic_add64(size, &connection->ap_in_flight);
 	// BSR-839
 	atomic_inc(&connection->ap_in_flight_cnt);
+	// BSR-1672
+	connection->in_flight_last_ap_change = jiffies;
 }
 static inline void sub_ap_in_flight(unsigned int size, struct bsr_connection *connection)
 {
@@ -4030,18 +4033,24 @@ static inline void sub_ap_in_flight(unsigned int size, struct bsr_connection *co
 	
 	if (atomic_dec_return(&connection->ap_in_flight_cnt) < 0)
 		atomic_set(&connection->ap_in_flight_cnt, 0);
+	// BSR-1672
+	connection->in_flight_last_ap_change = jiffies;
 }
 static inline void set_rs_in_flight(struct bsr_connection *connection, unsigned int i)
 {
 	atomic_set64(&connection->rs_in_flight, i);
 	// BSR-839
 	atomic_set(&connection->rs_in_flight_cnt, i);
+	// BSR-1672
+	connection->in_flight_last_rs_change = 0;
 }
 static inline void add_rs_in_flight(unsigned int size, struct bsr_connection *connection)
 {
 	atomic_add64(size, &connection->rs_in_flight);
 	// BSR-839
 	atomic_inc(&connection->rs_in_flight_cnt);
+	// BSR-1672
+	connection->in_flight_last_rs_change = jiffies;
 }
 static inline void sub_rs_in_flight(unsigned int size, struct bsr_connection *connection, bool sync_done)
 {
@@ -4049,6 +4058,8 @@ static inline void sub_rs_in_flight(unsigned int size, struct bsr_connection *co
 		atomic_set64(&connection->rs_in_flight, 0);
 	if (sync_done && (atomic_dec_return(&connection->rs_in_flight_cnt) < 0))
 		atomic_set(&connection->rs_in_flight_cnt, 0);
+	// BSR-1672
+	connection->in_flight_last_rs_change = jiffies;
 }
 
 
