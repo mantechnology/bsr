@@ -504,9 +504,7 @@ ____bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start,
 	ULONG_PTR word;
 	ULONG_PTR page;
 	unsigned int bit_in_page;
-#ifdef _DEBUG_OOS	
 	ULONG_PTR init_start = start;
-#endif
 	ULONG_PTR real_end = 0;
 
 	if (op == BM_OP_RANGE_FIND_BIT ||
@@ -720,16 +718,25 @@ ____bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start,
 	}
 	switch(op) {
 	case BM_OP_CLEAR:
-		if (total)
+		if (total) {
+			// BSR-1679 Set the bm_set to 0 to avoid underflow
+			if (bitmap->bm_set[bitmap_index] < total) {
+				bitmap->bm_set[bitmap_index] = 0;
+				bsr_warn(153, BSR_LC_BITMAP, device,
+					"out-of-sync block counter underflow detected: bm_set(%llu) < cleared_blocks(%llu). bitmap_index(%u), pos(%lu ~ %lu)",
+					(unsigned long long)bitmap->bm_set[bitmap_index],
+					(unsigned long long)total,
+					bitmap_index,
+					init_start,
+					end);
+			} else {
+				bitmap->bm_set[bitmap_index] -= total;
+			}
 #ifdef _DEBUG_OOS
-		{
-			bitmap->bm_set[bitmap_index] -= total;
 			// DW-1153 Write log when clear bit.
 			WriteOOSTraceLog(bitmap_index, init_start, end, total, SET_IN_SYNC);
-		}
-#else
-			bitmap->bm_set[bitmap_index] -= total;
 #endif
+		}
 		break;
 	case BM_OP_SET:
 	case BM_OP_MERGE:
