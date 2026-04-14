@@ -721,7 +721,6 @@ ____bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start,
 		if (total) {
 			// BSR-1679 Set the bm_set to 0 to avoid underflow
 			if (bitmap->bm_set[bitmap_index] < total) {
-				bitmap->bm_set[bitmap_index] = 0;
 				bsr_warn(153, BSR_LC_BITMAP, device,
 					"out-of-sync block counter underflow detected: bm_set(%llu) < cleared_blocks(%llu). bitmap_index(%u), pos(%lu ~ %lu)",
 					(unsigned long long)bitmap->bm_set[bitmap_index],
@@ -729,6 +728,7 @@ ____bm_op(struct bsr_device *device, unsigned int bitmap_index, ULONG_PTR start,
 					bitmap_index,
 					init_start,
 					end);
+				bitmap->bm_set[bitmap_index] = 0;
 			} else {
 				bitmap->bm_set[bitmap_index] -= total;
 			}
