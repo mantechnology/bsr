@@ -250,6 +250,8 @@ enum bsr_ret_code {
 	// BSR-1585
 	ERR_UNSUPPORTED_BTRFS_RAID = 182,
 	ERR_VERIFY_BTRFS_RAID = 183,
+	// BSR-1648
+	ERR_ATTACH_PRIMARY_DISKLESS = 184,
 	/* insert new ones above this line */
 	AFTER_LAST_ERR_CODE
 };

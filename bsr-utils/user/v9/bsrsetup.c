@@ -744,6 +744,8 @@ static const char *error_messages[] = {
 	EM(ERR_NODE_UNSTABLE) = "Failed because it is node unstable",
 	EM(ERR_UNSUPPORTED_BTRFS_RAID) = "Failed because the Btrfs RAID is not supported",
 	EM(ERR_VERIFY_BTRFS_RAID) = "Failed to verify that it is Btrfs/RAID.",
+	// BSR-1648
+	EM(ERR_ATTACH_PRIMARY_DISKLESS) = "Refused to attach on primary while diskless. Use --force to override.",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 

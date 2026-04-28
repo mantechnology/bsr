@@ -129,6 +129,7 @@ GENL_struct(BSR_NLA_DISK_CONF, 3, disk_conf,
 	__flg_field_def(23,     0 /* OPTIONAL */,	al_updates, BSR_AL_UPDATES_DEF)
 	__flg_field_def(24,     0 /* OPTIONAL */,       discard_zeroes_if_aligned, BSR_DISCARD_ZEROES_IF_ALIGNED_DEF)
 	__flg_field_def(26, 0 /* OPTIONAL */, disable_write_same, BSR_DISABLE_WRITE_SAME_DEF)
+	__flg_field_def(27, 0 /* OPTIONAL */, force_attach, false) // BSR-1648
 )
 
 GENL_struct(BSR_NLA_RESOURCE_OPTS, 4, res_opts,

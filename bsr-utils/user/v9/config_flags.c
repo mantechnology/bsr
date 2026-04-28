@@ -1050,6 +1050,7 @@ struct context_def attach_cmd_ctx = {
 		{ "size", NUMERIC(disk_size, DISK_SIZE),
 		  .unit = "bytes" },
 		CHANGEABLE_DISK_OPTIONS,
+		{ "force", FLAG(force_attach) }, // BSR-1648
 		/* { "*", STRING(backing_dev) }, */
 		/* { "*", STRING(meta_dev) }, */
 		/* { "*", NUMERIC(meta_dev_idx, MINOR_NUMBER) }, */
