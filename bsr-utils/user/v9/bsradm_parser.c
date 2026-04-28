@@ -1110,6 +1110,61 @@ struct d_volume *volume0(struct volumes *volumes, char *platform)
 	}
 }
 
+/* Parse free-form userdata entries recursively.
+   Accepts: key value; | key; | key { ... }
+   Returns when '}' is encountered. */
+static struct options parse_userdata_entries(void)
+{
+	struct options options = STAILQ_HEAD_INITIALIZER(options);
+	struct d_option *opt;
+	int token;
+	char *key;
+
+	while (1) {
+		token = yylex();
+		fline = line;
+		if (token == '}')
+			return options;
+		if (token == 0) {
+			err("%s:%d: unexpected end of file in userdata section\n",
+			    config_file, fline);
+			exit(E_CONFIG_INVALID);
+		}
+
+		key = yylval.txt ? strdup(yylval.txt) : strdup(yytext);
+
+		token = yylex();
+		if (token == '{') {
+			/* nested block: key { ... } */
+			opt = new_opt(key, NULL);
+			opt->children = malloc(sizeof(struct options));
+			if (!opt->children) {
+				err("malloc: %m\n");
+				exit(E_EXEC_ERROR);
+			}
+			*opt->children = parse_userdata_entries();
+			insert_tail(&options, opt);
+		} else if (token == ';') {
+			/* value-less flag: key; */
+			opt = new_opt(key, NULL);
+			insert_tail(&options, opt);
+		} else {
+			/* key value; */
+			char *value = yylval.txt ? strdup(yylval.txt) : strdup(yytext);
+			EXP(';');
+			opt = new_opt(key, value);
+			opt->is_escaped = 1;
+			insert_tail(&options, opt);
+		}
+	}
+}
+
+static struct options parse_userdata(void)
+{
+	EXP('{');
+	return parse_userdata_entries();
+}
+
 int parse_volume_stmt(struct d_volume *vol, struct names* on_hosts, int token)
 {
 	if (!vol->v_config_file)
@@ -2067,6 +2122,8 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 	STAILQ_INIT(&res->handlers);
 	STAILQ_INIT(&res->proxy_options);
 	STAILQ_INIT(&res->proxy_plugins);
+	// BSR-1635
+	STAILQ_INIT(&res->userdata);
 	STAILQ_INIT(&res->meshes);
 	res->name = res_name;
 	res->config_file = config_save;
@@ -2200,6 +2257,11 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 		case TK_TEMPLATE_FILE:
 			res->template = template_file(res_name);
 			break;
+		case TK_USERDATA:
+			// BSR-1635
+			check_upr("userdata section", "%s:userdata", res->name);
+			res->userdata = parse_userdata();
+			break;
 		case TK_SKIP:
 			parse_skip();
 			break;
@@ -2211,11 +2273,11 @@ struct d_resource* parse_resource(char* res_name, enum pr_flags flags)
 #ifdef CONFIG_MULTI_PLATFORM
 			pe_expected_got("protocol | disk | net | syncer |"
 					" on | on-windows | on-linux | floating | floating-on-windows | floating-on-linux |"
-					" startup | handlers | connection |"
+					" startup | handlers | connection | userdata |"
 					" ignore-on | skip",token);
 #else
 			pe_expected_got("protocol | on | disk | net | syncer |"
-					" startup | handlers | connection |"
+					" startup | handlers | connection | userdata |"
 					" ignore-on | stacked-on-top-of | skip",token);
 #endif
 		}

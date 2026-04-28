@@ -95,6 +95,38 @@ static void dump_options(char *name, struct options *options)
 	dump_options2(name, options, NULL, NULL);
 }
 
+static void dump_userdata_entries(struct options *options)
+{
+	struct d_option *option;
+
+	STAILQ_FOREACH(option, options, link) {
+		if (option->children) {
+			printI("%s {\n", option->name);
+			++indent;
+			dump_userdata_entries(option->children);
+			--indent;
+			printI("}\n");
+		} else if (option->value) {
+			printI("%s \"%s\";\n", option->name,
+			       option->is_escaped ? option->value : esc(option->value));
+		} else {
+			printI(BFMT, option->name);
+		}
+	}
+}
+
+static void dump_userdata(char *name, struct options *options)
+{
+	if (STAILQ_EMPTY(options))
+		return;
+
+	printI("%s {\n", name);
+	++indent;
+	dump_userdata_entries(options);
+	--indent;
+	printI("}\n");
+}
+
 static void dump_proxy_plugins(struct options *options)
 {
 	dump_options("plugin", options);
@@ -150,6 +182,8 @@ static void dump_common_info()
 	dump_options2("proxy", &common->proxy_options,
 			dump_proxy_plugins, &common->proxy_plugins);
 	dump_options("handlers", &common->handlers);
+	// BSR-1635
+	dump_userdata("userdata", &common->userdata);
 	--indent;
 	printf("}\n\n");
 }
@@ -414,6 +448,39 @@ static void dump_options_xml(char *name, struct options *options)
 	dump_options_xml2(name, options, NULL, NULL);
 }
 
+static void dump_userdata_entries_xml(struct options *options)
+{
+	struct d_option *option;
+
+	STAILQ_FOREACH(option, options, link) {
+		if (option->children) {
+			printI("<section name=\"%s\">\n", esc_xml(option->name));
+			++indent;
+			dump_userdata_entries_xml(option->children);
+			--indent;
+			printI("</section>\n");
+		} else if (option->value) {
+			printI("<option name=\"%s\" value=\"%s\"/>\n",
+			       esc_xml(option->name),
+			       option->is_escaped ? option->value : esc_xml(option->value));
+		} else {
+			printI("<option name=\"%s\"/>\n", esc_xml(option->name));
+		}
+	}
+}
+
+static void dump_userdata_xml(char *name, struct options *options)
+{
+	if (STAILQ_EMPTY(options))
+		return;
+
+	printI("<section name=\"%s\">\n", name);
+	++indent;
+	dump_userdata_entries_xml(options);
+	--indent;
+	printI("</section>\n");
+}
+
 static void dump_proxy_plugins_xml(struct options *options)
 {
 	dump_options_xml("plugin", options);
@@ -461,6 +528,8 @@ static void dump_common_info_xml()
 	dump_options_xml2("proxy", &common->proxy_options,
 			  dump_proxy_plugins, &common->proxy_plugins);
 	dump_options_xml("handlers", &common->handlers);
+	// BSR-1635
+	dump_userdata_xml("userdata", &common->userdata);
 	--indent;
 	printI("</common>\n");
 }
@@ -750,6 +819,8 @@ int adm_dump(const struct cfg_ctx *ctx)
 	dump_options2("proxy", &res->proxy_options,
 			dump_proxy_plugins, &res->proxy_plugins);
 	dump_options("handlers", &res->handlers);
+	// BSR-1635
+	dump_userdata("userdata", &res->userdata);
 	--indent;
 	printf("}\n\n");
 
@@ -791,6 +862,8 @@ int adm_dump_xml(const struct cfg_ctx *ctx)
 	dump_options_xml2("proxy", &res->proxy_options,
 			dump_proxy_plugins_xml, &res->proxy_plugins);
 	dump_options_xml("handlers", &res->handlers);
+	// BSR-1635
+	dump_userdata_xml("userdata", &res->userdata);
 	--indent;
 	printI("</resource>\n");
 
