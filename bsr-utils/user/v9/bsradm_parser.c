@@ -1150,7 +1150,7 @@ static struct options parse_userdata_entries(void)
 			insert_tail(&options, opt);
 		} else {
 			/* key value; */
-			char *value = yylval.txt ? strdup(yylval.txt) : strdup(yytext);
+			char *value = (token == TK_STRING && yylval.txt) ? strdup(yylval.txt) : strdup(yytext);
 			EXP(';');
 			opt = new_opt(key, value);
 			opt->is_escaped = 1;
