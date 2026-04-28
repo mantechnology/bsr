@@ -1131,7 +1131,7 @@ static struct options parse_userdata_entries(void)
 			exit(E_CONFIG_INVALID);
 		}
 
-		key = yylval.txt ? strdup(yylval.txt) : strdup(yytext);
+		key = (token == TK_STRING && yylval.txt) ? strdup(yylval.txt) : strdup(yytext);
 
 		token = yylex();
 		if (token == '{') {
