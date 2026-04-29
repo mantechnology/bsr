@@ -1155,6 +1155,7 @@ static int sh_peer_nodes(const struct cfg_ctx *ctx)
 	return 0;
 }
 
+static void free_options(struct options *options);
 
 static void free_volume(struct d_volume *vol)
 {
@@ -1195,6 +1196,29 @@ static void free_options(struct options *options)
 {
 	struct d_option *f, *option = STAILQ_FIRST(options);
 	while (option) {
+		if (option->children) {
+			free_options(option->children);
+			free(option->children);
+		}
+		free(option->value);
+		f = option;
+		option = STAILQ_NEXT(option, link);
+		free(f);
+	}
+}
+
+/* BSR-1635: userdata option names are heap-allocated (strdup'd), so they
+ * must be freed explicitly. Regular options use static field_def->name
+ * strings which must NOT be freed, hence the separate function. */
+static void free_userdata_options(struct options *options)
+{
+	struct d_option *f, *option = STAILQ_FIRST(options);
+	while (option) {
+		if (option->children) {
+			free_userdata_options(option->children);
+			free(option->children);
+		}
+		free(option->name);
 		free(option->value);
 		f = option;
 		option = STAILQ_NEXT(option, link);
@@ -1230,6 +1254,7 @@ static void free_config()
 		free_options(&f->startup_options);
 		free_options(&f->proxy_options);
 		free_options(&f->handlers);
+		free_userdata_options(&f->userdata);
 		t = STAILQ_NEXT(f, link);
 		free(f);
 		f = t;
@@ -1240,6 +1265,7 @@ static void free_config()
 		free_options(&common->startup_options);
 		free_options(&common->proxy_options);
 		free_options(&common->handlers);
+		free_userdata_options(&common->userdata);
 		free(common);
 	}
 
@@ -2212,6 +2238,12 @@ static int adm_path(const struct cfg_ctx *ctx)
 
 void free_opt(struct d_option *item)
 {
+	if (item->children) {
+		struct d_option *child, *tmp;
+		STAILQ_FOREACH_SAFE(child, tmp, item->children, link)
+			free_opt(child);
+		free(item->children);
+	}
 	free(item->value);
 	free(item);
 }

@@ -42,6 +42,8 @@ struct d_option
 	STAILQ_ENTRY(d_option) link;
 	char* name;
 	char* value;
+	// BSR-1635
+	struct options *children; /* non-NULL for nested userdata blocks */
 	unsigned int mentioned  :1 ; // for the adjust command.
 	unsigned int is_escaped :1 ;
 	unsigned int adj_skip :1;
@@ -268,6 +270,8 @@ struct d_resource
 	struct options handlers;
 	struct options proxy_options;
 	struct options proxy_plugins;
+	// BSR-1635
+	struct options userdata; /* free-form user data */
 	STAILQ_ENTRY(d_resource) link;
 	char *config_file; /* The config file this resource is define in.*/
 	int start_line;

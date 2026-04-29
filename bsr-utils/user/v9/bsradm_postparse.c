@@ -1592,6 +1592,49 @@ void post_parse(struct resources *resources, enum pp_flags flags)
 		fixup_peer_devices(res);
 }
 
+static struct d_option *deep_copy_option(struct d_option *src)
+{
+	struct d_option *dst, *child_copy;
+	struct d_option *child;
+
+	dst = new_opt(strdup(src->name),
+		      src->value ? strdup(src->value) : NULL);
+	dst->is_escaped = src->is_escaped;
+	dst->inherited = 1;
+
+	if (src->children) {
+		dst->children = malloc(sizeof(struct options));
+		if (!dst->children) {
+			err("malloc: %m\n");
+			exit(E_EXEC_ERROR);
+		}
+		STAILQ_INIT(dst->children);
+		STAILQ_FOREACH(child, src->children, link) {
+			child_copy = deep_copy_option(child);
+			insert_tail(dst->children, child_copy);
+		}
+	}
+
+	return dst;
+}
+
+static void expand_userdata(struct options *from, struct options *to)
+{
+	struct d_option *src, *existing, *copy;
+
+	STAILQ_FOREACH(src, from, link) {
+		existing = find_opt(to, src->name);
+		if (!existing) {
+			copy = deep_copy_option(src);
+			insert_head(to, copy);
+		} else if (existing->children && src->children) {
+			/* Both are nested blocks — merge recursively */
+			expand_userdata(src->children, existing->children);
+		}
+		/* If types differ (block vs leaf) or leaf already exists, leave as-is */
+	}
+}
+
 static void expand_opts(struct d_resource *res, struct context_def *oc, struct options *common, struct options *options)
 {
 	struct d_option *option, *new_option, *existing_option;
@@ -1672,6 +1715,9 @@ void expand_common(void)
 				res->stacked_timeouts = 1;
 
 			expand_opts(res, &wildcard_ctx, &template->proxy_plugins, &res->proxy_plugins);
+
+			// BSR-1635
+			expand_userdata(&template->userdata, &res->userdata);
 		}
 
 		/* now that common disk options (if any) have been propagated to the
@@ -1695,8 +1741,9 @@ void expand_common(void)
 		}
 
 		/* inherit network options from resource objects into connection objects */
-		for_each_connection(conn, &res->connections)
+		for_each_connection(conn, &res->connections) {
 			expand_opts(res, &show_net_options_ctx, &res->net_options, &conn->net_options);
+		}
 
 		/* inherit proxy options from resource to the proxies in the connections */
 		for_each_connection(conn, &res->connections) {

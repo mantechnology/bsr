@@ -109,6 +109,7 @@ enum yytokentype {
 	TK_GROUP, // BSR-1409
 	TK_GROUPS, // BSR-1409
 	TK__PEER_NODE_GROUP, // BSR-1409
+	TK_USERDATA, // BSR-1635
 };
 
 typedef struct YYSTYPE {
