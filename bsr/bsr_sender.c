@@ -2693,6 +2693,10 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 		list_add(&split_list->sector_list, &peer_device->ov_skip_sectors_list);
 	}
 	
+	if (skip_sst == skip_est) {
+		spin_unlock_irq(&peer_device->ov_lock);
+		return (sector_t)-1;
+	}
 
 	// send ov request sst ~ skip_sst
 	if (sst < skip_sst) {
@@ -2736,13 +2740,16 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 	list_for_each_entry_safe_ex(struct bsr_scope_sector, skipped, tmp, &peer_device->ov_skip_sectors_list, sector_list) 
 	{
 		if (is_skipped_sectors(skipped, sst, est)) {
+			spin_unlock_irq(&peer_device->ov_lock);
+			ret_sst = make_split_ov_request(peer_device, skipped, sst, est, split_ov_done);
+			spin_lock_irq(&peer_device->ov_lock);
+			if (ret_sst == (sector_t)-1)
+				continue;
+
 			if (!is_skipped) {
 				is_skipped = true;
 				bsr_debug(226, BSR_LC_RESYNC_OV, peer_device, "ov reply sector %llu size(%d)", sst, est - sst);
 			}
-			spin_unlock_irq(&peer_device->ov_lock);
-			ret_sst = make_split_ov_request(peer_device, skipped, sst, est, split_ov_done);
-			spin_lock_irq(&peer_device->ov_lock);
 			if ((ret_sst == sst) || (ret_sst == est)) {
 				split_ov_done = true;
 				break;
