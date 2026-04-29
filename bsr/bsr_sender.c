@@ -2842,6 +2842,8 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 					continue;
 				if (!(tl_req->rq_state[0] & RQ_WRITE))
 					continue;
+				if (tl_req->rq_state[1 + peer_device->node_id] & RQ_NET_DONE)
+					continue;
 				if (tl_req->i.sector >= sector + (size >> 9))
 					continue;
 				if (tl_req->i.sector + (tl_req->i.size >> 9) <= sector)
