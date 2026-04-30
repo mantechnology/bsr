@@ -2833,28 +2833,9 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 
 	// BSR-997
 	if (!is_skipped) {
-		if (!eq) {			
-			bool has_inflight_write = false;
-			struct bsr_request *tl_req;
-			spin_lock_irq(&device->resource->req_lock);
-			list_for_each_entry_ex(struct bsr_request, tl_req, &device->resource->transfer_log, tl_requests) {
-				if (tl_req->device != device)
-					continue;
-				if (!(tl_req->rq_state[0] & RQ_WRITE))
-					continue;
-				if (tl_req->rq_state[1 + peer_device->node_id] & RQ_NET_DONE)
-					continue;
-				if (tl_req->i.sector >= sector + (size >> 9))
-					continue;
-				if (tl_req->i.sector + (tl_req->i.size >> 9) <= sector)
-					continue;
-				has_inflight_write = true;
-				break;
-			}
-			spin_unlock_irq(&device->resource->req_lock);
-			if (!has_inflight_write)
-				bsr_ov_out_of_sync_found(peer_device, sector, size);
-		} else
+		if (!eq)
+			bsr_ov_out_of_sync_found(peer_device, sector, size);
+		else
 			ov_out_of_sync_print(peer_device, false);
 
 		verify_progress(peer_device, sector, size, true);
