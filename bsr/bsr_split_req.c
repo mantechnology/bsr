@@ -569,7 +569,7 @@ eof:
 					i++, sst, est, (unsigned long long)target->start, (unsigned long long)target->end);
 		} else {
 			// BSR-1655 change verify skipped sector logs from info to debug to avoid excessive log output
-			bsr_debug(218, BSR_LC_RESYNC_OV, NO_OBJECT, "%d. ov skipped scope scope sector sst %llu est %llu  list %llu ~ %llu",
+			bsr_debug(218, BSR_LC_RESYNC_OV, NO_OBJECT, "%d. ov skipped scope sector sst %llu est %llu  list %llu ~ %llu",
 					i++, sst, est, (unsigned long long)target->start, (unsigned long long)target->end);
 		}
 	}
