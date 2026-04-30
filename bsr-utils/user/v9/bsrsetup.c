@@ -744,6 +744,8 @@ static const char *error_messages[] = {
 	EM(ERR_NODE_UNSTABLE) = "Failed because it is node unstable",
 	EM(ERR_UNSUPPORTED_BTRFS_RAID) = "Failed because the Btrfs RAID is not supported",
 	EM(ERR_VERIFY_BTRFS_RAID) = "Failed to verify that it is Btrfs/RAID.",
+	// BSR-1648
+	EM(ERR_ATTACH_PRIMARY_DISKLESS) = "Refused to attach on primary while diskless. Use --force to override.",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 
@@ -2081,7 +2083,10 @@ static void print_options(struct nlattr *attr, struct context_def *ctx, const ch
 		// BSR-859 skip, output in another section
 		// node-name is output in the _this_host section
 		// peer-node-name is output in the connection section
-		if (!strcmp(field->name, "peer-node-name") || !strcmp(field->name, "node-name"))
+		// BSR-1648 skip force for attach output
+		if (!strcmp(field->name, "peer-node-name") ||
+		    !strcmp(field->name, "node-name") ||
+		    (!strcmp(field->name, "force") && ctx == &attach_cmd_ctx))
 			continue;
 		str = field->ops->get(ctx, field, nlattr);
 		is_default = field->ops->is_default(field, str);

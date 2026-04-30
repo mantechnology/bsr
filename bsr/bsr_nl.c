@@ -3631,6 +3631,15 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	 * to realize a "hot spare" feature (not that I'd recommend that) */
 	wait_event(device->misc_wait, !test_bit(GOING_DISKLESS, &device->flags));
 
+	// BSR-1648 if this is a primary node, we should not allow attach without force_attach, as it may cause data loss. 
+	// Force attach is only for the scenario where the primary node is diskless and needs to attach a new disk.
+	if (resource->role[NOW] == R_PRIMARY && !new_disk_conf->force_attach) {
+		bsr_err(99, BSR_LC_GENL, device,
+			"Attach refused on primary node while diskless.");
+		retcode = ERR_ATTACH_PRIMARY_DISKLESS;
+		goto fail;
+	}
+
 	/* make sure there is no leftover from previous force-detach attempts */
 	clear_bit(FORCE_DETACH, &device->flags);
 
