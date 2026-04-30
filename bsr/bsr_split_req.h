@@ -34,7 +34,7 @@ struct bsr_split_req_bitmap_bit {
 };
 
 // DW-2042, BSR-997
-int bsr_scope_list_add(struct list_head *scope_sectors, sector_t sst, sector_t est);
+int bsr_scope_list_add(struct list_head *scope_sectors, sector_t sst, sector_t est, bool resync);
 // DW-2042, BSR-997 if you already have a range, remove the duplicate entry. (all list item)
 void bsr_scope_list_all_check_and_dedup(struct list_head *scope_sectors, struct bsr_scope_sector *new_scope);
 // DW-2042, BSR-997 validate that range is already (null return if not already)

@@ -9285,7 +9285,7 @@ static int receive_out_of_sync(struct bsr_connection *connection, struct packet_
 			if (peer_device->connection->agreed_pro_version >= 113) {
 				int err;
 				mutex_lock(&device->resync_pending_fo_mutex);
-				err = bsr_scope_list_add(&device->resync_pending_sectors, sector, sector + (be32_to_cpu(p->blksize) >> 9));
+				err = bsr_scope_list_add(&device->resync_pending_sectors, sector, sector + (be32_to_cpu(p->blksize) >> 9), true);
 				mutex_unlock(&device->resync_pending_fo_mutex);
 				if (err < 0)
 					return err;
