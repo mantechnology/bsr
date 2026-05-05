@@ -6165,6 +6165,14 @@ int log_consumer_thread(void *unused)
 			chk_complete = false;
 
 #ifdef _WIN
+			{
+				FILE_STANDARD_INFORMATION fileStdInfo;
+				if (NT_SUCCESS(ZwQueryInformationFile(hFile, &ioStatus, &fileStdInfo, sizeof(fileStdInfo), FileStandardInformation))
+					&& fileStdInfo.DeletePending) {
+					bsr_err(27, BSR_LC_LOG, NO_OBJECT, "Log file does not exist..");
+					break;
+				}
+			}
 			status = ZwWriteFile(hFile, NULL, NULL, NULL, &ioStatus, (PVOID)(buffer + IDX_OPTION_LENGTH), (ULONG)strlen(buffer + IDX_OPTION_LENGTH), NULL, NULL);
 			if (!NT_SUCCESS(status)) {
 				bsr_err(13, BSR_LC_LOG, NO_OBJECT, "Failed to write log. status(%x)", status);
