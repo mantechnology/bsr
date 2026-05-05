@@ -518,7 +518,7 @@ int bsr_list_add_marked(struct bsr_peer_device* peer_device, sector_t sst, secto
 	return 0;
 }
 
-int bsr_scope_list_add(struct list_head *scope_sectors, sector_t sst, sector_t est)
+int bsr_scope_list_add(struct list_head *scope_sectors, sector_t sst, sector_t est, bool resync)
 {
 	struct bsr_scope_sector *new_scope = NULL;
 	struct bsr_scope_sector *target = NULL;
@@ -564,8 +564,14 @@ int bsr_scope_list_add(struct list_head *scope_sectors, sector_t sst, sector_t e
 	}
 eof:
 	list_for_each_entry_ex(struct bsr_scope_sector, target, scope_sectors, sector_list) {
-		bsr_info(218, BSR_LC_RESYNC_OV, NO_OBJECT, "%d. scope sector sst %llu est %llu  list %llu ~ %llu",
-			i++, sst, est, (unsigned long long)target->start, (unsigned long long)target->end);
+		if (resync) {
+			bsr_info(218, BSR_LC_RESYNC_OV, NO_OBJECT, "%d. resync pending scope sector sst %llu est %llu  list %llu ~ %llu",
+					i++, sst, est, (unsigned long long)target->start, (unsigned long long)target->end);
+		} else {
+			// BSR-1655 change verify skipped sector logs from info to debug to avoid excessive log output
+			bsr_debug(218, BSR_LC_RESYNC_OV, NO_OBJECT, "%d. ov skipped scope sector sst %llu est %llu  list %llu ~ %llu",
+					i++, sst, est, (unsigned long long)target->start, (unsigned long long)target->end);
+		}
 	}
 
 	return 0;

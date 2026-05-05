@@ -2545,7 +2545,7 @@ static void bsr_send_and_submit(struct bsr_device *device, struct bsr_request *r
 			if (peer_device->repl_state[NOW] == L_VERIFY_S) {
 				spin_lock_irq(&peer_device->ov_lock);
 				if (is_ov_in_progress(peer_device, req->i.sector, (req->i.sector + (req->i.size >> 9) - 1))) {
-					bsr_scope_list_add(&peer_device->ov_skip_sectors_list, req->i.sector, req->i.sector + (req->i.size >> 9));
+					bsr_scope_list_add(&peer_device->ov_skip_sectors_list, req->i.sector, req->i.sector + (req->i.size >> 9), false);
 				}
 				spin_unlock_irq(&peer_device->ov_lock);
 			}

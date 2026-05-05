@@ -534,7 +534,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_LRU_MAX_INDEX 42
 #define BSR_LC_REQUEST_MAX_INDEX 39
 #define BSR_LC_PEER_REQUEST_MAX_INDEX 33
-#define BSR_LC_RESYNC_OV_MAX_INDEX 248
+#define BSR_LC_RESYNC_OV_MAX_INDEX 249
 #define BSR_LC_REPLICATION_MAX_INDEX 33
 #define BSR_LC_CONNECTION_MAX_INDEX 37
 #define BSR_LC_UUID_MAX_INDEX 41
@@ -3146,13 +3146,36 @@ static inline void ov_skipped_print(struct bsr_peer_device *peer_device, bool ov
 
 	if(ov_done) {
 		struct ov_skipped_info *ov_skipped, *tmp;
+		unsigned int skipped_cnt = 0;
+		unsigned long long total_skipped_sectors = 0;
+		sector_t first_start = 0;
+		sector_t first_size = 0;
+		sector_t last_start = 0;
+		sector_t last_size = 0;
 		list_for_each_entry_safe_ex(struct ov_skipped_info, ov_skipped, tmp, &peer_device->ov_skipped_info_list, list) {
-			bsr_info(9, BSR_LC_RESYNC_OV, peer_device, "Report(%d) skipped verify, too busy. sectors start(%llu), size(%llu)", peer_device->ov_skipped_info_report_num,
+			// BSR-1655 change verify skipped sector logs from info to debug to avoid excessive log output
+			bsr_debug(9, BSR_LC_RESYNC_OV, peer_device, "Report(%d) skipped verify, too busy. sectors start(%llu), size(%llu)", peer_device->ov_skipped_info_report_num,
 				(unsigned long long)ov_skipped->ov_skipped_start,
 				(unsigned long long)ov_skipped->ov_skipped_size);
+			skipped_cnt++;
+			total_skipped_sectors += (unsigned long long)ov_skipped->ov_skipped_size;
+			if (skipped_cnt == 1) {
+				first_start = ov_skipped->ov_skipped_start;
+				first_size = ov_skipped->ov_skipped_size;
+			}
+			last_start = ov_skipped->ov_skipped_start;
+			last_size = ov_skipped->ov_skipped_size;
 
 			list_del(&ov_skipped->list);
 			bsr_kfree(ov_skipped);
+		}
+
+		// BSR-1655 summarize skipped verify info
+		if (skipped_cnt) {
+			bsr_info(249, BSR_LC_RESYNC_OV, peer_device,
+				"Report(%d) skipped verify, too busy. ranges(%u), total sectors(%llu), first sector(%llu) size(%llu), last sector(%llu) size(%llu)",
+				peer_device->ov_skipped_info_report_num, skipped_cnt, total_skipped_sectors,
+				(unsigned long long)first_start, (unsigned long long)first_size, (unsigned long long)last_start, (unsigned long long)last_size);
 		}
 		peer_device->ov_skipped_info_report_num++;
 	}
