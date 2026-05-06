@@ -966,13 +966,21 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 #ifdef _WIN
 		char *ptr;
 		int i;
+		char pathBuf[MAX_PATH] = {0,};
 
-		// BSR-1270
-		for (i = 0; i < strlen(argv[*index]); i++)
-			if (argv[*index][i] == '/')
-				argv[*index][i] = '\\';
+		// BSR-1270, BSR-1680
+		strncpy_s(pathBuf, sizeof(pathBuf), argv[*index], _TRUNCATE);
+		for (i = *index + 1; i < argc; i++) {
+			strncat_s(pathBuf, sizeof(pathBuf), " ", _TRUNCATE);
+			strncat_s(pathBuf, sizeof(pathBuf), argv[i], _TRUNCATE);
+		}
+		*index = argc - 1;
 
-		newPath = strtok_s(argv[*index], "\"", &ptr);
+		for (i = 0; i < (int)strlen(pathBuf); i++)
+			if (pathBuf[i] == '/')
+				pathBuf[i] = '\\';
+
+		newPath = strtok_s(pathBuf, "\"", &ptr);
 #else
 		newPath = argv[*index];
 #endif
