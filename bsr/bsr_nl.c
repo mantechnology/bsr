@@ -7143,6 +7143,12 @@ int bsr_adm_start_ov(struct sk_buff *skb, struct genl_info *info)
 	}
 	mutex_lock(&adm_ctx.resource->adm_mutex);
 
+	if (parms.ov_auto_sync && device->resource->role[NOW] != R_PRIMARY) {
+		retcode = ERR_VERIFY_AUTO_SYNC;
+		mutex_unlock(&adm_ctx.resource->adm_mutex);
+		goto out;
+	}
+
 	/* w_make_ov_request expects position to be aligned */
 	peer_device->ov_start_sector = parms.ov_start_sector & ~(BM_SECT_PER_BIT-1);
 	peer_device->ov_stop_sector = parms.ov_stop_sector;

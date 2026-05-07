@@ -746,6 +746,7 @@ static const char *error_messages[] = {
 	EM(ERR_VERIFY_BTRFS_RAID) = "Failed to verify that it is Btrfs/RAID.",
 	// BSR-1648
 	EM(ERR_ATTACH_PRIMARY_DISKLESS) = "Refused to attach on primary while diskless. Use --force to override.",
+	EM(ERR_VERIFY_AUTO_SYNC) = "auto-sync option is only allowed on Primary node",
 };
 #define MAX_ERROR (sizeof(error_messages)/sizeof(*error_messages))
 
