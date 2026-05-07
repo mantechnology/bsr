@@ -2416,6 +2416,7 @@ static int check_proxy(const struct cfg_ctx *ctx, int do_up)
 	struct connection *conn = ctx->conn;
 	struct path *path = STAILQ_FIRST(&conn->paths); /* multiple paths via proxy, later! */
 	int rv;
+	bool proxy_on_hosts_match = false;
 
 	if (STAILQ_NEXT(path, link)) {
 		err("Multiple paths in connection within proxy setup not allowed\n");
@@ -2437,21 +2438,33 @@ static int check_proxy(const struct cfg_ctx *ctx, int do_up)
 #endif
 	}
 
+	if (!ignore_hostname)
+		proxy_on_hosts_match = hostname_in_list(hostname, &path->my_proxy->on_hosts);
+
 	// BSR-1409
-	if(path->my_proxy->group) {
-		struct d_group_info *group_info = find_group_info_by_name(res, path->my_proxy->group);
+	if (path->my_proxy->group) {
+		struct d_group_info *group_info = NULL;
 		struct d_host_info *host;
 		bool found = false;
-		if(!group_info) {
-			err("The proxy config in resource %s group %s is not for %s.\n",
-				ctx->res->name, path->my_proxy->group, hostname);
-			exit(E_CONFIG_INVALID);
-		}
 
-		for_each_host_link(host, &group_info->members, group_link) {
-			if (hostname_in_list(hostname, &host->on_hosts)) {
-				found = true;
-				break;
+		// BSR-1656 Prefer explicit proxy on-hosts match for external proxy setups.
+		// If not matched, fall back to group member validation.
+		if (proxy_on_hosts_match)
+			found = true;
+
+		if (!found) {
+			group_info = find_group_info_by_name(res, path->my_proxy->group);
+			if (!group_info) {
+				err("The proxy config in resource %s group %s is not for %s.\n",
+					ctx->res->name, path->my_proxy->group, hostname);
+				exit(E_CONFIG_INVALID);
+			}
+
+			for_each_host_link(host, &group_info->members, group_link) {
+				if (hostname_in_list(hostname, &host->on_hosts)) {
+					found = true;
+					break;
+				}
 			}
 		}
 
@@ -2466,7 +2479,7 @@ static int check_proxy(const struct cfg_ctx *ctx, int do_up)
 
 	} else {
 		if(!ignore_hostname){
-			if (!hostname_in_list(hostname, &path->my_proxy->on_hosts)) {
+			if (!proxy_on_hosts_match) {
 				if (all_resources)
 					return 0;
 				err("The proxy config in resource %s is not for %s.\n",

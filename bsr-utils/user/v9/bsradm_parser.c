@@ -1480,7 +1480,6 @@ static void parse_host_section(struct d_resource *res,
 		case TK_GROUP:
 			EXP(TK_STRING);
 			bool already_group = false;
-			struct d_host_info *host_info;
 
 			host->group = yylval.txt;
 			for_each_group(group, &res->all_groups) {
