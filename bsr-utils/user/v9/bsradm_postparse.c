@@ -1028,6 +1028,7 @@ static void create_implicit_connections(struct d_resource *res)
 				if (!strcmp(hostname, STAILQ_FIRST(&host_info->on_hosts)->name)) {
 					ha = alloc_hname_address();
 					hanme_set_host_config(ha, host_info);
+					ha->group = group_info->name;
 					if(ha->proxy) 
 						ha->proxy->group = group_info->name;
 					STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
@@ -1047,6 +1048,7 @@ static void create_implicit_connections(struct d_resource *res)
 			if (host_info) {
 				ha = alloc_hname_address();
 				hanme_set_host_config(ha, host_info);
+				ha->group = group_info->name;
 				if(ha->proxy) 
 					ha->proxy->group = group_info->name;
 				CLI_TRAC_LOG(false, "INSERT_TAIL, %s, group %s, hosts %s", res->name, group_info->name, ha->name);
@@ -1151,12 +1153,14 @@ static void create_connections_from_mesh(struct d_resource *res, struct mesh *me
 			ha = alloc_hname_address();
 			ha->host_info = hi1;
 			ha->name = STAILQ_FIRST(&hi1->on_hosts)->name;
+			ha->group = hi1->group;
 			CLI_TRAC_LOG(false, "INSERT_TAIL, hosts1, %s", ha->name);
 			STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 
 			ha = alloc_hname_address();
 			ha->host_info = hi2;
 			ha->name = STAILQ_FIRST(&hi2->on_hosts)->name;
+			ha->group = hi2->group;
 			CLI_TRAC_LOG(false, "INSERT_TAIL, hosts2, %s", ha->name);
 			STAILQ_INSERT_TAIL(&path->hname_address_pairs, ha, link);
 
