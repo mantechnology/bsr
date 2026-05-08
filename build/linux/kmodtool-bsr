@@ -1,0 +1,6 @@
+#!/bin/bash
+# Custom kmodtool wrapper for BSR
+# Calls the system kmodtool and adds --no-initramfs to weak-modules calls.
+# BSR is not a boot-time module, so initramfs regeneration is unnecessary.
+
+/usr/lib/rpm/redhat/kmodtool "$@" | sed 's|/usr/sbin/weak-modules --add-modules|/usr/sbin/weak-modules --no-initramfs --add-modules|g; s|/usr/sbin/weak-modules --remove-modules|/usr/sbin/weak-modules --no-initramfs --remove-modules|g'
