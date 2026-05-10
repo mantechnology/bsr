@@ -5024,6 +5024,40 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 		return 100;
 	}
 
+	// BSR-1665 Local bitmap UUID matches peer history UUID.
+	// This indicates a previous resync pattern where peer was source/target.
+	// Treat as split-brain to allow discard-my-data recovery.
+	*rule_nr = 95;
+	self = bsr_bitmap_uuid(peer_device) & ~UUID_PRIMARY;
+	if (self != ((u64)0)) {
+		for (i = 0; i < HISTORY_UUIDS; i++) {
+			peer = peer_device->history_uuids[i] & ~UUID_PRIMARY;
+			if (peer == 0)
+				break;
+			if (self == peer) {
+				bsr_info(250, BSR_LC_RESYNC_OV, device, "Local bitmap UUID is in peer history UUID. rule(%d), res(-100)", *rule_nr);
+				return -100;
+			}
+		}
+	}
+
+	// BSR-1665 Local history UUID matches peer bitmap UUID.
+	// This also indicates a previous resync pattern.
+	// Treat as split-brain to allow discard-my-data recovery.
+	*rule_nr = 96;
+	peer = peer_device->bitmap_uuids[node_id] & ~UUID_PRIMARY;
+	if (peer != ((u64)0)) {
+		for (i = 0; i < HISTORY_UUIDS; i++) {
+			self = bsr_history_uuid(device, i) & ~UUID_PRIMARY;
+			if (self == 0)
+				break;
+			if (self == peer) {
+				bsr_info(251, BSR_LC_RESYNC_OV, device, "Local history UUID is in peer bitmap UUID. rule(%d), res(-100)", *rule_nr);
+				return -100;
+			}
+		}
+	}
+
 	*rule_nr = 100;
 	for (i = 0; i < HISTORY_UUIDS; i++) {
 		self = bsr_history_uuid(device, i) & ~UUID_PRIMARY;
