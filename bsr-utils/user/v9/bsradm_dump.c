@@ -340,7 +340,12 @@ static void dump_hname_address_pairs(struct hname_address_pairs *hname_address_p
 			dump_address("address", &ha->address,
 				ssprintf("%s# on %s\n", ha->proxy ? " " : "; ", ha->name));
 		} else {
-			printI("host %s", ha->name);
+			// BSR-1673 output group if the hname_address is from a group, otherwise output host name.
+			if (ha->group) {
+				printI("group %s", ha->group);
+			} else {
+				printI("host %s", ha->name);
+			}
 			if (ha->parsed_address || (verbose && ha->address.addr))
 				dump_address(" address", &ha->address, "");
 			else if (ha->parsed_port)
@@ -640,7 +645,12 @@ static void dump_hname_address_pairs_xml(struct hname_address_pairs *hname_addre
 	struct hname_address *ha;
 
 	STAILQ_FOREACH(ha, hname_address_pairs, link) {
-		printI("<host name=\"%s\">", ha->name);
+		// BSR-1673 output group if the hname_address is from a group, otherwise output host name.
+		if (ha->group) {
+			printI("<group name=\"%s\">", ha->group);
+		} else {
+			printI("<host name=\"%s\">", ha->name);
+		}
 		if (ha->proxy) {
 			printf("\n");
 			++indent;
@@ -664,9 +674,18 @@ static void dump_hname_address_pairs_xml(struct hname_address_pairs *hname_addre
 			printf("\n");
 			dump_proxy_info_xml(ha->proxy);
 			--indent;
-			printI("</host>\n");
+			// BSR-1673
+			if (ha->group) {
+				printI("</group>\n");
+			} else {
+				printI("</host>\n");
+			}
 		} else {
-			printf("</host>\n");
+			if (ha->group) {
+				printf("</group>\n");
+			} else {
+				printf("</host>\n");
+			}
 		}
 	}
 }
@@ -762,9 +781,10 @@ static void dump_mesh(struct d_resource *res)
 					printf(" %s", h->name);
 				}
 			}
-			printf(";\n");
+			// BSR-1673 fix wrong semicolon output
+			if(first_host)
+				printf(";\n");
 		}
-		printf(";\n");
 		dump_options("net", &mesh->net_options);
 		--indent;
 		printI("}\n");
