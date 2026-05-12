@@ -71,7 +71,7 @@ installed kernel.
 %if %{defined _this_amzn_kmp_version} && "%{_this_amzn_kmp_version}" != ""
 %kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble-amzn
 %else
-%kernel_module_package -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble
+%kernel_module_package -s build/linux/kmodtool-bsr -v %_this_kmp_version -n bsr -f filelist-redhat -p preamble
 %endif
 %endif
 %endif

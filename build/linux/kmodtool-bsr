@@ -1,0 +1,39 @@
+#!/bin/bash
+# Custom kmodtool wrapper for BSR
+# 1. Adds --no-initramfs to weak-modules calls.
+#    BSR is not a boot-time module, so initramfs regeneration is unnecessary.
+# 2. When weak-modules is not available, verifies that the running kernel
+#    matches the built kernel version. Without weak-modules, no symlinks
+#    are created, so the module only works on the exact build kernel.
+
+/usr/lib/rpm/redhat/kmodtool "$@" | sed \
+    's|/usr/sbin/weak-modules --add-modules|/usr/sbin/weak-modules --no-initramfs --add-modules|g
+     s|/usr/sbin/weak-modules --remove-modules|/usr/sbin/weak-modules --no-initramfs --remove-modules|g' | \
+awk '{
+    if ($0 ~ /if \[ -x "\/usr\/sbin\/weak-modules" \]; then/ && !post_done) {
+        # After the weak-modules --add-modules block, add kernel version check
+        # Read and print lines until "fi"
+        print $0
+        while ((getline line) > 0) {
+            print line
+            if (line ~ /^fi$/) break
+        }
+        # Insert kernel version check when weak-modules is missing
+        print "# BSR: If weak-modules is not available, verify kernel version matches"
+        print "if [ ! -x \"/usr/sbin/weak-modules\" ]; then"
+        print "    _running_kernel=$(uname -r)"
+        # Extract the built kernel version from the modules path found earlier
+        print "    _built_kernel=$(echo \"${modules[0]}\" | sed -n \"s|^/lib/modules/\\([^/]*\\)/.*|\\1|p\")"
+        print "    if [ -n \"$_built_kernel\" ] && [ \"$_running_kernel\" != \"$_built_kernel\" ]; then"
+        print "        echo \"ERROR: weak-modules is not available and the running kernel ($_running_kernel)\" >&2"
+        print "        echo \"       does not match the built kernel ($_built_kernel).\" >&2"
+        print "        echo \"       Without weak-modules, BSR module can only be loaded on the exact build kernel.\" >&2"
+        print "        echo \"       Please install the matching kernel or restore /usr/sbin/weak-modules.\" >&2"
+        print "        exit 1"
+        print "    fi"
+        print "fi"
+        post_done = 1
+    } else {
+        print
+    }
+}'
