@@ -12,6 +12,7 @@
 %define _minor_fix_num %(echo %{_minor_fix} | sed -E 's/\.el[0-9_]+$//')
 %define _minor_fix_el %(echo %{_minor_fix} | grep -oE '\.el[0-9_]+$')
 %define _minor_series %(echo %{_minor_fix_num} | cut -d. -f1)
+%define _next_minor_series %(echo $((%{_minor_series} + 1)))
 # BSR-1563 kmod-bsr allow install on OEL-RHCK kernel with .0.1 suffix.
 # BSR-1603 
 %define _rpm_has_rich_deps %( \
@@ -23,7 +24,7 @@
   if [ "$maj" -gt 4 ] || { [ "$maj" -eq 4 ] && [ "$min" -ge 13 ]; }; then echo 1; else echo 0; fi)
 
 %if 0%{?_rpm_has_rich_deps} > 0
-Requires: bsr-utils = %{version}-%{?release}, (kernel >= %{_rel_version}-%{_minor_series}%{_minor_fix_el} and kernel < %{_rel_version}-%{lua:print(rpm.expand("%{_minor_series}")+1)}.0%{_minor_fix_el})
+Requires: bsr-utils = %{version}-%{?release}, ( kernel  >= %{_rel_version}-%{_minor_series}%{_minor_fix_el} and kernel < %{_rel_version}-%{_next_minor_series}%{_minor_fix_el})
 %else
 Requires: bsr-utils = %{version}-%{?release}, kernel = %{_rel_version}-%{_minor_fix}
 %endif
