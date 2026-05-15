@@ -3192,20 +3192,20 @@ static struct block_device *open_backing_dev(
 		return file;
 	bdev = file_bdev(file);
 #else
-	int retry = 0;
-
-retry:
 #ifdef COMPAT_HAVE_BLKDEV_HANDLE
 	handle = bdev_open_by_path(bdev_path, BLK_OPEN_READ | BLK_OPEN_WRITE, claim_ptr, NULL);
 	if (!handle) {
 		pr_err("Failed to open block device\n");
-		return -EINVAL;
+		return ERR_PTR(-EINVAL);
 	}
 
 	if (!do_bd_link)
 		return handle;
 	bdev = handle->bdev;
 #else
+	int retry = 0;
+
+retry:
 #ifdef _WIN
 	bdev = blkdev_get_by_path(bdev_path, FMODE_READ | FMODE_WRITE | FMODE_EXCL, claim_ptr, false);
 #else // _LIN
