@@ -8253,12 +8253,18 @@ static int process_twopc(struct bsr_connection *connection,
 
 	// DW-1948 set standalone and split-brain after two primary check
 	if (rv == SS_TWO_PRIMARIES) {
-		change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
-		bsr_alert(29, BSR_LC_TWOPC, connection, "split-brain close the connection with two or more primary settings.");
-		// BSR-734
-		notify_split_brain(connection, "no");
-		bsr_khelper(NULL, NULL, connection, "split-brain");
-		return 0;
+		if ((flags & CS_PREPARE) &&
+			mask.role == role_MASK && val.role == R_PRIMARY) {
+			bsr_info(60, BSR_LC_TWOPC, connection, "Rejecting remote state change %u "
+				"due to existing primary (two primaries not allowed).", reply->tid);			
+		} else {
+			change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
+			bsr_alert(29, BSR_LC_TWOPC, connection, "split-brain close the connection with two or more primary settings.");
+			// BSR-734
+			notify_split_brain(connection, "no");
+			bsr_khelper(NULL, NULL, connection, "split-brain");
+			return 0;
+		}
 	}
 	
 	if (flags & CS_PREPARE) {
