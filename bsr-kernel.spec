@@ -87,12 +87,19 @@ ln -s ../bsr-platform obj/
 
 for flavor in %flavors_to_build; do
     cp -r bsr obj/$flavor
+    ksrc="%{kernel_source $flavor}"
+    # BSR-1642 only SUSE builds should honor an explicit kdir override.
+    %if %{defined suse_kernel_module_package}
+    if [ -n "%{?kdir}" ]; then
+        ksrc="%{?kdir}"
+    fi
+    %endif
     #make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
-    make -C obj/$flavor %{_smp_mflags} all KDIR=%{kernel_source $flavor}
+    make -C obj/$flavor %{_smp_mflags} all KDIR=$ksrc
     # BSR-659 module sign for secure boot support
     %if %{with modsign}
     ln -s -f ../pki obj/
-    make -C obj/$flavor modsign KDIR=%{kernel_source $flavor}
+    make -C obj/$flavor modsign KDIR=$ksrc
     %endif
 done
 
@@ -115,9 +122,16 @@ export INSTALL_MOD_DIR=extra/bsr
 [ $INSTALL_MOD_DIR = extra ] && INSTALL_MOD_DIR=extra/bsr
 
 for flavor in %flavors_to_build ; do
-    make -C %{kernel_source $flavor} modules_install \
+    ksrc="%{kernel_source $flavor}"
+    # BSR-1642 only SUSE builds should honor an explicit kdir override.
+    %if %{defined suse_kernel_module_package}
+    if [ -n "%{?kdir}" ]; then
+        ksrc="%{?kdir}"
+    fi
+    %endif
+    make -C $ksrc modules_install \
 	M=$PWD/obj/$flavor
-    kernelrelease=$(cat %{kernel_source $flavor}/include/config/kernel.release || make -s -C %{kernel_source $flavor} kernelrelease)
+    kernelrelease=$(cat $ksrc/include/config/kernel.release || make -s -C $ksrc kernelrelease)
     find $INSTALL_MOD_PATH/lib/modules -iname 'modules.*' -exec rm {} \;
     mv obj/$flavor/.kernel.config.gz obj/k-config-$kernelrelease.gz
     mv obj/$flavor/Module.symvers ../../RPMS/Module.symvers.$kernelrelease.$flavor.%{_arch}

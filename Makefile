@@ -35,6 +35,32 @@ KVER := $(shell make -s -C $(KDIR) kernelrelease)
 endif
 KDIR ?= /lib/modules/$(KVER)/build
 
+# BSR-1642 Helper to check if KDIR was provided by user (not from Makefile default)
+empty :=
+space := $(empty) $(empty)
+KDIR_ORIGIN := $(subst $(space),_,$(origin KDIR))
+KDIR_FROM_USER := $(filter command_line environment environment_override,$(KDIR_ORIGIN))
+
+# BSR-1642 On SUSE, kmp macros derive kernelrelease from /usr/src/linux-obj/%_target_cpu/default.
+# If user supplied KDIR, temporarily point that symlink to KDIR during rpmbuild.
+RPMBUILD_KDIR_WRAPPER = \
+	kobj_link=/usr/src/linux-obj/$$(rpm -E '%_target_cpu')/default; \
+	kobj_state=/tmp/bsr-kobj-default-link.$$(id -u).state; \
+	if [ -f "$$kobj_state" ] && [ -L "$$kobj_link" ]; then \
+		kobj_saved=$$(cat "$$kobj_state" 2>/dev/null); \
+		if [ -n "$$kobj_saved" ]; then \
+			ln -sfn "$$kobj_saved" "$$kobj_link"; \
+		fi; \
+		rm -f "$$kobj_state"; \
+	fi; \
+	if [ -n "$(KDIR_FROM_USER)" ] && [ -n "$$(rpm -E '%{?suse_version}%{?sle_version}')" ] && [ -L "$$kobj_link" ]; then \
+		kobj_orig=$$(readlink "$$kobj_link"); \
+		printf '%s\n' "$$kobj_orig" > "$$kobj_state"; \
+		trap 'if [ -f "$$kobj_state" ]; then ln -sfn "$$(cat "$$kobj_state")" "$$kobj_link"; rm -f "$$kobj_state"; fi' EXIT HUP INT TERM QUIT; \
+		ln -sfn "$(KDIR)" "$$kobj_link"; \
+	fi; \
+	$(RPMBUILD)
+
 # for some reason some of the commands below only work correctly in bash,
 # and not in e.g. dash. I'm too lazy to fix it to be compatible.
 SHELL=/bin/bash
@@ -216,8 +242,9 @@ ifdef RPMBUILD
 kmp-rpm: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
 	# BSR-1089 add $$PWD when building RPM
-	$(RPMBUILD) --define "_sourcedir $$PWD" -bb \
+	$(RPMBUILD_KDIR_WRAPPER) --define "_sourcedir $$PWD" -bb \
 	    $(if $(filter file,$(origin KVER)), --define "kernel_version $(KVER)") \
+	    $(if $(KDIR_FROM_USER), --define "kdir $(KDIR)") \
 	    $(RPMOPT) \
 	    bsr-kernel.spec
 	@echo "You have now:" ; find `rpm -E "%_rpmdir"` -name *.rpm
@@ -233,8 +260,9 @@ kmp-rpm-sign: bsr/.bsr_git_revision .filelist tgz bsr-kernel.spec
 		false;\
 	fi
 	cp bsr-$(FDIST_VERSION).tar.gz `rpm -E "%_sourcedir"`
-	$(RPMBUILD) --define "_sourcedir $$PWD" -bb \
+	$(RPMBUILD_KDIR_WRAPPER) --define "_sourcedir $$PWD" -bb \
 	    $(if $(filter file,$(origin KVER)), --define "kernel_version $(KVER)") \
+	    $(if $(KDIR_FROM_USER), --define "kdir $(KDIR)") \
 	    $(RPMOPT) \
 	    --with modsign \
 	    bsr-kernel.spec
