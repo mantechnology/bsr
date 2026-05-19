@@ -91,7 +91,16 @@ for flavor in %flavors_to_build; do
     # BSR-1642 only SUSE builds should honor an explicit kdir override.
     %if %{defined suse_kernel_module_package}
     if [ -n "%{?kdir}" ]; then
-        ksrc="%{?kdir}"
+        kdir_base="%{?kdir}"
+        kdir_base=${kdir_base%/}
+        if [ "$flavor" = "default" ]; then
+            ksrc="$kdir_base"
+        else
+            kdir_flavor="${kdir_base%/default}/$flavor"
+            if [ -d "$kdir_flavor" ]; then
+                ksrc="$kdir_flavor"
+            fi
+        fi
     fi
     %endif
     #make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
@@ -126,7 +135,16 @@ for flavor in %flavors_to_build ; do
     # BSR-1642 only SUSE builds should honor an explicit kdir override.
     %if %{defined suse_kernel_module_package}
     if [ -n "%{?kdir}" ]; then
-        ksrc="%{?kdir}"
+        kdir_base="%{?kdir}"
+        kdir_base=${kdir_base%/}
+        if [ "$flavor" = "default" ]; then
+            ksrc="$kdir_base"
+        else
+            kdir_flavor="${kdir_base%/default}/$flavor"
+            if [ -d "$kdir_flavor" ]; then
+                ksrc="$kdir_flavor"
+            fi
+        fi
     fi
     %endif
     make -C $ksrc modules_install \
