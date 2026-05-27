@@ -7,6 +7,27 @@
 # BSR-1089 use it temporarily. the cause must be determined and removed.
 %define _unpackaged_files_terminate_build 0
 
+# BSR-1642 only SUSE builds should honor an explicit kdir override.
+%if %{defined suse_kernel_module_package}
+%define bsr_resolve_ksrc() \
+    ksrc="%{kernel_source $flavor}" ; \
+    if [ -n "%{?kdir}" ]; then \
+        kdir_base="%{?kdir}" ; \
+        kdir_base="${kdir_base%/}" ; \
+        if [ "$flavor" = "default" ]; then \
+            ksrc="$kdir_base" ; \
+        else \
+            kdir_flavor="${kdir_base%/default}/$flavor" ; \
+            if [ -d "$kdir_flavor" ]; then \
+                ksrc="$kdir_flavor" ; \
+            fi ; \
+        fi ; \
+    fi
+%else
+%define bsr_resolve_ksrc() \
+    ksrc="%{kernel_source $flavor}"
+%endif
+
 Name: bsr-kernel
 Summary: Kernel driver for BSR
 Version: 1.7.10.0
@@ -87,12 +108,13 @@ ln -s ../bsr-platform obj/
 
 for flavor in %flavors_to_build; do
     cp -r bsr obj/$flavor
+    %bsr_resolve_ksrc
     #make -C %{kernel_source $flavor} M=$PWD/obj/$flavor
-    make -C obj/$flavor %{_smp_mflags} all KDIR=%{kernel_source $flavor}
+    make -C obj/$flavor %{_smp_mflags} all KDIR=$ksrc
     # BSR-659 module sign for secure boot support
     %if %{with modsign}
     ln -s -f ../pki obj/
-    make -C obj/$flavor modsign KDIR=%{kernel_source $flavor}
+    make -C obj/$flavor modsign KDIR=$ksrc
     %endif
 done
 
@@ -115,9 +137,10 @@ export INSTALL_MOD_DIR=extra/bsr
 [ $INSTALL_MOD_DIR = extra ] && INSTALL_MOD_DIR=extra/bsr
 
 for flavor in %flavors_to_build ; do
-    make -C %{kernel_source $flavor} modules_install \
+    %bsr_resolve_ksrc
+    make -C $ksrc modules_install \
 	M=$PWD/obj/$flavor
-    kernelrelease=$(cat %{kernel_source $flavor}/include/config/kernel.release || make -s -C %{kernel_source $flavor} kernelrelease)
+    kernelrelease=$(cat $ksrc/include/config/kernel.release || make -s -C $ksrc kernelrelease)
     find $INSTALL_MOD_PATH/lib/modules -iname 'modules.*' -exec rm {} \;
     mv obj/$flavor/.kernel.config.gz obj/k-config-$kernelrelease.gz
     mv obj/$flavor/Module.symvers ../../RPMS/Module.symvers.$kernelrelease.$flavor.%{_arch}
