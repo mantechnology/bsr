@@ -1856,6 +1856,7 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	bool congested = false;
 	enum bsr_on_congestion on_congestion;
 	struct bsr_peer_device *peer_device = conn_peer_device(connection, device->vnr);
+	__u64 total_in_flight;
 
 	rcu_read_lock();
 	nc = rcu_dereference(connection->transport.net_conf);
@@ -1879,10 +1880,11 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 	if (!get_ldev_if_state(device, D_UP_TO_DATE))
 		return;
 
+	// DW-1817 
+	//To accurately check when to enter AHEAD mode, you should consider the size of the synchronization data in the send buffer.
+	total_in_flight = atomic_read64(&connection->ap_in_flight) + atomic_read64(&connection->rs_in_flight);
+
 	if (nc->cong_fill) {
-		// DW-1817 
-		//To accurately check when to enter AHEAD mode, you should consider the size of the synchronization data in the send buffer.
-		__u64 total_in_flight = atomic_read64(&connection->ap_in_flight) + atomic_read64(&connection->rs_in_flight);
 		if (total_in_flight >= nc->cong_fill) {
 			bsr_info(20, BSR_LC_REPLICATION, device, "Congestion-fill threshold reached %lluKB", total_in_flight >> 10);
 			congested = true;
@@ -1901,8 +1903,12 @@ static void __maybe_pull_ahead(struct bsr_device *device, struct bsr_connection 
 
 
 	if ((device->act_log->used + atomic_read(&g_fake_al_used)) >= nc->cong_extents) {
-		bsr_info(13, BSR_LC_LRU, device, "Congestion-extents threshold reached");
-		congested = true;
+		// BSR-1703 only enter Ahead if there's actual in-flight data to ensure future ACK events
+		if (total_in_flight > 0) {
+			bsr_info(13, BSR_LC_LRU, device, "Congestion-extents threshold reached");
+			congested = true;
+		}
+
 	}
 
 	if (congested) {
