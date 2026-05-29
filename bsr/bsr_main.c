@@ -4993,6 +4993,7 @@ struct bsr_peer_device *create_peer_device(struct bsr_device *device, struct bsr
 	atomic_set64(&peer_device->ov_req_sector, 0);
 	atomic_set64(&peer_device->ov_reply_sector, 0);
 	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
+	peer_device->ov_split_by_skip_list = false;
 	spin_lock_init(&peer_device->ov_lock);
 
 	// BSR-1170

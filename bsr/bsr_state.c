@@ -2136,6 +2136,7 @@ static void set_ov_position(struct bsr_peer_device *peer_device,
 	atomic_set64(&peer_device->ov_split_reply_sector, 0);
 
 	INIT_LIST_HEAD(&peer_device->ov_skip_sectors_list);
+	peer_device->ov_split_by_skip_list = false;
 
 	peer_device->ov_position = 0;
 	peer_device->ov_split_position = 0;
@@ -3747,6 +3748,7 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 						kfree2(skipped);
 					}
 				}
+				peer_device->ov_split_by_skip_list = false;
 				spin_unlock_irq(&peer_device->ov_lock);
 				send_new_state_to_all_peer_devices(state_change, n_device);
 			}

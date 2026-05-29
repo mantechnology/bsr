@@ -10060,6 +10060,7 @@ void conn_disconnect(struct bsr_connection *connection)
 				kfree2(skipped);
 			}
 		}
+		peer_device->ov_split_by_skip_list = false;
 		spin_unlock_irq(&peer_device->ov_lock);
 
 		kref_put(&device->kref, bsr_destroy_device);
