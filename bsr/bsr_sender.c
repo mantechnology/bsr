@@ -2701,13 +2701,16 @@ static sector_t make_split_ov_request(struct bsr_peer_device *peer_device,
 	// send ov request sst ~ skip_sst
 	if (sst < skip_sst) {
 		atomic_set64(&peer_device->ov_split_req_sector, skip_sst - 1);
+		peer_device->ov_split_by_skip_list = true;
 		if (atomic_read64(&peer_device->ov_split_reply_sector) == 0) {
 			atomic_set64(&peer_device->ov_split_reply_sector, sst);
 		}
 		spin_unlock_irq(&peer_device->ov_lock);
 		bsr_debug(225, BSR_LC_RESYNC_OV, peer_device, "make split ov request sector %llu size(%d)", sst, skip_sst - sst);
-		if (bsr_send_split_ov_request(peer_device, sst, (int)((skip_sst - sst) << 9)))
+		if (bsr_send_split_ov_request(peer_device, sst, (int)((skip_sst - sst) << 9))) {
+			peer_device->ov_split_by_skip_list = false;
 			goto skip_sector;
+		}
 	}
 	else
 		spin_unlock_irq(&peer_device->ov_lock);
@@ -2761,6 +2764,7 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 	
 	if (is_skipped && !split_ov_done) {
 		atomic_set64(&peer_device->ov_split_req_sector, est - 1);
+		peer_device->ov_split_by_skip_list = true;
 		if (atomic_read64(&peer_device->ov_split_reply_sector) == 0) {
 			atomic_set64(&peer_device->ov_split_reply_sector, sst);
 		}
@@ -2769,6 +2773,7 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 		bsr_debug(225, BSR_LC_RESYNC_OV, peer_device, "make split ov request sector %llu size(%d)", sst, est - sst);
 		if (bsr_send_split_ov_request(peer_device, sst, (int)((est - sst) << 9))) {
 			// send split failed
+			peer_device->ov_split_by_skip_list = false;
 			verify_skipped_block(peer_device, sst, (int)((est - sst) << 9), true);
 		}
 	}
@@ -2776,6 +2781,51 @@ static bool check_ov_skip_sectors(struct bsr_peer_device *peer_device, sector_t 
 		spin_unlock_irq(&peer_device->ov_lock);
 
 	return is_skipped;
+}
+
+static bool is_peer_conn_prot_a(struct bsr_peer_device *peer_device)
+{
+	u32 prot;
+
+	rcu_read_lock();
+	prot = rcu_dereference(peer_device->connection->transport.net_conf)->wire_protocol;
+	rcu_read_unlock();
+
+	return prot == BSR_PROT_A;
+}
+
+static bool is_ov_split_reply(struct bsr_peer_device *peer_device, sector_t sector, unsigned int size)
+{
+	sector_t split_sst = (sector_t)atomic_read64(&peer_device->ov_split_reply_sector);
+	sector_t split_est = (sector_t)atomic_read64(&peer_device->ov_split_req_sector);
+	sector_t est = sector + (size >> 9);
+
+	return split_est && sector <= split_est && est > split_sst;
+}
+
+static bool try_update_skip_list_split_ov_reply(struct bsr_peer_device *peer_device, sector_t sector, unsigned int size)
+{
+	sector_t split_est;
+	sector_t reply_est = sector + (size >> 9) - 1;
+	bool split_reply = false;
+
+	spin_lock_irq(&peer_device->ov_lock);
+	if (!is_ov_split_reply(peer_device, sector, size))
+		goto out;
+	if (!peer_device->ov_split_by_skip_list)
+		goto out;
+
+	split_reply = true;
+	split_est = (sector_t)atomic_read64(&peer_device->ov_split_req_sector);
+	atomic_set64(&peer_device->ov_split_reply_sector, reply_est);
+
+	if (reply_est >= split_est) {
+		peer_device->ov_split_by_skip_list = false;
+	}
+
+out:
+	spin_unlock_irq(&peer_device->ov_lock);
+	return split_reply;
 }
 
 int w_e_end_ov_reply(struct bsr_work *w, int cancel)
@@ -2820,7 +2870,14 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 
 	// BSR-997 in case of inconsistent, check whether it is an ov skipped sector.
 	if (!eq) {
-		is_skipped = check_ov_skip_sectors(peer_device, sector, sector + (size >> 9));
+		if (is_peer_conn_prot_a(peer_device) && try_update_skip_list_split_ov_reply(peer_device, sector, size)) {
+			bsr_debug(252, BSR_LC_RESYNC_OV, peer_device, "ov split reply sector %llu size(%d) skipped",
+				(unsigned long long)sector, size >> 9);
+			verify_skipped_block(peer_device, sector, size, true);
+			is_skipped = true;
+		} else {
+			is_skipped = check_ov_skip_sectors(peer_device, sector, sector + (size >> 9));
+		}
 	}
 
 	/* Free peer_req and pages before send.
@@ -2847,7 +2904,8 @@ int w_e_end_ov_reply(struct bsr_work *w, int cancel)
 			(sector < (sector_t)atomic_read64(&peer_device->ov_split_req_sector))) {
 
 			atomic_set64(&peer_device->ov_split_reply_sector, sector + (size >> 9) - 1);
-			
+			if ((sector + (size >> 9) - 1) >= (sector_t)atomic_read64(&peer_device->ov_split_req_sector))
+				peer_device->ov_split_by_skip_list = false;
 		}
 		else {
 			atomic_set64(&peer_device->ov_reply_sector, sector + (size >> 9) - 1);
