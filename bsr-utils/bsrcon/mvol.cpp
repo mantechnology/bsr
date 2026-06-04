@@ -1688,7 +1688,7 @@ DWORD MVOL_WriteBsrKernelLog(int level, char *message)
 #endif
 
 	writeLog.level = level;
-	writeLog.length = strlen(message);
+	writeLog.length = (int)strlen(message);
 	if (writeLog.length >= MAX_BSRLOG_BUF) {
 #ifdef _WIN
 		retVal = ERROR_BAD_FORMAT;

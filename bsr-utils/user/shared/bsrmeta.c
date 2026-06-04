@@ -1139,7 +1139,9 @@ void pread_or_die(struct format *cfg, void *buf, size_t count, off_t offset, con
 		fprintf_hex(stderr, offset, buf, count);
 }
 
+#ifndef min
 #define min(x,y) ((x) < (y) ? (x) : (y))
+#endif
 #define min3(x,y,z) (min(min(x,y),z))
 
 void validate_offsets_or_die(struct format *cfg, size_t count, off_t offset, const char* tag)
@@ -1772,12 +1774,12 @@ static void zeroout_bitmap(struct format *cfg)
 {
 	const size_t bitmap_bytes =
 		ALIGN(bm_bytes(&cfg->md, cfg->bd_size >> 9), cfg->md_hard_sect_size);
+#ifdef _LIN
 	uint64_t range[2];
-	int err;
-
 	range[0] = cfg->bm_offset; /* start offset */
 	range[1] = bitmap_bytes; /* len */
-
+#endif
+	int err;
 	CLI_ERRO_LOG_STDERR(false, "initializing bitmap (%u KB) to all zero",
 		(unsigned int)(bitmap_bytes >> 10));
 
