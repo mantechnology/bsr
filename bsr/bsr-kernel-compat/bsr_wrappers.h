@@ -2446,6 +2446,13 @@ bsr_ib_create_cq(struct ib_device *device,
 
 #ifdef COMPAT_HAVE_TIMER_SETUP
 /* starting with v4.16 new timer interface*/
+#ifndef from_timer
+#ifdef timer_container_of
+#define from_timer(OBJ, TIMER, MEMBER) timer_container_of(OBJ, TIMER, MEMBER)
+#else
+#define from_timer(OBJ, TIMER, MEMBER) container_of(TIMER, typeof(*OBJ), MEMBER)
+#endif
+#endif
 #define BSR_TIMER_FN_ARG struct timer_list *t
 #define BSR_TIMER_ARG2OBJ(OBJ, MEMBER) from_timer(OBJ, t, MEMBER)
 #define bsr_timer_setup(OBJ, MEMBER, TIMER_FN) timer_setup(&OBJ->MEMBER, TIMER_FN, 0)
