@@ -594,12 +594,15 @@ DWORD get_cli_log_file_max_count()
 		char buf[11] = { 0 };
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			cli_log_file_max_count = atoi(buf);
+			fclose(fp);
 			return cli_log_file_max_count;
 		}
 		fclose(fp);
 	}
 #endif
+#ifdef _WIN
 out:
+#endif
 	cli_log_file_max_count = (2 << BSR_ADM_LOG_FILE_MAX_COUNT);
 	cli_log_file_max_count += (2 << BSR_SETUP_LOG_FILE_MAX_COUNT);
 	cli_log_file_max_count += (2 << BSR_META_LOG_FILE_MAX_COUNT);
@@ -614,7 +617,6 @@ int bsr_apply_max_count_of_backup_files(char* _fullpath, int max_cnt)
 	struct dirent* entry = NULL;
 	char path[256];
 	char* ptr;
-	int i = 0;
 	
 	char name[256];
 	char fullpath[512];
@@ -784,7 +786,7 @@ out:
 
 FILE *bsr_open_log()
 {
-	char fullpath[256];
+	char fullpath[512];
 	FILE* fp = NULL;
 
 	memset(fullpath, 0, sizeof(fullpath));
@@ -1075,13 +1077,16 @@ DWORD is_status_cmd_logging()
 		char buf[11] = { 0 };
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			ret = atoi(buf);
+			fclose(fp);
 			return ret;
 		}
 		fclose(fp);
 	}
 #endif
 
+#ifdef _WIN
 out:
+#endif
 	// default disable
 	ret = 0;
 
@@ -1188,10 +1193,10 @@ void set_exec_log(int argc, char** argv)
 
 void bsr_exec_log()
 {
-	char exec_log[512];
+	char exec_log[sizeof("execution command,") + sizeof(execution_log)];
 
 	memset(exec_log, 0, sizeof(exec_log));
-	snprintf(exec_log, 512, "execution command,%s",execution_log);
+	snprintf(exec_log, sizeof(exec_log), "execution command,%s",execution_log);
 	memset(execution_log, 0, sizeof(execution_log));
 
 	CLI_INFO_LOG(false, "%s", exec_log);

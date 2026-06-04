@@ -6,6 +6,7 @@
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/time.h>
 #endif
 #include <time.h>
 #include <sys/timeb.h>
@@ -431,7 +432,7 @@ void MonitorToFile(int type_flags)
 {
 	struct resource *res, *res_head, *res_max = NULL;
 	struct tm base_date_local;
-	struct timeb timer_msec;
+	int msec;
 	char curr_time[64] = {0,};
 	
 	res = GetResourceInfo(NULL);
@@ -442,21 +443,26 @@ void MonitorToFile(int type_flags)
 
 	get_perf_path();
 
-	ftime(&timer_msec);
 #ifdef _WIN
+	struct timeb timer_msec;
+	ftime(&timer_msec);
 	localtime_s(&base_date_local, &timer_msec.time);
+	msec = timer_msec.millitm;
 #else
-	base_date_local = *localtime(&timer_msec.time);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	base_date_local = *localtime(&tv.tv_sec);
+	msec = tv.tv_usec / 1000;
 #endif	
 	sprintf_ex(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d.%03d",
 		base_date_local.tm_year + 1900, base_date_local.tm_mon + 1, base_date_local.tm_mday,
-		base_date_local.tm_hour, base_date_local.tm_min, base_date_local.tm_sec, timer_msec.millitm);
+		base_date_local.tm_hour, base_date_local.tm_min, base_date_local.tm_sec, msec);
 
 	res_head = res;
 	while (res) {
-		char respath[MAX_PATH+RESOURCE_NAME_MAX] = {0,};
+		char respath[BSRMON_PERF_PATH_SIZE + RESOURCE_NAME_MAX] = {0,};
 
-		sprintf_ex(respath, "%s%s", g_perf_path, res->name);
+		snprintf(respath, sizeof(respath), "%s%s", g_perf_path, res->name);
 #ifdef _WIN
 		CreateDirectoryA(respath, NULL);
 #else // _LIN
@@ -535,7 +541,7 @@ static pid_t GetRunningPid()
 	// current pid
 	c_pid = getpid();
 
-	while (fgets(buf, MAX_PATH, cmd_pipe) != NULL) {
+	while (fgets(buf, sizeof(buf), cmd_pipe) != NULL) {
 		pid = strtoul(buf, NULL, 10);
 		if (pid == c_pid)
 			pid = 0;
@@ -580,7 +586,7 @@ void Watch(char *resname, enum bsrmon_type type, int vnr, bool scroll)
 		sprintf_ex(watch_path, "%s", g_perf_path);
 
 
-	sprintf_ex(watch_path, "%s%s", watch_path, perf_type_str(type));
+	sprintf_ex(watch_path + strlen(watch_path), "%s", perf_type_str(type));
 
 	if (type != -1) {
 		switch (type) {
@@ -1116,10 +1122,10 @@ static void PrintOptionValue(char * option, char *param1, char *param2)
 					}
 					if (res->backup_file_size) {
 						// BSR-1239 outputs the maximum size and maximum number per resource based on the maximum capacity set per resource. (differences occur depending on the number of volumes set in the resource.)
-						printf("\t\tResource \"%s\"(%d volume) stores %ld files with a size of up to %ldMB for each collection type.\n", res->name, res->vol_count, res->max_file_count, res->backup_file_size);
+						printf("\t\tResource \"%s\"(%d volume) stores %d files with a size of up to %dMB for each collection type.\n", res->name, res->vol_count, res->max_file_count, res->backup_file_size);
 					} else {
 						int need_total_size_limit = ((tc.global + tc.resource + (res->vol_count * tc.volume)) * 2) + bsrmon_log_size;
-						printf("\t\tResource \"%s\"(%d volume) requires at least %ldMB, so total size limit must be set to at least %ldMB, otherwise performance monitor data cannot be collected.\n", 
+						printf("\t\tResource \"%s\"(%d volume) requires at least %dMB, so total size limit must be set to at least %dMB, otherwise performance monitor data cannot be collected.\n",
 							res->name, res->vol_count, need_total_size_limit, need_total_size_limit);
 					}
 					res = res->next;
@@ -1909,7 +1915,7 @@ int main(int argc, char* argv[])
 						else {
 							int bsrmon_log_size = DEFAULT_BSRMON_LOG_BACKUP_SIZE * 2;
 							struct bsrmon_type_counts tc;
-							int need_capacity = 0, max_vol_count = 3;
+							int max_vol_count = 3;
 
 							head = res;
 							while (res) {

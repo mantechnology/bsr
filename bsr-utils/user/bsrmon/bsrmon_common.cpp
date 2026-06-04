@@ -2,6 +2,7 @@
 #include <tchar.h>
 #else // _LIN
 #include <dirent.h>
+#include <sys/time.h>
 #endif
 #include <stdarg.h>
 #include <time.h>
@@ -10,7 +11,7 @@
 #include "../../../bsr-headers/bsr_ioctl.h"
 #include "module_debug.h"
 
-char g_perf_path[MAX_PATH];
+char g_perf_path[BSRMON_PERF_PATH_SIZE];
 bool write_log = false;
 
 struct type_names {
@@ -47,6 +48,48 @@ const char *perf_type_str(enum bsrmon_type t)
 	return (t < 0 || (unsigned int)t >= perf_type_names.size ||
 	        !perf_type_names.names[t]) ?
 	       "?" : perf_type_names.names[t];
+}
+
+void GetCurrentlySetTypeCount(struct bsrmon_type_counts *type_counts, bool print)
+{
+	long type = GetOptionValue(BSRMON_TYPES);
+
+	type_counts->global = 0;
+	type_counts->resource = 0;
+	type_counts->volume = 0;
+
+	if (type <= 0)
+		type = DEFAULT_BSRMON_TYPES;
+
+	for (int i = 0; i <= BSRMON_ALL_STAT; i++) {
+		if (type & (1 << i)) {
+			for (size_t j = 0; j < BSRMON_ARRAY_SIZE(global_types_str); j++) {
+				if (strcmp(global_types_str[j], total_types_str[i]) == 0) {
+					type_counts->global++;
+					if (print)
+						printf("%s ", global_types_str[j]);
+				}
+			}
+
+			for (size_t j = 0; j < BSRMON_ARRAY_SIZE(res_types_str); j++) {
+				if (strcmp(res_types_str[j], total_types_str[i]) == 0) {
+					type_counts->resource++;
+					if (print)
+						printf("%s ", res_types_str[j]);
+				}
+			}
+
+			for (size_t j = 0; j < BSRMON_ARRAY_SIZE(vol_types_str); j++) {
+				if (strcmp(vol_types_str[j], total_types_str[i]) == 0) {
+					type_counts->volume++;
+					if (print)
+						printf("%s ", vol_types_str[j]);
+				}
+			}
+		}
+	}
+
+	type_counts->total = type_counts->global + type_counts->resource + type_counts->volume;
 }
 
 static int decode_timestamp(char timestamp[], struct time_stamp *ts)
@@ -283,7 +326,7 @@ void get_filelist(char * dir_path, char * find_file, std::set<std::string> *file
 			if (copy) {
 				// BSR-940 copy to tmp_* files
 				char copy_file[MAX_PATH + 25] = { 0, };
-				char cmd[MAX_PATH + 28] = { 0, };
+				char cmd[(MAX_PATH * 2) + 80] = { 0, };
 				int ret = 0;
 
 				printf("file %s\n", filename);
@@ -459,23 +502,28 @@ void _bsrmon_log(const char * func, int line, const char * fmt, ...) {
 	long offset = 0;
 	va_list args;
 	struct tm local_tm;
-	struct timeb timer_msec;
+	int msec;
 	FILE *f_out;
-	char bsrmon_log_path[MAX_PATH+10];
+	char bsrmon_log_path[sizeof(g_perf_path) + sizeof("bsrmon.log")];
 	char curr_time[64] = { 0, };
 
 	get_perf_path();
-	sprintf_ex(bsrmon_log_path, "%sbsrmon.log", g_perf_path);
-	ftime(&timer_msec);
+	snprintf(bsrmon_log_path, sizeof(bsrmon_log_path), "%sbsrmon.log", g_perf_path);
 #ifdef _WIN
+	struct timeb timer_msec;
+	ftime(&timer_msec);
 	localtime_s(&local_tm, &timer_msec.time);
+	msec = timer_msec.millitm;
 #else
-	local_tm = *localtime(&timer_msec.time);
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	local_tm = *localtime(&tv.tv_sec);
+	msec = tv.tv_usec / 1000;
 #endif
 
 	sprintf_ex(curr_time, "%04d-%02d-%02d_%02d:%02d:%02d.%03d",
 		local_tm.tm_year + 1900, local_tm.tm_mon + 1, local_tm.tm_mday,
-		local_tm.tm_hour, local_tm.tm_min, local_tm.tm_sec, timer_msec.millitm);
+		local_tm.tm_hour, local_tm.tm_min, local_tm.tm_sec, msec);
 	
 #ifdef _WIN
 	offset = _snprintf_s(b, 512, "%s [func:%s][line:%d] ", curr_time, func, line);

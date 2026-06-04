@@ -157,41 +157,41 @@ FILE *bsr_open_log();
 
 
 #define CLI_ERRO_LOG_PEEROR(continued, msg) \
-		{	\
+		do {	\
 			CLI_ERRO_LOG(continued, true, msg); \
 			perror(msg); \
 			fprintf(stderr, "\n"); \
 		} while(false)
 
 #define CLI_INFO_LOG_PRINT(continued, format, arg...) \
-		{	\
+		do {	\
 			CLI_INFO_LOG(continued, format, ##arg); \
 			printf(format, ##arg); \
 			printf("\n"); \
 		} while(false)
 
 #define CLI_WRAN_LOG_PRINT(continued, format, arg...) \
-		{	\
+		do {	\
 			CLI_WRAN_LOG(continued, format, ##arg); \
 			printf(format, ##arg); \
 			printf("\n"); \
 		} while(false)
 
 #define CLI_ERRO_LOG_STDERR_NO_LINE_BREAK(continued, format, arg...) \
-		{	\
+		do {	\
 			CLI_ERRO_LOG(continued, false, format, ##arg); \
 			fprintf(stderr, format, ##arg); \
 		} while(false)
 
 #define CLI_ERRO_LOG_STDERR(continued, format, arg...) \
-		{	\
+		do {	\
 			CLI_ERRO_LOG(continued, true, format, ##arg); \
 			fprintf(stderr, format, ##arg); \
 			fprintf(stderr, "\n"); \
 		} while(false)
 
 #define CLI_ERRO_VLOG_STDERR(format, arg)  \
-		{	\
+		do {	\
 			CLI_ERRO_VLOG(format, arg); \
 			va_end(arg);	\
 			va_start(arg, format); \
@@ -199,4 +199,3 @@ FILE *bsr_open_log();
 		} while(false)
 
 #endif
-

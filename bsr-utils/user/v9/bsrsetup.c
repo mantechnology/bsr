@@ -1624,8 +1624,8 @@ static int need_filesystem_recovery(char * dev_name)
 	char *argv[] = { NULL, NULL, NULL, NULL, NULL , NULL };
 	int argc = 0;
 	char  *n_dev_name, *ptr;
-	char fs_check_log[256];
-	char journal_check_log[256];
+	char fs_check_log[512];
+	char journal_check_log[512];
 
 	// check fast sync settings
 	fp = fopen("/etc/bsr.d/.use_fast_sync", "r");
@@ -1679,19 +1679,19 @@ static int need_filesystem_recovery(char * dev_name)
 	memset(journal_check_log, 0, sizeof(journal_check_log));	
 	memset(fs_check_log, 0, sizeof(fs_check_log));
 
-	switch (type) {
+		switch (type) {
 		case FS_XFS:
-			sprintf(journal_check_log, "%s/xfs_logprint%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/xfs_repair%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/xfs_logprint%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/xfs_repair%s.log", lpath, n_dev_name);
 			break;
 		case FS_EXT:
-			sprintf(journal_check_log, "%s/tune2fs%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/fsck%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/tune2fs%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/fsck%s.log", lpath, n_dev_name);
 			break;
 		case FS_BTRFS:
 			// BSR-1407
-			sprintf(journal_check_log, "%s/btrfscheck%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/btrfsdumptree%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/btrfscheck%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/btrfsdumptree%s.log", lpath, n_dev_name);
 			break;
 		default:
 			break;

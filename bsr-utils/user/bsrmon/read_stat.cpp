@@ -2351,8 +2351,8 @@ void watch_io_stat(char *path, bool scroll)
 		/* time riops rios rkbs rkb wiops wios rkbs rkb */
 		if (fgets(buf, sizeof(buf), fp) != NULL) {
 			char *ptr, *save_ptr;
-			unsigned long r_iops = 0, r_ios = 0, r_kbs = 0, r_kb = 0;
-			unsigned long w_iops = 0, w_ios = 0, w_kbs = 0, w_kb = 0;
+			unsigned long r_ios = 0, r_kbs = 0, r_kb = 0;
+			unsigned long w_ios = 0, w_kbs = 0, w_kb = 0;
 
 			// remove EOL
 			*(buf + (strlen(buf) - 1)) = 0;
@@ -2363,11 +2363,11 @@ void watch_io_stat(char *path, bool scroll)
 			if (!scroll) 
 				clear_screen();
 			printf("%s\n", ptr);
-			r_iops = atol(strtok_r(NULL, " ", &save_ptr));
+			strtok_r(NULL, " ", &save_ptr);
 			r_ios = atol(strtok_r(NULL, " ", &save_ptr));
 			r_kbs = atol(strtok_r(NULL, " ", &save_ptr));
 			r_kb = atol(strtok_r(NULL, " ", &save_ptr));
-			w_iops = atol(strtok_r(NULL, " ", &save_ptr));
+			strtok_r(NULL, " ", &save_ptr);
 			w_ios = atol(strtok_r(NULL, " ", &save_ptr));
 			w_kbs = atol(strtok_r(NULL, " ", &save_ptr));
 			w_kb = atol(strtok_r(NULL, " ", &save_ptr));
@@ -3113,7 +3113,7 @@ char * read_last_line(char * res_name, int vnr, char * file_name)
 {
 	FILE *fp;
 	long leng = 2;
-	char file_path[256];
+	char file_path[512];
 	char * data;
 	char c;
 

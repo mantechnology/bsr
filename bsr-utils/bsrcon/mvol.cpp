@@ -1434,12 +1434,12 @@ DWORD MVOL_SetHandlerTimeout(PHANDLER_TIMEOUT_INFO pHandler)
 #endif
 
 // DW-1629
-BOOLEAN logfindstr(char* target, char *msg)
+BOOLEAN logfindstr(const char* target, const char *msg)
 {
 	if (target == NULL)
 		return false;
 
-	char* ptr = strstr(msg, target);
+	const char* ptr = strstr(msg, target);
 
 	if (ptr == NULL)
 		return false;
@@ -1890,7 +1890,7 @@ DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force, char* cert
 #else
 		retVal = -1;
 #endif
-		fprintf(stderr, "PANIC_ERROR: %s: Failed IOCTL_MVOL_WRITE_LOG. Err=%u, length(%d)\n",
+		fprintf(stderr, "PANIC_ERROR: %s: Failed IOCTL_MVOL_WRITE_LOG. Err=%u, length(%ld)\n",
 			__FUNCTION__, retVal, strlen(cert));
 	} else {
 		in.enable = panic_enable;
