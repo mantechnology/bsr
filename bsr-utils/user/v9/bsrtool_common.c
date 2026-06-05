@@ -777,11 +777,12 @@ out:
 	fp = fopen(BSR_LOG_PATH_REG, "r");
 
 	if (fp) {
-		fgets(lpath, sizeof(lpath), fp);
+		if (fgets(lpath, sizeof(lpath), fp) != NULL)
+			lpath[strcspn(lpath, "\r\n")] = '\0';
 		fclose(fp);
 	} 
 	
-	if (lpath == NULL || strlen(lpath) == 0) {
+	if (strlen(lpath) == 0) {
 		strcpy(lpath, "/var/log/bsr");
 	}
 #endif
@@ -1123,7 +1124,7 @@ void bsr_write_log(const char* func, int line, enum cli_log_level level, bool wr
 	errno = origin_errno;
 	memset(b, 0, sizeof(b));
 
-	if (execution_log != NULL && strlen(execution_log) != 0) {
+	if (strlen(execution_log) != 0) {
 		offset = bsr_log_format(b, func, line, level);
 		offset += snprintf(b + offset, 512 - offset, "execution command,%s",execution_log);
 		

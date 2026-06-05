@@ -3984,7 +3984,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 		return 0;
 
 	bsr_cfg_context_from_attrs(&cfg, info);
-	if (cfg.ctx_resource_name) {
+	if (strlen(cfg.ctx_resource_name) != 0) {
 		struct resources_list *r = calloc(1, sizeof(*r));
 		struct nlattr *res_opts = global_attrs[BSR_NLA_RESOURCE_OPTS];
 		struct nlattr *node_opts = global_attrs[BSR_NLA_NODE_OPTS];
@@ -4207,7 +4207,7 @@ static int remember_connection(struct bsr_cmd *cmd, struct genl_info *info, void
 		return 0;
 
 	bsr_cfg_context_from_attrs(&ctx, info);
-	if (ctx.ctx_resource_name) {
+	if (strlen(ctx.ctx_resource_name) != 0) {
 		struct connections_list *c = calloc(1, sizeof(*c));
 		struct nlattr *net_conf = global_attrs[BSR_NLA_NET_CONF];
 		struct nlattr *path_list = global_attrs[BSR_NLA_PATH_PARMS];
@@ -4329,7 +4329,7 @@ static int remember_peer_device(struct bsr_cmd *cmd, struct genl_info *info, voi
 		return 0;
 
 	bsr_cfg_context_from_attrs(&ctx, info);
-	if (ctx.ctx_resource_name) {
+	if (strlen(ctx.ctx_resource_name) != 0) {
 		struct peer_devices_list *p = calloc(1, sizeof(*p));
 		struct nlattr *peer_device_conf = global_attrs[BSR_NLA_PEER_DEVICE_OPTS];
 		if (!p) {
@@ -4421,7 +4421,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			continue;
 		found = true;
 
-		if (!device->disk_conf.backing_dev) {
+		if (strlen(device->disk_conf.backing_dev) == 0) {
 			CLI_ERRO_LOG_STDERR(false, "Has no disk config, try with bsrmeta.");
 			ret = 1;
 			break;
@@ -4651,7 +4651,7 @@ static int event_key(char *key, int size, const char *name, unsigned minor,
 	if (name)
 		EVPRINT("%s", name);
 
-	if (ctx->ctx_resource_name)
+	if (strlen(ctx->ctx_resource_name) != 0)
 		EVPRINT(" name:%s", ctx->ctx_resource_name);
 
 	if (ctx->ctx_peer_node_id != -1U)
@@ -4685,7 +4685,7 @@ static void print_event_key_json(unsigned minor, struct bsr_cfg_context *ctx)
 	if (!ctx) 
 		return ;
 
-	if (ctx->ctx_resource_name)
+	if (strlen(ctx->ctx_resource_name) != 0)
 		PRINT_JSON_STR("name", "%s", ctx->ctx_resource_name);
 
 	if (ctx->ctx_peer_node_id != -1U)

@@ -1509,8 +1509,9 @@ int adm_minor_mount_path(const struct cfg_ctx *ctx)
         mount_path[strcspn(mount_path, "\n")] = 0;
 	} else  {
 		if(ferror(fp)) {
+			int err = ferror(fp);
 			pclose(fp);
-			CLI_ERRO_LOG(false, "%s, mount cmd, fgets error %d\n", mounts_cmd, ferror(fp));
+			CLI_ERRO_LOG(false, "%s, mount cmd, fgets error %d\n", mounts_cmd, err);
 			return 1;
 		}
 	}

@@ -243,30 +243,30 @@ void print_umem(const char * name, struct umem_perf_stat *s)
 static int check_record_time(char * save_t, struct time_filter *tf)
 {
 	/* compare yyyy-mm-dd*/
-	if (tf->start_date && (strncmp(save_t, tf->start_date, strlen(tf->start_date)) < 0))
+	if (strlen(tf->start_date) != 0 && (strncmp(save_t, tf->start_date, strlen(tf->start_date)) < 0))
 		return 0;
 
-	if (tf->end_date && (strncmp(save_t, tf->end_date, strlen(tf->end_date)) > 0))
+	if (strlen(tf->end_date) != 0 && (strncmp(save_t, tf->end_date, strlen(tf->end_date)) > 0))
 		return 0;
 
 	/* compare hh:mm:ss (escape yyyy-mm-dd_) */
-	if (!tf->start_date && !tf->end_date) {
+	if (strlen(tf->start_date) == 0 && strlen(tf->end_date) == 0) {
 		if ((tf->start_time.use && (datecmp(&save_t[11], &tf->start_time) < 0)) ||
 			(tf->end_time.use && (datecmp(&save_t[11], &tf->end_time) > 0))) {
 			return 0;
 		}
-	} 
+	}
 	else {
 		// BSR-940
 		/* compare hh:mm:ss (include yyyy-mm-dd) */
 		if (tf->start_time.use) {
-			if (!tf->start_date || (strncmp(save_t, tf->start_date, strlen(tf->start_date)) == 0))
+			if (strlen(tf->start_date) == 0 || (strncmp(save_t, tf->start_date, strlen(tf->start_date)) == 0))
 				if (datecmp(&save_t[11], &tf->start_time) < 0)
 					return 0;
 		}
 
 		if (tf->end_time.use) {
-			if (!tf->end_date || (strncmp(save_t, tf->end_date, strlen(tf->end_date)) == 0))
+			if (strlen(tf->end_date) == 0 || (strncmp(save_t, tf->end_date, strlen(tf->end_date)) == 0))
 				if (datecmp(&save_t[11], &tf->end_time) > 0)
 					return 0;
 		}	
@@ -834,7 +834,7 @@ read_continue:
 					fscanf_str(fp, "%s", tok);
 					fscanf_ex(fp, "%u", &t_cnt);
 
-					if (tok != NULL && strlen(tok) !=0 && 
+					if (strlen(tok) != 0 &&
 						strcmp(tok, "req")) {
 						fscanf_ex(fp, "%*[^\n]");
 						continue;
@@ -854,7 +854,7 @@ read_continue:
 					fscanf_ex(fp, "%u", &t_cnt);
 					
 
-					if (tok != NULL && strlen(tok) !=0 && strcmp(tok, "al")) {
+					if (strlen(tok) != 0 && strcmp(tok, "al")) {
 						fscanf_ex(fp, "%*[^\n]");
 						continue;
 					}
