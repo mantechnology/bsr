@@ -462,7 +462,7 @@ void MonitorToFile(int type_flags)
 	while (res) {
 		char respath[BSRMON_PERF_PATH_SIZE + RESOURCE_NAME_MAX] = {0,};
 
-		snprintf(respath, sizeof(respath), "%s%s", g_perf_path, res->name);
+		sprintf_ex(respath, "%s%s", g_perf_path, res->name);
 #ifdef _WIN
 		CreateDirectoryA(respath, NULL);
 #else // _LIN
@@ -586,7 +586,11 @@ void Watch(char *resname, enum bsrmon_type type, int vnr, bool scroll)
 		sprintf_ex(watch_path, "%s", g_perf_path);
 
 
-	sprintf_ex(watch_path + strlen(watch_path), "%s", perf_type_str(type));
+#ifdef _WIN
+	sprintf_s(watch_path + strlen(watch_path), sizeof(watch_path) - strlen(watch_path), "%s", perf_type_str(type));
+#else
+	sprintf(watch_path + strlen(watch_path), "%s", perf_type_str(type));
+#endif
 
 	if (type != -1) {
 		switch (type) {

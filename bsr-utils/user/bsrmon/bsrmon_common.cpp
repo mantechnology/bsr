@@ -508,7 +508,7 @@ void _bsrmon_log(const char * func, int line, const char * fmt, ...) {
 	char curr_time[64] = { 0, };
 
 	get_perf_path();
-	snprintf(bsrmon_log_path, sizeof(bsrmon_log_path), "%sbsrmon.log", g_perf_path);
+	sprintf_ex(bsrmon_log_path, "%sbsrmon.log", g_perf_path);
 #ifdef _WIN
 	struct timeb timer_msec;
 	ftime(&timer_msec);
