@@ -91,6 +91,7 @@
 // BSR-1002
 #ifdef _WIN
 #include <iphlpapi.h>
+#include <netioapi.h>
 #endif
 
 char *progname;
@@ -939,7 +940,7 @@ static bool convert_if_alias_to_scope_id(char **address, const char *ifa_name)
 	NET_LUID interfaceLuid;
 	GUID guid;
 
-	int result = sscanf(ifa_name, "{%8lx-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx}",
+	int result = sscanf(ifa_name, "{%8x-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx}",
 		&guid.Data1, &guid.Data2, &guid.Data3,
 		&guid.Data4[0], &guid.Data4[1], &guid.Data4[2], &guid.Data4[3],
 		&guid.Data4[4], &guid.Data4[5], &guid.Data4[6], &guid.Data4[7]);
@@ -3904,7 +3905,7 @@ static void convert_scopeid_to_alias(char *address)
 	if_index = strtol(scopeId, NULL, 10);
 
 	if (NO_ERROR == ConvertInterfaceIndexToLuid(if_index, &if_luid) &&
-		NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, &if_alias_w, IF_MAX_STRING_SIZE + 1)) {
+		NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, if_alias_w, IF_MAX_STRING_SIZE + 1)) {
 		
 		len = wcstombs(NULL, if_alias_w, 0);
 		if (len != -1) {

@@ -27,6 +27,9 @@
 
 #include "linux/bsr_config.h"
 #include "bsrtool_common.h"
+#ifdef _WIN
+#include <psapi.h>
+#endif
 #include "config.h"
 #include "../../bsr-headers/bsr_log.h"
 

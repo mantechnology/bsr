@@ -17,6 +17,9 @@
 #include "../windows/types.h"
 #ifdef __KERNEL__
 #include "../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"
+#else
+#define sk_buff msg_buff
+#define skb msg
 #endif
 #ifndef inline
 #define inline __inline

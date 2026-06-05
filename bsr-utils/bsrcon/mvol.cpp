@@ -1890,8 +1890,8 @@ DWORD MVOL_BsrPanic(int panic_enable, int occurrence_time, int force, char* cert
 #else
 		retVal = -1;
 #endif
-		fprintf(stderr, "PANIC_ERROR: %s: Failed IOCTL_MVOL_WRITE_LOG. Err=%u, length(%ld)\n",
-			__FUNCTION__, retVal, strlen(cert));
+		fprintf(stderr, "PANIC_ERROR: %s: Failed IOCTL_MVOL_WRITE_LOG. Err=%u, length(%d)\n",
+			__FUNCTION__, retVal, (int)strlen(cert));
 	} else {
 		in.enable = panic_enable;
 		in.occurrence_time = occurrence_time;

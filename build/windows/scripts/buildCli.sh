@@ -14,7 +14,7 @@ ac_cv_path_DPKG_BUILDPACKAGE=false ./configure --without-bsrcon --without-udev -
 cd user/v9
 pwd
 make clean
-WIN_EXTRA_CFLAGS="-Wno-incompatible-pointer-types -Wno-format -Wno-implicit-function-declaration -Wno-unused-variable -Wno-unused-function -Wno-unused-value"
+WIN_EXTRA_CFLAGS="-Wno-unused-variable -Wno-unused-function -Wno-unused-value"
 if [ $arch = "x64" ]
 then
 	make EXTRA_CFLAGS="$WIN_EXTRA_CFLAGS" $arch'=1'
