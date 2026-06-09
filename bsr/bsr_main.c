@@ -6574,10 +6574,13 @@ void bsr_md_write(struct bsr_device *device, void *b)
 		buffer->peers[i].bitmap_dagtag = cpu_to_be64(peer_md->bitmap_dagtag);
 		buffer->peers[i].flags = cpu_to_be32(peer_md->flags);
 		buffer->peers[i].bitmap_index = cpu_to_be32(peer_md->bitmap_index);
+		buffer->peer_repl_started[i] = cpu_to_be64(peer_md->repl_started);
+		buffer->peer_last_synced[i] = cpu_to_be64(peer_md->last_synced);
 	}
 	BUILD_BUG_ON(ARRAY_SIZE(device->ldev->md.history_uuids) != ARRAY_SIZE(buffer->history_uuids));
 	for (i = 0; i < ARRAY_SIZE(buffer->history_uuids); i++)
 		buffer->history_uuids[i] = cpu_to_be64(device->ldev->md.history_uuids[i]);
+	buffer->last_promoted = cpu_to_be64(device->ldev->md.last_promoted);
 
 	buffer->al_stripes = cpu_to_be32(device->ldev->md.al_stripes);
 	buffer->al_stripe_size_4k = cpu_to_be32(device->ldev->md.al_stripe_size_4k);
@@ -6881,6 +6884,8 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 		peer_md->bitmap_dagtag = be64_to_cpu(buffer->peers[i].bitmap_dagtag);
 		peer_md->flags = be32_to_cpu(buffer->peers[i].flags);
 		peer_md->bitmap_index = be32_to_cpu(buffer->peers[i].bitmap_index);
+		peer_md->repl_started = be64_to_cpu(buffer->peer_repl_started[i]);
+		peer_md->last_synced = be64_to_cpu(buffer->peer_last_synced[i]);
 
 		if (peer_md->bitmap_index == -1)
 			continue;
@@ -6901,6 +6906,7 @@ int bsr_md_read(struct bsr_device *device, struct bsr_backing_dev *bdev)
 	BUILD_BUG_ON(ARRAY_SIZE(bdev->md.history_uuids) != ARRAY_SIZE(buffer->history_uuids));
 	for (i = 0; i < ARRAY_SIZE(buffer->history_uuids); i++)
 		bdev->md.history_uuids[i] = be64_to_cpu(buffer->history_uuids[i]);
+	bdev->md.last_promoted = be64_to_cpu(buffer->last_promoted);
 
 	rv = ERR_NO;
  err:
@@ -8062,6 +8068,83 @@ bool isFastInitialSync()
 	bsr_info(10, BSR_LC_RESYNC_OV, NO_OBJECT, "Fast sync is %s on resync with the current connection.", bRet ? "enabled" : "disabled");
 	
 	return bRet;
+}
+
+static u64 bsr_wallclock_seconds(void)
+{
+#ifdef _WIN
+	LARGE_INTEGER system_time;
+	u64 seconds;
+
+	KeQuerySystemTime(&system_time);
+	seconds = (u64)(system_time.QuadPart / 10000000ULL);
+	return seconds > 11644473600ULL ? seconds - 11644473600ULL : 0;
+#else
+	struct timespec64 ts = ktime_to_timespec64(ktime_get_real());
+
+	return ts.tv_sec;
+#endif
+}
+
+void bsr_record_last_promoted(struct bsr_resource *resource)
+{
+	struct bsr_device *device;
+	u64 promoted = bsr_wallclock_seconds();
+	int vnr;
+
+	if (!promoted)
+		return;
+
+	resource->last_promoted = promoted;
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+		if (get_ldev(device)) {
+			spin_lock_irq(&device->ldev->md.uuid_lock);
+			device->ldev->md.last_promoted = promoted;
+			spin_unlock_irq(&device->ldev->md.uuid_lock);
+			bsr_md_mark_dirty(device);
+			bsr_md_sync(device);
+			put_ldev(__FUNCTION__, device);
+		}
+	}
+}
+
+static void bsr_record_peer_time(struct bsr_peer_device *peer_device,
+				 bool repl_started)
+{
+	struct bsr_device *device = peer_device->device;
+	u64 now = bsr_wallclock_seconds();
+
+	if (!now)
+		return;
+
+	if (repl_started)
+		peer_device->repl_started = now;
+	else
+		peer_device->last_synced = now;
+
+	if (get_ldev(device)) {
+		struct bsr_peer_md *peer_md;
+
+		spin_lock_irq(&device->ldev->md.uuid_lock);
+		peer_md = &device->ldev->md.peers[peer_device->node_id];
+		if (repl_started)
+			peer_md->repl_started = now;
+		else
+			peer_md->last_synced = now;
+		spin_unlock_irq(&device->ldev->md.uuid_lock);
+		bsr_md_mark_dirty(device);
+		put_ldev(__FUNCTION__, device);
+	}
+}
+
+void bsr_record_repl_started(struct bsr_peer_device *peer_device)
+{
+	bsr_record_peer_time(peer_device, true);
+}
+
+void bsr_record_last_synced(struct bsr_peer_device *peer_device)
+{
+	bsr_record_peer_time(peer_device, false);
 }
 
 

@@ -2171,6 +2171,9 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 		}
 	}
 
+	if (!verify_done && !peer_device->rs_failed)
+		bsr_record_last_synced(peer_device);
+
 	// DW-955 clear resync aborted flag when just resync is done.
 	clear_bit(RESYNC_ABORTED, &peer_device->flags);
 

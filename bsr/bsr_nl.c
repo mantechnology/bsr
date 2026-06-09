@@ -1455,6 +1455,8 @@ retry:
 	} else {
 		struct bsr_connection *connection;
 
+		bsr_record_last_promoted(resource);
+
 		rcu_read_lock();
 		for_each_connection_rcu(connection, resource) {
 			struct bsr_peer_device *peer_device;
@@ -4752,12 +4754,29 @@ static void connection_to_info(struct connection_info *info,
 static void peer_device_to_info(struct peer_device_info *info,
 				struct bsr_peer_device *peer_device)
 {
+	struct bsr_device *device = peer_device->device;
+
 	info->peer_repl_state = peer_device->repl_state[NOW];
 	info->peer_disk_state = peer_device->disk_state[NOW];
 	info->peer_resync_susp_user = peer_device->resync_susp_user[NOW];
 	info->peer_resync_susp_peer = peer_device->resync_susp_peer[NOW];
 	info->peer_resync_susp_dependency = peer_device->resync_susp_dependency[NOW];
 	info->peer_is_intentional_diskless = false;
+	info->peer_repl_started = peer_device->repl_started;
+	info->peer_last_synced = peer_device->last_synced;
+
+	if (get_ldev(device)) {
+		struct bsr_peer_md *peer_md;
+
+		spin_lock_irq(&device->ldev->md.uuid_lock);
+		peer_md = &device->ldev->md.peers[peer_device->node_id];
+		info->peer_repl_started = peer_md->repl_started;
+		info->peer_last_synced = peer_md->last_synced;
+		spin_unlock_irq(&device->ldev->md.uuid_lock);
+		peer_device->repl_started = info->peer_repl_started;
+		peer_device->last_synced = info->peer_last_synced;
+		put_ldev(__FUNCTION__, device);
+	}
 }
 
 static bool is_resync_target_in_other_connection(struct bsr_peer_device *peer_device)
@@ -7324,11 +7343,29 @@ bsr_check_resource_name(struct bsr_config_context *adm_ctx)
 static void resource_to_info(struct resource_info *info,
 			     struct bsr_resource *resource)
 {
+	struct bsr_device *device;
+	u64 last_promoted = resource->last_promoted;
+	int vnr;
+
 	info->res_role = resource->role[NOW];
 	info->res_susp = resource->susp[NOW];
 	info->res_susp_nod = resource->susp_nod[NOW];
 	info->res_susp_fen = is_suspended_fen(resource, NOW, false);
 	info->res_susp_quorum = is_suspended_quorum(resource, NOW, false);
+
+	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
+		if (get_ldev(device)) {
+			u64 md_last_promoted;
+
+			spin_lock_irq(&device->ldev->md.uuid_lock);
+			md_last_promoted = device->ldev->md.last_promoted;
+			spin_unlock_irq(&device->ldev->md.uuid_lock);
+			if (md_last_promoted > last_promoted)
+				last_promoted = md_last_promoted;
+			put_ldev(__FUNCTION__, device);
+		}
+	}
+	info->res_last_promoted = last_promoted;
 }
 
 int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)

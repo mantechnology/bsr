@@ -1352,6 +1352,8 @@ struct bsr_work_queue {
 struct bsr_peer_md {
 	u64 bitmap_uuid;
 	u64 bitmap_dagtag;
+	u64 repl_started;
+	u64 last_synced;
 	u32 flags;
 	s32 bitmap_index;
 };
@@ -1362,6 +1364,7 @@ struct bsr_md {
 	u64 effective_size;	/* last agreed size (sectors) */
 	spinlock_t uuid_lock;
 	u64 current_uuid;
+	u64 last_promoted;
 	u64 device_uuid;
 	u32 flags;
 	s32 node_id;
@@ -1652,6 +1655,7 @@ struct bsr_resource {
 	struct queued_twopc *starting_queued_twopc;
 
 	enum bsr_role role[2];
+	u64 last_promoted;
 	bool susp[2];			/* IO suspended by user */
 	bool susp_nod[2];		/* IO suspended because no data */
 
@@ -1965,6 +1969,8 @@ struct bsr_peer_device {
 
 	enum bsr_repl_state start_resync_side;
 	enum bsr_repl_state last_repl_state; /* What we received from the peer */
+	u64 repl_started;
+	u64 last_synced;
 	struct timer_list start_resync_timer;
 	struct bsr_work resync_work;
 	struct timer_list resync_timer;
@@ -2589,6 +2595,9 @@ extern int bsr_md_test_flag(struct bsr_device *device, enum mdf_flag);
 extern void bsr_md_set_peer_flag(struct bsr_peer_device *, enum mdf_peer_flag);
 extern void bsr_md_clear_peer_flag(struct bsr_peer_device *, enum mdf_peer_flag);
 extern bool bsr_md_test_peer_flag(struct bsr_peer_device *, enum mdf_peer_flag);
+extern void bsr_record_last_promoted(struct bsr_resource *);
+extern void bsr_record_repl_started(struct bsr_peer_device *);
+extern void bsr_record_last_synced(struct bsr_peer_device *);
 #ifdef BSR_DEBUG_MD_SYNC
 #define bsr_md_mark_dirty(m)	bsr_md_mark_dirty_(m, __LINE__ , __func__ )
 extern void bsr_md_mark_dirty_(struct bsr_device *device,

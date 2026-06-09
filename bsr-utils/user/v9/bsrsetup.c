@@ -91,6 +91,7 @@
 // BSR-1002
 #ifdef _WIN
 #include <iphlpapi.h>
+#include <netioapi.h>
 #endif
 
 char *progname;
@@ -265,6 +266,7 @@ static void print_command_usage(struct bsr_cmd *cm, enum usage_type);
 static void print_usage_and_exit(const char *addinfo)
 		__attribute__ ((noreturn));
 static const char *resync_susp_str(struct peer_device_info *info);
+static const char *epoch_to_rfc3339(uint64_t epoch, char *buffer, size_t size);
 static const char *intentional_diskless_str(struct device_info *info);
 static const char *peer_intentional_diskless_str(struct peer_device_info *info);
 
@@ -939,7 +941,7 @@ static bool convert_if_alias_to_scope_id(char **address, const char *ifa_name)
 	NET_LUID interfaceLuid;
 	GUID guid;
 
-	int result = sscanf(ifa_name, "{%8lx-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx}",
+	int result = sscanf(ifa_name, "{%8x-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx}",
 		&guid.Data1, &guid.Data2, &guid.Data3,
 		&guid.Data4[0], &guid.Data4[1], &guid.Data4[2], &guid.Data4[3],
 		&guid.Data4[4], &guid.Data4[5], &guid.Data4[6], &guid.Data4[7]);
@@ -1624,8 +1626,8 @@ static int need_filesystem_recovery(char * dev_name)
 	char *argv[] = { NULL, NULL, NULL, NULL, NULL , NULL };
 	int argc = 0;
 	char  *n_dev_name, *ptr;
-	char fs_check_log[256];
-	char journal_check_log[256];
+	char fs_check_log[512];
+	char journal_check_log[512];
 
 	// check fast sync settings
 	fp = fopen("/etc/bsr.d/.use_fast_sync", "r");
@@ -1679,19 +1681,19 @@ static int need_filesystem_recovery(char * dev_name)
 	memset(journal_check_log, 0, sizeof(journal_check_log));	
 	memset(fs_check_log, 0, sizeof(fs_check_log));
 
-	switch (type) {
+		switch (type) {
 		case FS_XFS:
-			sprintf(journal_check_log, "%s/xfs_logprint%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/xfs_repair%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/xfs_logprint%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/xfs_repair%s.log", lpath, n_dev_name);
 			break;
 		case FS_EXT:
-			sprintf(journal_check_log, "%s/tune2fs%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/fsck%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/tune2fs%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/fsck%s.log", lpath, n_dev_name);
 			break;
 		case FS_BTRFS:
 			// BSR-1407
-			sprintf(journal_check_log, "%s/btrfscheck%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/btrfsdumptree%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/btrfscheck%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/btrfsdumptree%s.log", lpath, n_dev_name);
 			break;
 		default:
 			break;
@@ -3198,6 +3200,8 @@ static void peer_device_status_json(struct peer_devices_list *peer_device)
 	struct peer_device_statistics *s = &peer_device->statistics;
 	bool in_rsync = (peer_device->info.peer_repl_state >= L_SYNC_SOURCE &&
 		peer_device->info.peer_repl_state <= L_PAUSED_SYNC_T);
+	char repl_started[32];
+	char last_synced[32];
 
 	printf("        {\n"
 	       "          \"volume\": %d,\n"
@@ -3209,7 +3213,7 @@ static void peer_device_status_json(struct peer_devices_list *peer_device)
 	       "          \"sent\": " U64 ",\n"
 	       "          \"out-of-sync\": " U64 ",\n"
 	       "          \"pending\": " U32 ",\n"
-		   "          \"unacked\": " U32 "%s\n",
+		   "          \"unacked\": " U32,
 	       peer_device->ctx.ctx_volume,
 	       bsr_repl_str(peer_device->info.peer_repl_state),
 	       bsr_disk_str(peer_device->info.peer_disk_state),
@@ -3219,15 +3223,23 @@ static void peer_device_status_json(struct peer_devices_list *peer_device)
 	       (uint64_t)s->peer_dev_sent / 2,
 	       (uint64_t)s->peer_dev_out_of_sync / 2,
 	       s->peer_dev_pending,
-		   s->peer_dev_unacked,
-		   in_rsync ? "," : "");
+		   s->peer_dev_unacked);
+
+	if (peer_device->info.peer_repl_started)
+		printf(",\n          \"repl-started\": \"%s\"",
+		       epoch_to_rfc3339(peer_device->info.peer_repl_started,
+					repl_started, sizeof(repl_started)));
+	if (peer_device->info.peer_last_synced)
+		printf(",\n          \"last-synced\": \"%s\"",
+		       epoch_to_rfc3339(peer_device->info.peer_last_synced,
+					last_synced, sizeof(last_synced)));
 
 	if (in_rsync)
-		printf("          \"resync-done\": %.2f\n",
+		printf(",\n          \"resync-done\": %.2f",
 		       100 * (1 - (double)peer_device->statistics.peer_dev_out_of_sync /
 			      (double)peer_device->device->statistics.dev_size));
 
-	printf("        }");
+	printf("\n        }");
 }
 
 static void connection_status_json(struct connections_list *connection,
@@ -3323,13 +3335,20 @@ static void resource_status_json(struct resources_list *resource)
 	       "  \"node-id\": %d,\n"
 	       "  \"role\": \"%s\",\n"
 	       "  \"suspended\": %s,\n"
-	       "  \"write-ordering\": \"%s\",\n"
-	       "  \"devices\": [\n",
+	       "  \"write-ordering\": \"%s\"",
 	       resource->name,
 	       node_id,
 	       bsr_role_str(resource->info.res_role),
 	       suspended ? "true" : "false",
 	       write_ordering_str[resource->statistics.res_stat_write_ordering]);
+	if (resource->info.res_last_promoted) {
+		char last_promoted[32];
+
+		printf(",\n  \"last-promoted\": \"%s\"",
+		       epoch_to_rfc3339(resource->info.res_last_promoted,
+					last_promoted, sizeof(last_promoted)));
+	}
+	printf(",\n  \"devices\": [\n");
 }
 
 void print_peer_device_statistics(int indent,
@@ -3440,6 +3459,13 @@ void resource_status(struct resources_list *resource)
 		    role_color_start(role, true),
 		    bsr_role_str(role),
 		    role_color_stop(role, true));
+	if (opt_verbose && resource->info.res_last_promoted) {
+		char last_promoted[32];
+
+		wrap_printf(4, " last-promoted:%s",
+			    epoch_to_rfc3339(resource->info.res_last_promoted,
+					     last_promoted, sizeof(last_promoted)));
+	}
 	if (opt_verbose ||
 	    resource->info.res_susp ||
 	    resource->info.res_susp_nod ||
@@ -3535,6 +3561,31 @@ static const char *resync_susp_str(struct peer_device_info *info)
 	return buffer;
 }
 
+static const char *epoch_to_rfc3339(uint64_t epoch, char *buffer, size_t size)
+{
+	time_t t = (time_t)epoch;
+	struct tm tm;
+	char tmp[32];
+	size_t len;
+
+	if (!epoch)
+		return "none";
+	if (!localtime_r(&t, &tm))
+		return "none";
+	len = strftime(tmp, sizeof(tmp), "%Y-%m-%dT%H:%M:%S%z", &tm);
+	if (len == 0)
+		return "none";
+	if (len == 24 && size >= 26) {
+		memcpy(buffer, tmp, 22);
+		buffer[22] = ':';
+		memcpy(buffer + 23, tmp + 22, 2);
+		buffer[25] = '\0';
+	} else {
+		snprintf(buffer, size, "%s", tmp);
+	}
+	return buffer;
+}
+
 static void peer_device_status(struct peer_devices_list *peer_device, bool single_device, bool readability)
 {
 	int indent = 4;
@@ -3582,6 +3633,17 @@ static void peer_device_status(struct peer_devices_list *peer_device, bool singl
 		    peer_device->info.peer_resync_susp_dependency)
 			wrap_printf(indent, " resync-suspended:%s",
 				    resync_susp_str(&peer_device->info));
+		if (opt_verbose) {
+			char repl_started[32];
+			char last_synced[32];
+
+			wrap_printf(indent, " repl-started:%s",
+				    epoch_to_rfc3339(peer_device->info.peer_repl_started,
+						     repl_started, sizeof(repl_started)));
+			wrap_printf(indent, " last-synced:%s",
+				    epoch_to_rfc3339(peer_device->info.peer_last_synced,
+						     last_synced, sizeof(last_synced)));
+		}
 		if (opt_statistics && peer_device->statistics.peer_dev_received != -1) {
 			wrap_printf(indent, "\n");
 			print_peer_device_statistics(indent, NULL, &peer_device->statistics, wrap_printf, readability, false);
@@ -3904,7 +3966,7 @@ static void convert_scopeid_to_alias(char *address)
 	if_index = strtol(scopeId, NULL, 10);
 
 	if (NO_ERROR == ConvertInterfaceIndexToLuid(if_index, &if_luid) &&
-		NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, &if_alias_w, IF_MAX_STRING_SIZE + 1)) {
+		NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, if_alias_w, IF_MAX_STRING_SIZE + 1)) {
 		
 		len = wcstombs(NULL, if_alias_w, 0);
 		if (len != -1) {
@@ -3983,7 +4045,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 		return 0;
 
 	bsr_cfg_context_from_attrs(&cfg, info);
-	if (cfg.ctx_resource_name) {
+	if (strlen(cfg.ctx_resource_name) != 0) {
 		struct resources_list *r = calloc(1, sizeof(*r));
 		struct nlattr *res_opts = global_attrs[BSR_NLA_RESOURCE_OPTS];
 		struct nlattr *node_opts = global_attrs[BSR_NLA_NODE_OPTS];
@@ -4206,7 +4268,7 @@ static int remember_connection(struct bsr_cmd *cmd, struct genl_info *info, void
 		return 0;
 
 	bsr_cfg_context_from_attrs(&ctx, info);
-	if (ctx.ctx_resource_name) {
+	if (strlen(ctx.ctx_resource_name) != 0) {
 		struct connections_list *c = calloc(1, sizeof(*c));
 		struct nlattr *net_conf = global_attrs[BSR_NLA_NET_CONF];
 		struct nlattr *path_list = global_attrs[BSR_NLA_PATH_PARMS];
@@ -4328,7 +4390,7 @@ static int remember_peer_device(struct bsr_cmd *cmd, struct genl_info *info, voi
 		return 0;
 
 	bsr_cfg_context_from_attrs(&ctx, info);
-	if (ctx.ctx_resource_name) {
+	if (strlen(ctx.ctx_resource_name) != 0) {
 		struct peer_devices_list *p = calloc(1, sizeof(*p));
 		struct nlattr *peer_device_conf = global_attrs[BSR_NLA_PEER_DEVICE_OPTS];
 		if (!p) {
@@ -4420,7 +4482,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			continue;
 		found = true;
 
-		if (!device->disk_conf.backing_dev) {
+		if (strlen(device->disk_conf.backing_dev) == 0) {
 			CLI_ERRO_LOG_STDERR(false, "Has no disk config, try with bsrmeta.");
 			ret = 1;
 			break;
@@ -4650,7 +4712,7 @@ static int event_key(char *key, int size, const char *name, unsigned minor,
 	if (name)
 		EVPRINT("%s", name);
 
-	if (ctx->ctx_resource_name)
+	if (strlen(ctx->ctx_resource_name) != 0)
 		EVPRINT(" name:%s", ctx->ctx_resource_name);
 
 	if (ctx->ctx_peer_node_id != -1U)
@@ -4684,7 +4746,7 @@ static void print_event_key_json(unsigned minor, struct bsr_cfg_context *ctx)
 	if (!ctx) 
 		return ;
 
-	if (ctx->ctx_resource_name)
+	if (strlen(ctx->ctx_resource_name) != 0)
 		PRINT_JSON_STR("name", "%s", ctx->ctx_resource_name);
 
 	if (ctx->ctx_peer_node_id != -1U)
