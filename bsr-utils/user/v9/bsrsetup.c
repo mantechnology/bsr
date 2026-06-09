@@ -266,6 +266,7 @@ static void print_command_usage(struct bsr_cmd *cm, enum usage_type);
 static void print_usage_and_exit(const char *addinfo)
 		__attribute__ ((noreturn));
 static const char *resync_susp_str(struct peer_device_info *info);
+static const char *epoch_to_rfc3339(uint64_t epoch, char *buffer, size_t size);
 static const char *intentional_diskless_str(struct device_info *info);
 static const char *peer_intentional_diskless_str(struct peer_device_info *info);
 
@@ -3199,6 +3200,8 @@ static void peer_device_status_json(struct peer_devices_list *peer_device)
 	struct peer_device_statistics *s = &peer_device->statistics;
 	bool in_rsync = (peer_device->info.peer_repl_state >= L_SYNC_SOURCE &&
 		peer_device->info.peer_repl_state <= L_PAUSED_SYNC_T);
+	char repl_started[32];
+	char last_synced[32];
 
 	printf("        {\n"
 	       "          \"volume\": %d,\n"
@@ -3210,7 +3213,7 @@ static void peer_device_status_json(struct peer_devices_list *peer_device)
 	       "          \"sent\": " U64 ",\n"
 	       "          \"out-of-sync\": " U64 ",\n"
 	       "          \"pending\": " U32 ",\n"
-		   "          \"unacked\": " U32 "%s\n",
+		   "          \"unacked\": " U32,
 	       peer_device->ctx.ctx_volume,
 	       bsr_repl_str(peer_device->info.peer_repl_state),
 	       bsr_disk_str(peer_device->info.peer_disk_state),
@@ -3220,15 +3223,23 @@ static void peer_device_status_json(struct peer_devices_list *peer_device)
 	       (uint64_t)s->peer_dev_sent / 2,
 	       (uint64_t)s->peer_dev_out_of_sync / 2,
 	       s->peer_dev_pending,
-		   s->peer_dev_unacked,
-		   in_rsync ? "," : "");
+		   s->peer_dev_unacked);
+
+	if (peer_device->info.peer_repl_started)
+		printf(",\n          \"repl-started\": \"%s\"",
+		       epoch_to_rfc3339(peer_device->info.peer_repl_started,
+					repl_started, sizeof(repl_started)));
+	if (peer_device->info.peer_last_synced)
+		printf(",\n          \"last-synced\": \"%s\"",
+		       epoch_to_rfc3339(peer_device->info.peer_last_synced,
+					last_synced, sizeof(last_synced)));
 
 	if (in_rsync)
-		printf("          \"resync-done\": %.2f\n",
+		printf(",\n          \"resync-done\": %.2f",
 		       100 * (1 - (double)peer_device->statistics.peer_dev_out_of_sync /
 			      (double)peer_device->device->statistics.dev_size));
 
-	printf("        }");
+	printf("\n        }");
 }
 
 static void connection_status_json(struct connections_list *connection,
@@ -3324,13 +3335,20 @@ static void resource_status_json(struct resources_list *resource)
 	       "  \"node-id\": %d,\n"
 	       "  \"role\": \"%s\",\n"
 	       "  \"suspended\": %s,\n"
-	       "  \"write-ordering\": \"%s\",\n"
-	       "  \"devices\": [\n",
+	       "  \"write-ordering\": \"%s\"",
 	       resource->name,
 	       node_id,
 	       bsr_role_str(resource->info.res_role),
 	       suspended ? "true" : "false",
 	       write_ordering_str[resource->statistics.res_stat_write_ordering]);
+	if (resource->info.res_last_promoted) {
+		char last_promoted[32];
+
+		printf(",\n  \"last-promoted\": \"%s\"",
+		       epoch_to_rfc3339(resource->info.res_last_promoted,
+					last_promoted, sizeof(last_promoted)));
+	}
+	printf(",\n  \"devices\": [\n");
 }
 
 void print_peer_device_statistics(int indent,
@@ -3441,6 +3459,13 @@ void resource_status(struct resources_list *resource)
 		    role_color_start(role, true),
 		    bsr_role_str(role),
 		    role_color_stop(role, true));
+	if (opt_verbose && resource->info.res_last_promoted) {
+		char last_promoted[32];
+
+		wrap_printf(4, " last-promoted:%s",
+			    epoch_to_rfc3339(resource->info.res_last_promoted,
+					     last_promoted, sizeof(last_promoted)));
+	}
 	if (opt_verbose ||
 	    resource->info.res_susp ||
 	    resource->info.res_susp_nod ||
@@ -3536,6 +3561,31 @@ static const char *resync_susp_str(struct peer_device_info *info)
 	return buffer;
 }
 
+static const char *epoch_to_rfc3339(uint64_t epoch, char *buffer, size_t size)
+{
+	time_t t = (time_t)epoch;
+	struct tm tm;
+	char tmp[32];
+	size_t len;
+
+	if (!epoch)
+		return "none";
+	if (!localtime_r(&t, &tm))
+		return "none";
+	len = strftime(tmp, sizeof(tmp), "%Y-%m-%dT%H:%M:%S%z", &tm);
+	if (len == 0)
+		return "none";
+	if (len == 24 && size >= 26) {
+		memcpy(buffer, tmp, 22);
+		buffer[22] = ':';
+		memcpy(buffer + 23, tmp + 22, 2);
+		buffer[25] = '\0';
+	} else {
+		snprintf(buffer, size, "%s", tmp);
+	}
+	return buffer;
+}
+
 static void peer_device_status(struct peer_devices_list *peer_device, bool single_device, bool readability)
 {
 	int indent = 4;
@@ -3583,6 +3633,17 @@ static void peer_device_status(struct peer_devices_list *peer_device, bool singl
 		    peer_device->info.peer_resync_susp_dependency)
 			wrap_printf(indent, " resync-suspended:%s",
 				    resync_susp_str(&peer_device->info));
+		if (opt_verbose) {
+			char repl_started[32];
+			char last_synced[32];
+
+			wrap_printf(indent, " repl-started:%s",
+				    epoch_to_rfc3339(peer_device->info.peer_repl_started,
+						     repl_started, sizeof(repl_started)));
+			wrap_printf(indent, " last-synced:%s",
+				    epoch_to_rfc3339(peer_device->info.peer_last_synced,
+						     last_synced, sizeof(last_synced)));
+		}
 		if (opt_statistics && peer_device->statistics.peer_dev_received != -1) {
 			wrap_printf(indent, "\n");
 			print_peer_device_statistics(indent, NULL, &peer_device->statistics, wrap_printf, readability, false);

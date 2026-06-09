@@ -3280,6 +3280,32 @@ static void consider_finish_crashed_primary(struct bsr_peer_device *peer_device,
 }
 
 
+static bool repl_start_time_update_required(enum bsr_repl_state *repl_state,
+	enum bsr_disk_state *disk_state, enum bsr_role *role, enum bsr_role *peer_role,
+	struct bsr_peer_device *peer_device)
+{
+	bool replicating = repl_state[NEW] >= L_ESTABLISHED;
+	bool disk_attached =
+		disk_state[OLD] < D_NEGOTIATING &&
+		disk_state[NEW] >= D_NEGOTIATING;
+	bool local_primary_started =
+		role[NEW] == R_PRIMARY &&
+		(role[OLD] != R_PRIMARY || repl_state[OLD] < L_ESTABLISHED);
+	bool peer_primary_started =
+		peer_role[NEW] == R_PRIMARY &&
+		(peer_role[OLD] != R_PRIMARY || repl_state[OLD] < L_ESTABLISHED);
+
+	if (!replicating)
+		return false;
+	if (local_primary_started || peer_primary_started)
+		return true;
+	if (peer_role[NEW] != R_PRIMARY)
+		return false;
+	return peer_role[OLD] != R_PRIMARY ||
+		peer_device->repl_started == 0 ||
+		disk_attached;
+}
+
 /*
  * Perform after state change actions that may sleep.
  */
@@ -3400,6 +3426,10 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 
 			// DW-1447 
 			bool send_bitmap = false;
+
+			if (repl_start_time_update_required(repl_state, disk_state, role,
+				peer_role, peer_device))
+				bsr_record_repl_started(peer_device);
 
 			// DW-1806 If the initial state is not sent, wait for it to be sent.(Maximum 3 seconds)
 			if (connection->cstate[NOW] == C_CONNECTED && !test_bit(INITIAL_STATE_SENT, &peer_device->flags)) {

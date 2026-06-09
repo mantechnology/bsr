@@ -51,6 +51,9 @@ struct meta_data_on_disk_9 {
 
 	struct peer_dev_md_on_disk_9 peers[BSR_PEERS_MAX];
 	be_u64 history_uuids[HISTORY_UUIDS];
+	be_u64 last_promoted;
+	be_u64 peer_repl_started[BSR_PEERS_MAX];
+	be_u64 peer_last_synced[BSR_PEERS_MAX];
 #if defined(_WIN) && defined(__KERNEL__)
     char padding[1];
 };

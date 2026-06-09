@@ -287,6 +287,8 @@ typedef struct { unsigned long be; } be_ulong;
 struct peer_md_cpu {
 	uint64_t bitmap_uuid;
 	uint64_t bitmap_dagtag;
+	uint64_t repl_started;
+	uint64_t last_synced;
 	uint32_t flags;
 	int32_t bitmap_index;
 };
@@ -307,6 +309,7 @@ struct md_cpu {
 	int32_t bm_offset;		/* signed sector offset to the bitmap, from here */
 	/* Since BSR 0.8 we have uuid instead of gc */
 	uint32_t flags;
+	uint64_t last_promoted;
 	uint64_t device_uuid;
 	uint32_t bm_bytes_per_bit;
 	uint32_t la_peer_max_bio_size;
@@ -855,11 +858,16 @@ void md_disk_09_to_cpu(struct md_cpu *cpu, const struct meta_data_on_disk_9 *dis
 			be64_to_cpu(disk->peers[p].bitmap_uuid.be);
 		cpu->peers[p].bitmap_dagtag =
 			be64_to_cpu(disk->peers[p].bitmap_dagtag.be);
+		cpu->peers[p].repl_started =
+			be64_to_cpu(disk->peer_repl_started[p].be);
+		cpu->peers[p].last_synced =
+			be64_to_cpu(disk->peer_last_synced[p].be);
 
 	}
 	BUILD_BUG_ON(ARRAY_SIZE(cpu->history_uuids) != ARRAY_SIZE(disk->history_uuids));
 	for (i = 0; i < ARRAY_SIZE(cpu->history_uuids); i++)
 		cpu->history_uuids[i] = be64_to_cpu(disk->history_uuids[i].be);
+	cpu->last_promoted = be64_to_cpu(disk->last_promoted.be);
 }
 
 void md_cpu_to_disk_09(struct meta_data_on_disk_9 *disk, const struct md_cpu *cpu)
@@ -890,11 +898,16 @@ void md_cpu_to_disk_09(struct meta_data_on_disk_9 *disk, const struct md_cpu *cp
 			cpu_to_be64(cpu->peers[p].bitmap_uuid);
 		disk->peers[p].bitmap_dagtag.be =
 			cpu_to_be64(cpu->peers[p].bitmap_dagtag);
+		disk->peer_repl_started[p].be =
+			cpu_to_be64(cpu->peers[p].repl_started);
+		disk->peer_last_synced[p].be =
+			cpu_to_be64(cpu->peers[p].last_synced);
 
 	}
 	BUILD_BUG_ON(ARRAY_SIZE(disk->history_uuids) != ARRAY_SIZE(cpu->history_uuids));
 	for (i = 0; i < ARRAY_SIZE(disk->history_uuids); i++)
 		disk->history_uuids[i].be = cpu_to_be64(cpu->history_uuids[i]);
+	disk->last_promoted.be = cpu_to_be64(cpu->last_promoted);
 }
 
 /*

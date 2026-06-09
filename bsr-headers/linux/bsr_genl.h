@@ -253,6 +253,7 @@ GENL_struct(BSR_NLA_RESOURCE_INFO, 15, resource_info,
 	__flg_field(3, 0, res_susp_nod)
 	__flg_field(4, 0, res_susp_fen)
 	__flg_field(5, 0, res_susp_quorum)
+	__u64_field(6, 0, res_last_promoted)
 )
 
 GENL_struct(BSR_NLA_DEVICE_INFO, 16, device_info,
@@ -276,6 +277,8 @@ GENL_struct(BSR_NLA_PEER_DEVICE_INFO, 18, peer_device_info,
 	__u32_field(4, 0, peer_resync_susp_peer)
 	__u32_field(5, 0, peer_resync_susp_dependency)
 	__flg_field(6, 0, peer_is_intentional_diskless)
+	__u64_field(7, 0, peer_repl_started)
+	__u64_field(8, 0, peer_last_synced)
 )
 
 GENL_struct(BSR_NLA_RESOURCE_STATISTICS, 19, resource_statistics,
