@@ -3893,6 +3893,11 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	nbc = NULL;
 	new_disk_conf = NULL;
 
+	spin_lock_irq(&resource->req_lock);
+	if (device->ldev->md.last_promoted > resource->last_promoted)
+		resource->last_promoted = device->ldev->md.last_promoted;
+	spin_unlock_irq(&resource->req_lock);
+
 #ifdef _WIN
 	// DW-1376 this_bdev indicates block device of replication volume, which can be removed anytime. need to get newly created block device.
 	if (device->this_bdev->bd_disk->pDeviceExtension != device->ldev->backing_bdev->bd_disk->pDeviceExtension) {
@@ -3910,6 +3915,14 @@ int bsr_adm_attach(struct sk_buff *skb, struct genl_info *info)
 	ExReleaseSpinLockExclusive(&device->this_bdev->bd_disk->bsr_device_ref_lock, oldIRQL);
 #endif
 	for_each_peer_device(peer_device, device) {
+		struct bsr_peer_md *peer_md =
+			&device->ldev->md.peers[peer_device->node_id];
+
+		spin_lock_irq(&device->ldev->md.uuid_lock);
+		peer_device->repl_started = peer_md->repl_started;
+		peer_device->last_synced = peer_md->last_synced;
+		spin_unlock_irq(&device->ldev->md.uuid_lock);
+
 		err = bsr_attach_peer_device(peer_device);
 		if (err) {
 			retcode = ERR_NOMEM;
@@ -4754,8 +4767,6 @@ static void connection_to_info(struct connection_info *info,
 static void peer_device_to_info(struct peer_device_info *info,
 				struct bsr_peer_device *peer_device)
 {
-	struct bsr_device *device = peer_device->device;
-
 	info->peer_repl_state = peer_device->repl_state[NOW];
 	info->peer_disk_state = peer_device->disk_state[NOW];
 	info->peer_resync_susp_user = peer_device->resync_susp_user[NOW];
@@ -4764,19 +4775,6 @@ static void peer_device_to_info(struct peer_device_info *info,
 	info->peer_is_intentional_diskless = false;
 	info->peer_repl_started = peer_device->repl_started;
 	info->peer_last_synced = peer_device->last_synced;
-
-	if (get_ldev(device)) {
-		struct bsr_peer_md *peer_md;
-
-		spin_lock_irq(&device->ldev->md.uuid_lock);
-		peer_md = &device->ldev->md.peers[peer_device->node_id];
-		info->peer_repl_started = peer_md->repl_started;
-		info->peer_last_synced = peer_md->last_synced;
-		spin_unlock_irq(&device->ldev->md.uuid_lock);
-		peer_device->repl_started = info->peer_repl_started;
-		peer_device->last_synced = info->peer_last_synced;
-		put_ldev(__FUNCTION__, device);
-	}
 }
 
 static bool is_resync_target_in_other_connection(struct bsr_peer_device *peer_device)
@@ -7343,9 +7341,7 @@ bsr_check_resource_name(struct bsr_config_context *adm_ctx)
 static void resource_to_info(struct resource_info *info,
 			     struct bsr_resource *resource)
 {
-	struct bsr_device *device;
-	u64 last_promoted = resource->last_promoted;
-	int vnr;
+	u64 last_promoted;
 
 	info->res_role = resource->role[NOW];
 	info->res_susp = resource->susp[NOW];
@@ -7353,18 +7349,9 @@ static void resource_to_info(struct resource_info *info,
 	info->res_susp_fen = is_suspended_fen(resource, NOW, false);
 	info->res_susp_quorum = is_suspended_quorum(resource, NOW, false);
 
-	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
-		if (get_ldev(device)) {
-			u64 md_last_promoted;
-
-			spin_lock_irq(&device->ldev->md.uuid_lock);
-			md_last_promoted = device->ldev->md.last_promoted;
-			spin_unlock_irq(&device->ldev->md.uuid_lock);
-			if (md_last_promoted > last_promoted)
-				last_promoted = md_last_promoted;
-			put_ldev(__FUNCTION__, device);
-		}
-	}
+	spin_lock_irq(&resource->req_lock);
+	last_promoted = resource->last_promoted;
+	spin_unlock_irq(&resource->req_lock);
 	info->res_last_promoted = last_promoted;
 }
 

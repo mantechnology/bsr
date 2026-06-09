@@ -8095,7 +8095,10 @@ void bsr_record_last_promoted(struct bsr_resource *resource)
 	if (!promoted)
 		return;
 
+	spin_lock_irq(&resource->req_lock);
 	resource->last_promoted = promoted;
+	spin_unlock_irq(&resource->req_lock);
+
 	idr_for_each_entry_ex(struct bsr_device *, &resource->devices, device, vnr) {
 		if (get_ldev(device)) {
 			spin_lock_irq(&device->ldev->md.uuid_lock);
@@ -8132,6 +8135,10 @@ static void bsr_record_peer_time(struct bsr_peer_device *peer_device,
 		else
 			peer_md->last_synced = now;
 		spin_unlock_irq(&device->ldev->md.uuid_lock);
+		/* This may be called from RCU/atomic state transitions.
+		 * bsr_md_mark_dirty() schedules metadata persistence; do not
+		 * call bsr_md_sync() here because it can sleep on metadata I/O.
+		 */
 		bsr_md_mark_dirty(device);
 		put_ldev(__FUNCTION__, device);
 	}
