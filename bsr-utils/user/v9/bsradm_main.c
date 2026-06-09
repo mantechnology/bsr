@@ -1297,7 +1297,7 @@ DWORD add_registry_volume(char * letter)
     DWORD disposition = 0, status = ERROR_SUCCESS;
     HKEY hKey = NULL;
 
-    status = RegCreateKeyExA(HKEY_LOCAL_MACHINE, gRegistryPath, 0, (PWCHAR)NULL, REG_OPTION_NON_VOLATILE,
+    status = RegCreateKeyExA(HKEY_LOCAL_MACHINE, gRegistryPath, 0, (LPSTR)NULL, REG_OPTION_NON_VOLATILE,
     					   	KEY_ALL_ACCESS, (LPSECURITY_ATTRIBUTES) NULL, &hKey, &disposition);
     if ( ERROR_SUCCESS != status ) {
     	printf("Failed to RegCreateKeyEx(). status(0x%x)\n", status);
@@ -1509,8 +1509,9 @@ int adm_minor_mount_path(const struct cfg_ctx *ctx)
         mount_path[strcspn(mount_path, "\n")] = 0;
 	} else  {
 		if(ferror(fp)) {
+			int err = ferror(fp);
 			pclose(fp);
-			CLI_ERRO_LOG(false, "%s, mount cmd, fgets error %d\n", mounts_cmd, ferror(fp));
+			CLI_ERRO_LOG(false, "%s, mount cmd, fgets error %d\n", mounts_cmd, err);
 			return 1;
 		}
 	}
@@ -1601,13 +1602,13 @@ static off64_t read_bsr_dev_size(int minor)
 {
 	char *path;
 	FILE *file;
-	off64_t val;
+	long long val;
 	int r;
 
 	m_asprintf(&path, "/sys/block/bsr%d/size", minor);
 	file = fopen(path, "r");
 	if (file) {
-		r = fscanf(file, "%" SCNd64, &val);
+		r = fscanf(file, "%lld", &val);
 		fclose(file);
 		if (r != 1)
 			val = -1;
@@ -1615,7 +1616,7 @@ static off64_t read_bsr_dev_size(int minor)
 	else
 		val = -1;
 
-	return val;
+	return (off64_t)val;
 }
 
 int adm_resize(const struct cfg_ctx *ctx)

@@ -1104,7 +1104,6 @@ static void create_connections_from_mesh(struct d_resource *res, struct mesh *me
 	struct d_name *hname1, *hname2, *gname, *name;
 	struct d_host_info *hi1, *hi2;
 	struct d_group_info *gi;
-	struct d_host_info *host_info;
 
 	// BSR-1409 if a group does not have its own host set up, another host belonging to that group is added
 	for_each_group(gname, &mesh->groups) {

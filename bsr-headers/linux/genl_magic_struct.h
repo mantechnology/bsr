@@ -17,6 +17,9 @@
 #include "../windows/types.h"
 #ifdef __KERNEL__
 #include "../../bsr/bsr-kernel-compat/windows/bsr_wingenl.h"
+#else
+#define sk_buff msg_buff
+#define skb msg
 #endif
 #ifndef inline
 #define inline __inline
@@ -85,6 +88,7 @@ extern void CONCAT_(GENL_MAGIC_FAMILY, _genl_unregister)(void);
  */
 
 /* MAGIC helpers							{{{2 */
+struct sk_buff;
 
 static inline int nla_put_u64_0pad(struct sk_buff *skb, int attrtype, __u64 value)
 {

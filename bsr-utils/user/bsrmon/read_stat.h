@@ -148,7 +148,7 @@ struct io_pending_stat {
 	unsigned long long pending_bitmap_work;
 };
 
-extern char g_perf_path[MAX_PATH];
+extern char g_perf_path[BSRMON_PERF_PATH_SIZE];
 
 // BSR-948
 struct title_field {

@@ -33,11 +33,13 @@
 #include <sys/ioctl.h>
 #include <sys/utsname.h>
 #include <sys/time.h>
+#include <dirent.h>
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
@@ -77,6 +79,14 @@
 
 extern FILE* yyin;
 YYSTYPE yylval;
+
+#ifdef _WIN_CLI_UPDATE
+#define BSRMETA_FD_FMT "%p"
+#define BSRMETA_FD_ARG(fd) (fd)
+#else
+#define BSRMETA_FD_FMT "%u"
+#define BSRMETA_FD_ARG(fd) (fd)
+#endif
 
 int	force = 0;
 int	verbose = 0;
@@ -1116,16 +1126,16 @@ void pread_or_die(struct format *cfg, void *buf, size_t count, off_t offset, con
 #endif 
 	if (verbose >= 2) {
 		fflush(stdout);
-		CLI_ERRO_LOG_STDERR(false, " %-26s: pread(%u, ...,%6lu,%12llu)", tag,
-			fd, (unsigned long)count, (unsigned long long)offset);
+		CLI_ERRO_LOG_STDERR(false, " %-26s: pread(" BSRMETA_FD_FMT ", ...,%6lu,%12llu)", tag,
+			BSRMETA_FD_ARG(fd), (unsigned long)count, (unsigned long long)offset);
 		if (count & ((1<<12)-1))
 			CLI_ERRO_LOG_STDERR(false, "\tcount will cause EINVAL on hard sect size != 512");
 		if (offset & ((1<<12)-1))
 			CLI_ERRO_LOG_STDERR(false, "\toffset will cause EINVAL on hard sect size != 512");
 	}
 	if (c < 0) {
-		CLI_ERRO_LOG_STDERR(false, "pread(%u,...,%lu,%llu) in %s failed: %s",
-			fd, (unsigned long)count, (unsigned long long)offset,
+		CLI_ERRO_LOG_STDERR(false, "pread(" BSRMETA_FD_FMT ",...,%lu,%llu) in %s failed: %s",
+			BSRMETA_FD_ARG(fd), (unsigned long)count, (unsigned long long)offset,
 			tag, strerror(errno));
 		exit(10);
 	} else if ((size_t)c != count) {
@@ -1139,7 +1149,9 @@ void pread_or_die(struct format *cfg, void *buf, size_t count, off_t offset, con
 		fprintf_hex(stderr, offset, buf, count);
 }
 
+#ifndef min
 #define min(x,y) ((x) < (y) ? (x) : (y))
+#endif
 #define min3(x,y,z) (min(min(x,y),z))
 
 void validate_offsets_or_die(struct format *cfg, size_t count, off_t offset, const char* tag)
@@ -1203,8 +1215,8 @@ void pwrite_or_die(struct format *cfg, const void *buf, size_t count, off_t offs
 
 	++n_writes;
 	if (dry_run) {
-		CLI_ERRO_LOG_STDERR(false, " %-26s: pwrite(%u, ...,%6lu,%12llu) SKIPPED DUE TO DRY-RUN",
-			tag, fd, (unsigned long)count, (unsigned long long)offset);
+		CLI_ERRO_LOG_STDERR(false, " %-26s: pwrite(" BSRMETA_FD_FMT ", ...,%6lu,%12llu) SKIPPED DUE TO DRY-RUN",
+			tag, BSRMETA_FD_ARG(fd), (unsigned long)count, (unsigned long long)offset);
 		if (verbose > 10)
 			fprintf_hex(stderr, offset, buf, count);
 		return;
@@ -1221,16 +1233,16 @@ void pwrite_or_die(struct format *cfg, const void *buf, size_t count, off_t offs
 #endif 
 	if (verbose >= 2) {
 		fflush(stdout);
-		CLI_ERRO_LOG_STDERR(false, " %-26s: pwrite(%u, ...,%6lu,%12llu)", tag,
-			fd, (unsigned long)count, (unsigned long long)offset);
+		CLI_ERRO_LOG_STDERR(false, " %-26s: pwrite(" BSRMETA_FD_FMT ", ...,%6lu,%12llu)", tag,
+			BSRMETA_FD_ARG(fd), (unsigned long)count, (unsigned long long)offset);
 		if (count & ((1<<12)-1))
 			CLI_ERRO_LOG_STDERR(false, "\tcount will cause EINVAL on hard sect size != 512");
 		if (offset & ((1<<12)-1))
 			CLI_ERRO_LOG_STDERR(false, "\toffset will cause EINVAL on hard sect size != 512");
 	}
 	if (c < 0) {
-		CLI_ERRO_LOG_STDERR(false, "pwrite(%u,...,%lu,%llu) in %s failed: %s",
-			fd, (unsigned long)count, (unsigned long long)offset,
+		CLI_ERRO_LOG_STDERR(false, "pwrite(" BSRMETA_FD_FMT ",...,%lu,%llu) in %s failed: %s",
+			BSRMETA_FD_ARG(fd), (unsigned long)count, (unsigned long long)offset,
 			tag, strerror(errno));
 		exit(10);
 	} else if ((size_t)c != count) {
@@ -1772,12 +1784,12 @@ static void zeroout_bitmap(struct format *cfg)
 {
 	const size_t bitmap_bytes =
 		ALIGN(bm_bytes(&cfg->md, cfg->bd_size >> 9), cfg->md_hard_sect_size);
+#ifdef _LIN
 	uint64_t range[2];
-	int err;
-
 	range[0] = cfg->bm_offset; /* start offset */
 	range[1] = bitmap_bytes; /* len */
-
+#endif
+	int err;
 	CLI_ERRO_LOG_STDERR(false, "initializing bitmap (%u KB) to all zero",
 		(unsigned int)(bitmap_bytes >> 10));
 
@@ -2724,7 +2736,7 @@ static int _create_vhd_script(char * vhd_path, uint64_t size_mb, char * mount_po
 	// assign type refer
 	// https://technet.microsoft.com/en-us/library/cc766465(WS.10).aspx
 	sprintf(buf,
-		"create vdisk file=\"%s\" maximum=%llu\n"
+		"create vdisk file=\"%s\" maximum=%" PRIu64 "\n"
 		"attach vdisk\n"
 		"create partition primary\n"
 		"assign %s=\"%s\"",			// DW-1423 need quotation to get path with blank.
@@ -4811,12 +4823,12 @@ int meta_create_md(struct format *cfg, char **argv __attribute((unused)), int ar
 	char * meta_volume = _get_win32_device_ns(cfg->md_device_name);
 	// DW-1423 directory has been created while opening, it must exist. need to see if this's still directory.
 	int access_ret = access(meta_volume, R_OK);
-	int opendir_ret = opendir(meta_volume);
+	DIR *meta_dir = opendir(meta_volume);
 
-	if (opendir_ret)
-		closedir(meta_volume);
+	if (meta_dir)
+		closedir(meta_dir);
 	// whether to need vhd type
-	if (cfg->vhd_dev_path && (F_OK != access_ret || opendir_ret)) {
+	if (cfg->vhd_dev_path && (F_OK != access_ret || meta_dir)) {
 		
 		uint64_t evsm;		// Estimated Vhd Size per MiB
 		evsm = _get_bdev_size_by_letter('C' + cfg->minor); // per bytes

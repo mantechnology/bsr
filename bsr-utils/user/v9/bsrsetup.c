@@ -91,6 +91,7 @@
 // BSR-1002
 #ifdef _WIN
 #include <iphlpapi.h>
+#include <netioapi.h>
 #endif
 
 char *progname;
@@ -939,7 +940,7 @@ static bool convert_if_alias_to_scope_id(char **address, const char *ifa_name)
 	NET_LUID interfaceLuid;
 	GUID guid;
 
-	int result = sscanf(ifa_name, "{%8lx-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx}",
+	int result = sscanf(ifa_name, "{%8x-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx}",
 		&guid.Data1, &guid.Data2, &guid.Data3,
 		&guid.Data4[0], &guid.Data4[1], &guid.Data4[2], &guid.Data4[3],
 		&guid.Data4[4], &guid.Data4[5], &guid.Data4[6], &guid.Data4[7]);
@@ -1624,8 +1625,8 @@ static int need_filesystem_recovery(char * dev_name)
 	char *argv[] = { NULL, NULL, NULL, NULL, NULL , NULL };
 	int argc = 0;
 	char  *n_dev_name, *ptr;
-	char fs_check_log[256];
-	char journal_check_log[256];
+	char fs_check_log[512];
+	char journal_check_log[512];
 
 	// check fast sync settings
 	fp = fopen("/etc/bsr.d/.use_fast_sync", "r");
@@ -1679,19 +1680,19 @@ static int need_filesystem_recovery(char * dev_name)
 	memset(journal_check_log, 0, sizeof(journal_check_log));	
 	memset(fs_check_log, 0, sizeof(fs_check_log));
 
-	switch (type) {
+		switch (type) {
 		case FS_XFS:
-			sprintf(journal_check_log, "%s/xfs_logprint%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/xfs_repair%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/xfs_logprint%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/xfs_repair%s.log", lpath, n_dev_name);
 			break;
 		case FS_EXT:
-			sprintf(journal_check_log, "%s/tune2fs%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/fsck%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/tune2fs%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/fsck%s.log", lpath, n_dev_name);
 			break;
 		case FS_BTRFS:
 			// BSR-1407
-			sprintf(journal_check_log, "%s/btrfscheck%s.log", lpath, n_dev_name);
-			sprintf(fs_check_log, "%s/btrfsdumptree%s.log", lpath, n_dev_name);
+			snprintf(journal_check_log, sizeof(journal_check_log), "%s/btrfscheck%s.log", lpath, n_dev_name);
+			snprintf(fs_check_log, sizeof(fs_check_log), "%s/btrfsdumptree%s.log", lpath, n_dev_name);
 			break;
 		default:
 			break;
@@ -3904,7 +3905,7 @@ static void convert_scopeid_to_alias(char *address)
 	if_index = strtol(scopeId, NULL, 10);
 
 	if (NO_ERROR == ConvertInterfaceIndexToLuid(if_index, &if_luid) &&
-		NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, &if_alias_w, IF_MAX_STRING_SIZE + 1)) {
+		NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, if_alias_w, IF_MAX_STRING_SIZE + 1)) {
 		
 		len = wcstombs(NULL, if_alias_w, 0);
 		if (len != -1) {
@@ -3983,7 +3984,7 @@ static int remember_resource(struct bsr_cmd *cmd, struct genl_info *info, void *
 		return 0;
 
 	bsr_cfg_context_from_attrs(&cfg, info);
-	if (cfg.ctx_resource_name) {
+	if (strlen(cfg.ctx_resource_name) != 0) {
 		struct resources_list *r = calloc(1, sizeof(*r));
 		struct nlattr *res_opts = global_attrs[BSR_NLA_RESOURCE_OPTS];
 		struct nlattr *node_opts = global_attrs[BSR_NLA_NODE_OPTS];
@@ -4206,7 +4207,7 @@ static int remember_connection(struct bsr_cmd *cmd, struct genl_info *info, void
 		return 0;
 
 	bsr_cfg_context_from_attrs(&ctx, info);
-	if (ctx.ctx_resource_name) {
+	if (strlen(ctx.ctx_resource_name) != 0) {
 		struct connections_list *c = calloc(1, sizeof(*c));
 		struct nlattr *net_conf = global_attrs[BSR_NLA_NET_CONF];
 		struct nlattr *path_list = global_attrs[BSR_NLA_PATH_PARMS];
@@ -4328,7 +4329,7 @@ static int remember_peer_device(struct bsr_cmd *cmd, struct genl_info *info, voi
 		return 0;
 
 	bsr_cfg_context_from_attrs(&ctx, info);
-	if (ctx.ctx_resource_name) {
+	if (strlen(ctx.ctx_resource_name) != 0) {
 		struct peer_devices_list *p = calloc(1, sizeof(*p));
 		struct nlattr *peer_device_conf = global_attrs[BSR_NLA_PEER_DEVICE_OPTS];
 		if (!p) {
@@ -4420,7 +4421,7 @@ static int check_resize_cmd(struct bsr_cmd *cm, int argc, char **argv)
 			continue;
 		found = true;
 
-		if (!device->disk_conf.backing_dev) {
+		if (strlen(device->disk_conf.backing_dev) == 0) {
 			CLI_ERRO_LOG_STDERR(false, "Has no disk config, try with bsrmeta.");
 			ret = 1;
 			break;
@@ -4650,7 +4651,7 @@ static int event_key(char *key, int size, const char *name, unsigned minor,
 	if (name)
 		EVPRINT("%s", name);
 
-	if (ctx->ctx_resource_name)
+	if (strlen(ctx->ctx_resource_name) != 0)
 		EVPRINT(" name:%s", ctx->ctx_resource_name);
 
 	if (ctx->ctx_peer_node_id != -1U)
@@ -4684,7 +4685,7 @@ static void print_event_key_json(unsigned minor, struct bsr_cfg_context *ctx)
 	if (!ctx) 
 		return ;
 
-	if (ctx->ctx_resource_name)
+	if (strlen(ctx->ctx_resource_name) != 0)
 		PRINT_JSON_STR("name", "%s", ctx->ctx_resource_name);
 
 	if (ctx->ctx_peer_node_id != -1U)

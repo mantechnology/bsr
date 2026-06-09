@@ -999,6 +999,7 @@ int cmd_set_log_path(int *index, int argc, char* argv[])
 int cmd_all_cmd_usage(int *index, int argc, char* argv[])
 {
 	usage(true);
+	return 0;
 }
 
 struct cmd_struct {
