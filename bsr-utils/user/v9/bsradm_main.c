@@ -3247,8 +3247,13 @@ void print_usage_and_exit(struct adm_cmd *cmd, const char *addinfo, int status)
 	exit(status);
 }
 
-void verify_ips(struct d_resource *res)
+void verify_ips(struct d_resource *res, int is_dump)
 {
+	/* BSR-1557 For dump commands, skip IP verification when local me belongs to a group.
+	 * This suppresses both the error message and config_valid invalidation. */
+	if (is_dump && res && res->me &&
+	    (res->me->group && res->me->group[0]))
+		return;
 	if (global_options.disable_ip_verification)
 		return;
 	if (dry_run == 1 || do_verify_ips == 0)
@@ -4016,7 +4021,8 @@ int main(int argc, char **argv)
 				die_if_no_resources();
 			/* verify ips first, for all of them */
 			for_each_resource(res, &config) {
-				verify_ips(res);
+				// BSR-1557
+				verify_ips(res, is_dump);
 			}
 			if (!config_valid)
 				exit(E_CONFIG_INVALID);
@@ -4135,7 +4141,8 @@ int main(int argc, char **argv)
 						rv = E_USAGE;
 					continue;
 				}
-				verify_ips(ctx.res);
+				// BSR-1557
+				verify_ips(ctx.res, is_dump);
 				if (!is_dump && !config_valid)
 					exit(E_CONFIG_INVALID);
 
