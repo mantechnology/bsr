@@ -10,6 +10,8 @@
 
 #define MAX_BUF_SIZE 4096
 #define MAX_PATH 260
+#define BSRMON_PERF_PATH_SIZE (MAX_PATH + sizeof("/perfmon/"))
+#define BSRMON_ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 
 #define DEFAULT_BSRMON_PERIOD 1
 #define DEFAULT_BSRMON_FILE_SIZE 50
@@ -131,6 +133,7 @@ void get_perf_path();
 void eliminate(char *str, char ch);
 void get_filelist(char * dir_path, char * find_file, std::set<std::string> *file_list, bool copy);
 FILE *perf_fileopen(char * filename, char * currtime, void *param);
+void GetCurrentlySetTypeCount(struct bsrmon_type_counts *type_counts, bool print);
 
 // BSR-940
 extern struct type_names perf_type_names;
@@ -165,44 +168,3 @@ extern void _bsrmon_log(const char * func, int line, const char * fmt, ...);
 
 #endif
 
-static void GetCurrentlySetTypeCount(struct bsrmon_type_counts *type_counts, bool print)
-{
-	long type = GetOptionValue(BSRMON_TYPES);
-
-	type_counts->global = 0;
-	type_counts->resource = 0;
-	type_counts->volume = 0;
-
-	if (type <= 0)
-		type = DEFAULT_BSRMON_TYPES;
-
-	for (int i = 0; i <= BSRMON_ALL_STAT; i++) {
-		if (type & (1 << i)) {
-			for (int j = 0; j < sizeof(global_types_str) / sizeof(global_types_str[0]); j++) {
-				if (strcmp(global_types_str[j], total_types_str[i]) == 0) {
-					type_counts->global++;
-					if (print)
-						printf("%s ", global_types_str[j]);
-				}
-			}
-
-			for (int j = 0; j < sizeof(res_types_str) / sizeof(res_types_str[0]); j++) {
-				if (strcmp(res_types_str[j], total_types_str[i]) == 0) {
-					type_counts->resource++;
-					if (print)
-						printf("%s ", res_types_str[j]);
-				}
-			}
-
-			for (int j = 0; j < sizeof(vol_types_str) / sizeof(vol_types_str[0]); j++) {
-				if (strcmp(vol_types_str[j], total_types_str[i]) == 0) {
-					type_counts->volume++;
-					if (print)
-						printf("%s ", vol_types_str[j]);
-				}
-			}
-		}
-	}
-
-	type_counts->total = type_counts->global + type_counts->resource + type_counts->volume;
-}

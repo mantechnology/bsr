@@ -31,7 +31,9 @@
 #define __LITTLE_ENDIAN_BITFIELD
 
 // DW-1507 remove unmeaning build warnings(2008 platform) and more warnings disable.
+#ifdef _MSC_VER
 #pragma warning (disable : 4100 4121 4127 4152 4200 4201 4204 4221 )
+#endif
 
 // BSR-238 warning disable list
 // 4100: unreferenced formal parameter

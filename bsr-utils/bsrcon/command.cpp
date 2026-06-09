@@ -798,7 +798,6 @@ DWORD set_log_path(char *newPath)
 #else // _LIN
 	FILE *fp;
 #endif
-	char fullPath[MAX_PATH] = { 0, };
 	DWORD retVal = ERROR_SUCCESS;
 #ifdef _WIN
 	// BSR-1270

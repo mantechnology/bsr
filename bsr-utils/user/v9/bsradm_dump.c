@@ -747,7 +747,6 @@ static void dump_mesh(struct d_resource *res)
 	STAILQ_FOREACH(mesh, &res->meshes, link) {
 		struct d_name *h, *g;
 		struct d_host_info *host;
-		struct d_group_info *group;
 		bool found_group;
 		bool first_host = false;
 

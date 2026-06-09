@@ -21,7 +21,7 @@ unsigned long long GetSlabMemoryUsage(enum slab_type slab)
 		return 0;
 	}
 
-	while(fgets(buff, 1024, fp)) {
+	while(fgets(buff, sizeof(buff), fp)) {
 		char *ptr = strtok(buff, " "); 
 		int index;
 

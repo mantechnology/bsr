@@ -27,6 +27,7 @@
 #ifdef _WIN
 // BSR-1018
 #include <iphlpapi.h>
+#include <netioapi.h>
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -214,7 +215,7 @@ static char *convert_scopeid(char *scopeId)
 	else {
 #ifdef _WIN
 		if (NO_ERROR == ConvertInterfaceIndexToLuid(if_index, &if_luid) &&
-			NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, &if_alias_w, IF_MAX_STRING_SIZE + 1)) {
+			NO_ERROR == ConvertInterfaceLuidToAlias(&if_luid, if_alias_w, IF_MAX_STRING_SIZE + 1)) {
 			len = wcstombs(NULL, if_alias_w, 0);
 			if (len == -1) {
 				CLI_ERRO_LOG(false, true, "failed to get wc string size");

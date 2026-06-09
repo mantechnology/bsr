@@ -124,6 +124,7 @@ enum bsr_packet {
 #ifndef __packed
 #ifdef _WIN
 #pragma pack (push, 1) 
+#define BSR_PROTOCOL_PACK_PUSHED
 #define __packed
 #else // _LIN
 #define __packed __attribute__((packed))
@@ -618,8 +619,11 @@ struct p_peer_dagtag {
  */
 #define BSR_SOCKET_BUFFER_SIZE 4096
 
-#ifdef _WIN
+#ifdef BSR_PROTOCOL_PACK_PUSHED
 #pragma pack(pop)
+#undef BSR_PROTOCOL_PACK_PUSHED
+#endif
+#ifdef _WIN
 #undef __packed
 #endif
 #endif  /* __BSR_PROTOCOL_H */

@@ -295,8 +295,8 @@ test -z $INITDIR && INITDIR="$sysconfdir/init.d"
 
 dnl Our udev rules file is known to work only with udev >= 85
 if test "$WITH_UDEV" = "yes"; then
-   udev_version=`$UDEVADM version 2>/dev/null` || udev_version=`$UDEVINFO -V | cut -d " " -f 3`
-   if test -z $udev_version || test $udev_version -lt 85; then
+   udev_version=`$UDEVADM version 2>/dev/null | sed 's/[^0-9].*$//'` || udev_version=`$UDEVINFO -V | cut -d " " -f 3 | sed 's/[^0-9].*$//'`
+   if test -z "$udev_version" || test "$udev_version" -lt 85; then
       UDEV_RULE_SUFFIX=".disabled"
       AC_MSG_WARN([Obsolete or unknown udev version. Installing disabled udev rules.])
    fi
