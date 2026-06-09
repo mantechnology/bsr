@@ -157,6 +157,18 @@ static struct d_host_info *find_host_info_by_address(struct d_resource* res, str
 	return NULL;
 }
 
+static struct d_address *effective_host_address(struct hname_address *ha)
+{
+	// BSR-1713 prefer public-address when it is configured, otherwise use address.
+	if (ha->public_address.addr)
+		return &ha->public_address;
+
+	if (ha->address.addr)
+		return &ha->address;
+
+	return &ha->host_info->address;
+}
+
 static bool generate_implicit_node_id(int *addr_hash, struct d_host_info **host_info_array)
 {
 	if (addr_hash[0] > addr_hash[1]) {
@@ -1211,8 +1223,9 @@ static struct hname_address *find_hname_addr_in_res(struct d_resource *res, stru
 	struct path *path;
 	struct d_address *addr = NULL;
 
+	// BSR-1713
 	if(address_type == 0)
-		addr = ha1->address.addr ? &ha1->address : &ha1->host_info->address;
+		addr = effective_host_address(ha1);
 	else if(address_type == 1)
 		addr = &ha1->host_info->proxy_compat_only->inside;
 	else if(address_type == 2)
@@ -1222,8 +1235,9 @@ static struct hname_address *find_hname_addr_in_res(struct d_resource *res, stru
 		for_each_path(path, &conn->paths) {
 			STAILQ_FOREACH(ha, &path->hname_address_pairs, link) {
 				struct d_address *addr2;
-
-				addr2 = ha->address.addr ? &ha->address : &ha->host_info->address;
+				
+				// BSR-1713
+				addr2 = effective_host_address(ha);
 				if (addresses_equal(addr, addr2))
 					return ha;
 
@@ -1283,7 +1297,8 @@ static void check_addr_conflict(void *addrtree_root, struct resources *resources
 				STAILQ_FOREACH(ha1, &path->hname_address_pairs, link) {
 					int j = 0;
 
-					addr[i] = ha1->address.addr ? &ha1->address : &ha1->host_info->address;
+					// BSR-1713
+					addr[i] = effective_host_address(ha1);
 					if (addr[i]->is_local_address)
 						continue;
 
