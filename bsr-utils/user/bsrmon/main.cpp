@@ -728,10 +728,16 @@ static int create_dir(char* path)
 		if (('\\' == *p) && (':' != *(p-1))) {
 			if (!CreateDirectoryA(dirName, NULL)) {
 				ret = GetLastError();
-				if (ret != ERROR_ALREADY_EXISTS) {
+				// Existing directories are a normal case while walking parent segments.
+				if (ret == ERROR_ALREADY_EXISTS) {
+					ret = ERROR_SUCCESS;
+				} else {
 					fprintf(stderr, "Failed to create dir(%s). Err=%u\n", dirName, ret);
 					return ret;
 				}
+			} else {
+				// Clear stale error values from prior path segments.
+				ret = ERROR_SUCCESS;
 			}
 		}
 				
@@ -739,7 +745,8 @@ static int create_dir(char* path)
 		*pDir = '\0';
 	}
 
-	// create log dir
+	// Create the final leaf directory and report only real failures.
+	ret = ERROR_SUCCESS;
 	if (!CreateDirectoryA(dirName, NULL)) {
 		ret = GetLastError();
 		if (ret == ERROR_ALREADY_EXISTS) {
