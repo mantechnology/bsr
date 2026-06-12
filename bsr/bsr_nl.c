@@ -1436,6 +1436,8 @@ retry:
 
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid &= ~UUID_PRIMARY;
+				// BSR-783 on demotion, notify gi-uuid after clearing UUID_PRIMARY
+				bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 				if (test_bit(__NEW_CUR_UUID, &device->flags)) {
 					bsr_info(30, BSR_LC_UUID, device, "clear the UUID creation schedule flag due to secondary settings");
 				}
@@ -1528,6 +1530,11 @@ retry:
 			// DW-1154 set UUID_PRIMARY when promote a resource to primary role.
 			if (get_ldev(device)) {
 				device->ldev->md.current_uuid |= UUID_PRIMARY;
+				
+				// BSR-783 on promotion, notify gi-uuid after setting UUID_PRIMARY
+				// skip forced/younger_primary because bsr_uuid_new_current() already notifies
+				if (!forced && !younger_primary)
+					bsr_queue_notify_update_gi(device, NULL, BSR_GI_NOTI_UUID);
 				put_ldev(__FUNCTION__, device);
 			}
 		} 
