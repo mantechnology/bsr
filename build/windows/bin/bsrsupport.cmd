@@ -13,6 +13,8 @@ for /f "tokens=*" %%a in ('bsrmon /get file_path') do set BSRMON_DIR=%%a
 
 @rem BSR-1260
 set BSRMON_DIR=%BSRMON_DIR:path : =%
+@rem BSR-1624 bsrmon returns a trailing "\"; trim it so xcopy source does not become "\\*".
+if "%BSRMON_DIR:~-1%"=="\" set BSRMON_DIR=%BSRMON_DIR:~0,-1%
 set bsrsupport_log="%BSR_LOG_DIR%\bsrsupport.log"
 
 echo [%date%_%time%] [bsrsupport] start. > %bsrsupport_log%
@@ -431,7 +433,7 @@ exit /b 0
     set ARCHIVE_NAME=empty
     powershell -Command "$now=Get-Date;$stamp=$now.ToString('yyyyMMdd.HHmmss');$name=\"$env:COMPUTERNAME-$stamp.zip\";Write-Output $name" > %temp%\cmdtemp
     for /f "delims=" %%a in ('type %temp%\cmdtemp') do set ARCHIVE_NAME=%%a
-    del /q %temp%\cmdte
+    del /q %temp%\cmdtemp
 
     @rem Archive gathered information.
     cd /d "%SUPPORT_HOME%"
