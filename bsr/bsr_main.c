@@ -8115,6 +8115,7 @@ static void bsr_record_peer_time(struct bsr_peer_device *peer_device,
 				 bool repl_started)
 {
 	struct bsr_device *device = peer_device->device;
+	unsigned long flags;
 	u64 now = bsr_wallclock_seconds();
 
 	if (!now)
@@ -8128,13 +8129,13 @@ static void bsr_record_peer_time(struct bsr_peer_device *peer_device,
 	if (get_ldev(device)) {
 		struct bsr_peer_md *peer_md;
 
-		spin_lock_irq(&device->ldev->md.uuid_lock);
+		spin_lock_irqsave(&device->ldev->md.uuid_lock, flags);
 		peer_md = &device->ldev->md.peers[peer_device->node_id];
 		if (repl_started)
 			peer_md->repl_started = now;
 		else
 			peer_md->last_synced = now;
-		spin_unlock_irq(&device->ldev->md.uuid_lock);
+		spin_unlock_irqrestore(&device->ldev->md.uuid_lock, flags);
 		/* This may be called from RCU/atomic state transitions.
 		 * bsr_md_mark_dirty() schedules metadata persistence; do not
 		 * call bsr_md_sync() here because it can sleep on metadata I/O.
