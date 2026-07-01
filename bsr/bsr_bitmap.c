@@ -1315,6 +1315,7 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 	struct bsr_device *device = ctx->device;
 	struct bsr_bitmap *b = device->bitmap;
 	ULONG_PTR idx = bm_page_to_idx(bio->bi_io_vec[0].bv_page);
+	int in_flight = 0;
 
 	BIO_ENDIO_FN_START;
 #ifdef _WIN64
@@ -1384,10 +1385,19 @@ static BIO_ENDIO_TYPE bsr_bm_endio BIO_ENDIO_ARGS(struct bio *bio)
 	
 	bio_put(bio);
 
-	if (atomic_dec_and_test(&ctx->in_flight)) {
+	in_flight = atomic_dec_return(&ctx->in_flight);
+	if (in_flight == 0) {
 		ctx->done = 1;
 		wake_up(&device->misc_wait);
 		kref_put(&ctx->kref, &bsr_bm_aio_ctx_destroy);
+	} else if (in_flight == 1) {
+		/*
+		 * BSR-1721
+		 * This is a throttling wait, not the final completion wait. ctx->in_flight
+		 * includes the initial reference while bitmap pages are being scanned, so
+		 * <= 1 means previously submitted bitmap I/O is drained.
+		 */
+		wake_up(&device->misc_wait);
 	}
 #ifdef BSR_TRACE	
 	{
@@ -1503,12 +1513,15 @@ static void wait_pre_async_io_done_or_force_detached(struct bsr_device *device, 
 	dt = rcu_dereference(bdev->disk_conf)->disk_timeout;
 	rcu_read_unlock();
 	dt = dt * HZ / 10;
+	bsr_debug(154, BSR_LC_BITMAP, device, "Bitmap I/O throttle wait start. in_flight=%d", atomic_read(&ctx->in_flight));
 	if (dt == 0)
-	dt = MAX_SCHEDULE_TIMEOUT;
-
+		dt = MAX_SCHEDULE_TIMEOUT;
+	
+	// BSR-1721 fix bsr_worker hang caused by bitmap async I/O throttle wait condition
 	wait_event_timeout_ex(device->misc_wait, 
-		atomic_read(&ctx->in_flight) > 1 || test_bit(FORCE_DETACH, &device->flags), dt, dt);
+		atomic_read(&ctx->in_flight) <= 1 || test_bit(FORCE_DETACH, &device->flags), dt, dt);
 
+	bsr_debug(155, BSR_LC_BITMAP, device, "Bitmap I/O throttle wait done. in_flight=%d", atomic_read(&ctx->in_flight));
 	if (dt == 0) {
 		bsr_err(65, BSR_LC_IO, device, "The meta-disk I/O timeout sets the detach state.");
 		bsr_chk_io_error(device, 1, BSR_FORCE_DETACH);
