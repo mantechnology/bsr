@@ -8,6 +8,56 @@
 #include <unistd.h>
 #endif
 #ifdef _WIN
+namespace {
+
+struct debug_failure_key {
+	std::string resource_name;
+	int vnr;
+	int peer_node_id;
+	enum bsrmon_type debug_type;
+
+	bool operator<(const struct debug_failure_key& other) const
+	{
+		if (resource_name != other.resource_name)
+			return resource_name < other.resource_name;
+		if (vnr != other.vnr)
+			return vnr < other.vnr;
+		if (peer_node_id != other.peer_node_id)
+			return peer_node_id < other.peer_node_id;
+		return debug_type < other.debug_type;
+	}
+};
+
+std::set<struct debug_failure_key> debug_failures;
+
+struct debug_failure_key make_debug_failure_key(const char *resource_name, int vnr,
+	int peer_node_id, enum bsrmon_type debug_type)
+{
+	struct debug_failure_key key;
+
+	key.resource_name = resource_name;
+	key.vnr = vnr;
+	key.peer_node_id = peer_node_id;
+	key.debug_type = debug_type;
+	return key;
+}
+
+bool mark_debug_failure(const char *resource_name, int vnr, int peer_node_id,
+	enum bsrmon_type debug_type)
+{
+	return debug_failures.insert(make_debug_failure_key(resource_name, vnr,
+		peer_node_id, debug_type)).second;
+}
+
+bool clear_debug_failure(const char *resource_name, int vnr, int peer_node_id,
+	enum bsrmon_type debug_type)
+{
+	return debug_failures.erase(make_debug_failure_key(resource_name, vnr,
+		peer_node_id, debug_type)) != 0;
+}
+
+} // namespace
+
 HANDLE
 OpenDevice(PCHAR devicename)
 {
@@ -906,9 +956,15 @@ int GetDebugToFile(enum bsrmon_type debug_type, struct resource *res, char *resp
 #ifdef _WIN
 			debugInfo = GetDebugInfo(flag, res, vol->vnr, -1);
 			if (!debugInfo) {
-				bsrmon_log(stderr, "Failed to get %s(vnr:%d) %s debuginfo(%d).\n",
-						res->name, vol->vnr, perf_type_str(debug_type), flag);
+				if (mark_debug_failure(res->name, vol->vnr, -1, debug_type)) {
+					bsrmon_log(stderr, "Failed to get %s(vnr:%d) %s debuginfo(%d).\n",
+							res->name, vol->vnr, perf_type_str(debug_type), flag);
+				}
 				goto fail;
+			}
+			if (clear_debug_failure(res->name, vol->vnr, -1, debug_type)) {
+				bsrmon_log(stdout, "Recovered %s(vnr:%d) %s debuginfo(%d) collection.\n",
+						res->name, vol->vnr, perf_type_str(debug_type), flag);
 			}
 
 			memcpy(buffer + strlen(buffer), debugInfo->buf, strlen(debugInfo->buf));
