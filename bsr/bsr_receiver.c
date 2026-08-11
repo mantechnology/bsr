@@ -8254,7 +8254,8 @@ static int process_twopc(struct bsr_connection *connection,
 	// DW-1948 set standalone and split-brain after two primary check
 	if (rv == SS_TWO_PRIMARIES) {
 		if ((flags & CS_PREPARE) &&
-			mask.role == role_MASK && val.role == R_PRIMARY) {
+			mask.role == role_MASK && val.role == R_PRIMARY &&
+			mask.conn != conn_MASK) {
 			bsr_info(60, BSR_LC_TWOPC, connection, "Rejecting remote state change %u "
 				"due to existing primary (two primaries not allowed).", reply->tid);			
 		} else {
