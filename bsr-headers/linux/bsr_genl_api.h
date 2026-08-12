@@ -28,6 +28,9 @@ struct bsr_genlmsghdr {
 /* To be used in bsr_genlmsghdr.flags */
 enum {
 	BSR_GENL_F_SET_DEFAULTS = 1,
+	BSR_GENL_F_UP_BEGIN = 1 << 1,
+	BSR_GENL_F_UP_END = 1 << 2,
+	BSR_GENL_F_NO_HANDLER = 1 << 3,
 };
 
 /* hack around predefined gcc/cpp "linux=1",

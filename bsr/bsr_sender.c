@@ -2257,8 +2257,9 @@ out:
 
 	bsr_md_sync_if_dirty(device);
 
-	if (khelper_cmd)
+	if (khelper_cmd && !test_bit(NO_RESYNC_HANDLER, &peer_device->flags))
 		bsr_khelper(NULL, device, connection, khelper_cmd);
+	clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 
 	/* If we have been sync source, and have an effective fencing-policy,
 	 * once *all* volumes are back in sync, call "unfence". */
@@ -3476,7 +3477,8 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	// BSR-1015
 	last_reconnect_jif = connection->last_reconnect_jif;
 
-	if (!test_bit(B_RS_H_DONE, &peer_device->flags)) {
+	if (!test_bit(B_RS_H_DONE, &peer_device->flags) &&
+		!test_bit(NO_RESYNC_HANDLER, &peer_device->flags)) {
 		if (side == L_SYNC_TARGET) {
 			/* Since application IO was locked out during L_WF_BITMAP_T and
 			   L_WF_SYNC_UUID we are still unmodified. Before going to L_SYNC_TARGET

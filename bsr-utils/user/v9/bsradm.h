@@ -345,6 +345,9 @@ struct cfg_ctx {
 	struct path *path;
 
 	const struct adm_cmd *cmd;
+	unsigned int up_begin:1;
+	unsigned int up_end:1;
+	unsigned int no_handler:1;
 };
 
 

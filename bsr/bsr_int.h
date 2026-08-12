@@ -545,7 +545,7 @@ static const char * const __log_category_names[] = {
 #define BSR_LC_SOCKET_MAX_INDEX 109
 #define BSR_LC_DRIVER_MAX_INDEX 170
 #define BSR_LC_NETLINK_MAX_INDEX 36
-#define BSR_LC_GENL_MAX_INDEX 99
+#define BSR_LC_GENL_MAX_INDEX 100
 #define BSR_LC_PROTOCOL_MAX_INDEX 82
 #define BSR_LC_MEMORY_MAX_INDEX 99
 #define BSR_LC_LOG_MAX_INDEX 27
@@ -1263,6 +1263,7 @@ enum {
 
 	// BSR-52
 	USE_CURRENT_OOS_FOR_SYNC,
+	NO_RESYNC_HANDLER,
 
 	// BSR-1019
 	UUID_DELAY_SEND,
@@ -1489,6 +1490,7 @@ enum {
 	DEVICE_WORK_PENDING,	/* tell worker that some device has pending work */
 	PEER_DEVICE_WORK_PENDING,/* tell worker that some peer_device has pending work */
 	RESOURCE_WORK_PENDING,  /* tell worker that some peer_device has pending work */
+	UP_OPERATION_PENDING,   /* an adm up operation started but has not completed */
 
         /* to be used in bsr_post_work() */
 	TRY_BECOME_UP_TO_DATE,  /* try to become D_UP_TO_DATE */
