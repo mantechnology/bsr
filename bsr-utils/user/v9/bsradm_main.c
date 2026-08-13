@@ -841,8 +841,13 @@ int _run_deferred_cmds(enum bsr_cfg_stage stage)
 				if (d->ctx.res != last_res)
 					printf(" %s", d->ctx.res->name);
 			}
+			/* The final command may complete the up operation only when all
+			 * earlier deferred commands for this resource succeeded. */
+			if (d->ctx.up_end && d->ctx.res->up_operation_failed)
+				d->ctx.up_end = 0;
 			r = __call_cmd_fn(&d->ctx, KEEP_RUNNING);
 			if (r) {
+				d->ctx.res->up_operation_failed = 1;
 				/* If something in the "prerequisite" stages failed,
 				 * there is no point in trying to continue.
 				 * However if we just failed to adjust some
@@ -2562,6 +2567,7 @@ static int adm_up(const struct cfg_ctx *ctx)
 	struct connection *conn;
 	struct d_volume *vol;
 
+	ctx->res->up_operation_failed = 0;
 	tmp_ctx.no_handler = find_backend_option("--no-handler") != NULL;
 	new_resource_ctx.no_handler = tmp_ctx.no_handler;
 	new_resource_ctx.up_begin = 1;

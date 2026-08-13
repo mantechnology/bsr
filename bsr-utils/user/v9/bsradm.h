@@ -285,6 +285,8 @@ struct d_resource
 	/* if a prerequisite command failed, don't try any further commands.
 	 * see run_deferred_cmds() */
 	unsigned int skip_further_deferred_command:1;
+	/* Suppress up-end when any earlier deferred command for this resource failed. */
+	unsigned int up_operation_failed:1;
 };
 
 STAILQ_HEAD(resources, d_resource);

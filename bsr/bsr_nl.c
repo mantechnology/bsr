@@ -7798,7 +7798,10 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	// BSR-1598 before-demote handler
 	if(resource->role[NOW] == R_PRIMARY) {
 		was_primary = true;
-		ret = bsr_khelper(resource, NULL, NULL, "before-demote");
+		if (!no_handler)
+			ret = bsr_khelper(resource, NULL, NULL, "before-demote");
+		else
+			ret = 0;
 #ifdef _WIN
 		ret = ret & 0xff;
 #else // _LIN
@@ -7921,7 +7924,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	}
 #endif
 	// BSR-1598  after-demote handler
-	if (retcode >= SS_SUCCESS &&  was_primary)
+	if (retcode >= SS_SUCCESS && was_primary && !no_handler)
 		bsr_khelper(resource, NULL, NULL, "after-demote");
 	for_each_connection_ref(connection, im, resource) {
 		// DW-2035
