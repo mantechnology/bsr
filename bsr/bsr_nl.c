@@ -5910,10 +5910,11 @@ fail:
 	return 0;
 }
 
-static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
+static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device, bool no_handler)
 {
 	struct bsr_resource *resource = peer_device->connection->resource;
 	enum bsr_state_rv rv;
+	bool no_handler_was_set;
 	int res = 0;
 
 	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
@@ -5921,11 +5922,24 @@ static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
 	if (!bsr_inspect_resync_side(peer_device, L_SYNC_TARGET, NOW, false))
 		return SS_CW_FAILED_BY_PEER;
 
+	/* Restore a flag owned by an earlier operation if this request is rejected. */
+	no_handler_was_set = test_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	if (no_handler)
+		set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	else
+		clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+
 	rv = change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_T, CS_SERIALIZE);
 
 	if (rv < SS_SUCCESS && rv != SS_NEED_CONNECTION)
 		rv = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_T,
 			CS_VERBOSE | CS_SERIALIZE);
+	if (rv < SS_SUCCESS) {
+		if (no_handler_was_set)
+			set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+		else
+			clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	}
 
 	wait_event_interruptible_ex(resource->state_wait,
 				 peer_device->repl_state[NOW] != L_STARTING_SYNC_T, res);
@@ -6041,15 +6055,11 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 
 	if (sync_from_peer_device) {
-		if (no_handler)
-			set_bit(NO_RESYNC_HANDLER, &sync_from_peer_device->flags);
-		else
-			clear_bit(NO_RESYNC_HANDLER, &sync_from_peer_device->flags);
 		// BSR-1393
 		if (sync_from_peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)
 			retcode = ERR_PEER_TARGET_ONLY;
 		else
-			retcode = invalidate_resync(sync_from_peer_device);
+			retcode = invalidate_resync(sync_from_peer_device, no_handler);
 	} else {
 		int retry = 3;
 		do {
@@ -6074,11 +6084,7 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 						retcode = ERR_PEER_TARGET_ONLY;
 				}
 				else {
-					if (no_handler)
-						set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
-					else
-						clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
-					retcode = invalidate_resync(peer_device);
+					retcode = invalidate_resync(peer_device, no_handler);
 				}
 
 				if (retcode >= SS_SUCCESS)
@@ -6104,11 +6110,6 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	}
 
 out:
-	if (retcode < SS_SUCCESS) {
-		for_each_peer_device(peer_device, device)
-			clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
-	}
-
 	bsr_resume_io(device);
 out_no_resume:
 	mutex_unlock(&resource->adm_mutex);
@@ -6137,6 +6138,7 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_device *device;
 	struct bsr_peer_device *temp_peer_device;
 	bool no_handler = false;
+	bool no_handler_was_set;
 	int retcode; /* enum bsr_ret_code rsp. enum bsr_state_rv */
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
@@ -6199,14 +6201,16 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 			set_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags);
 		no_handler = inv.no_invalidate_peer_handler;
 	}
+	bsr_suspend_io(device, READ_AND_WRITE);
+	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
+	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
+
+	/* Flush an earlier completion before assigning the flag to this request. */
+	no_handler_was_set = test_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 	if (no_handler)
 		set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 	else
 		clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
-
-	bsr_suspend_io(device, READ_AND_WRITE);
-	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
-	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
 	
 	retcode = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_S, CS_SERIALIZE);
 
@@ -6229,8 +6233,12 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 			retcode = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_S,
 							   CS_VERBOSE | CS_SERIALIZE);
 	}
-	if (retcode < SS_SUCCESS)
-		clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	if (retcode < SS_SUCCESS) {
+		if (no_handler_was_set)
+			set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+		else
+			clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	}
 	bsr_resume_io(device);
 
 	

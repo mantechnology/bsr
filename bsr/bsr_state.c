@@ -3868,6 +3868,8 @@ static int w_after_state_change(struct bsr_work *w, int unused)
 			// DW-1315 resync availability has been checked in finish_state_change(), abort resync here by changing replication state to L_ESTABLISHED.
 			if (test_and_clear_bit(RESYNC_ABORTED, &peer_device->flags)) {
 				bsr_info(152, BSR_LC_RESYNC_OV, peer_device, "Resync will be aborted due to change of state.");
+				clear_bit(B_RS_H_DONE, &peer_device->flags);
+				clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 
 				if (repl_state[NOW] > L_ESTABLISHED) {
 					unsigned long irq_flags;

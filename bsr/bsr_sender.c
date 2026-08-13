@@ -1910,6 +1910,7 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 	bool uuid_updated = false;
 	bool stable_resync = false;
 	bool uuid_resync_finished = false;
+	bool resync_retry_scheduled = false;
 	u64 newer = 0;
 
 	struct bsr_peer_md old_peers_md[BSR_NODE_ID_MAX];
@@ -2238,6 +2239,8 @@ out_unlock:
 			begin_state_change_locked(device->resource, CS_VERBOSE);
 			__change_repl_state_and_auto_cstate(peer_device, new_repl_state, __FUNCTION__);
 			end_state_change_locked(device->resource, false, __FUNCTION__);
+			resync_retry_scheduled = peer_device->repl_state[NOW] > L_ESTABLISHED &&
+				peer_device->repl_state[NOW] < L_AHEAD;
 		}
 	}
 	spin_unlock_irq(&device->resource->req_lock);
@@ -2259,7 +2262,11 @@ out:
 
 	if (khelper_cmd && !test_bit(NO_RESYNC_HANDLER, &peer_device->flags))
 		bsr_khelper(NULL, device, connection, khelper_cmd);
-	clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	/* resync_again is generic, but NO_RESYNC_HANDLER is set only by the
+	 * invalidate commands.  If it remains set here, the scheduled retry is
+	 * a continuation of the invalidate operation that owns the skip flag. */
+	if (!resync_retry_scheduled)
+		clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 
 	/* If we have been sync source, and have an effective fencing-policy,
 	 * once *all* volumes are back in sync, call "unfence". */
@@ -3436,6 +3443,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	enum bsr_repl_state repl_state;
 	int r;
 	ULONG_PTR last_reconnect_jif = 0;
+	bool keep_no_resync_handler = false;
 
 	// BSR-1393
 	if (side == L_SYNC_TARGET && (peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)) {
@@ -3458,6 +3466,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	}
 	if (repl_state >= L_SYNC_SOURCE && repl_state < L_AHEAD) {
 		bsr_err(139, BSR_LC_RESYNC_OV, peer_device, "Failed to start resync due to resync already running!");
+		keep_no_resync_handler = true;
 		goto clear_flag;
 	}
 
@@ -3466,6 +3475,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 	if (peer_device && peer_device->connection->agreed_pro_version >= 115) {
 		if (side == L_SYNC_TARGET && atomic_read(&peer_device->wait_for_out_of_sync)) {
 			bsr_info(215, BSR_LC_RESYNC_OV, peer_device, "resync will not start because out of sync has not been received completely");
+			keep_no_resync_handler = true;
 			goto clear_flag;
 		}
 	}
@@ -3529,6 +3539,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		if (connection->cstate[NOW] == C_CONNECTED) {
 			set_bit(B_RS_H_DONE, &peer_device->flags);
 			peer_device->start_resync_side = side;
+			keep_no_resync_handler = true;
 			// BSR-634 changed to mod_timer() due to potential kernel panic caused by duplicate calls to add_timer().
 			mod_timer(&peer_device->start_resync_timer, jiffies + HZ / 5);
 		}
@@ -3665,6 +3676,7 @@ void bsr_start_resync(struct bsr_peer_device *peer_device, enum bsr_repl_state s
 		r = SS_UNKNOWN_ERROR;
 
 	if (r == SS_SUCCESS) {
+		keep_no_resync_handler = true;
 		bsr_pause_after(device);
 		/* Forget potentially stale cached per resync extent bit-counts.
 		 * Open coded bsr_rs_cancel_all(device), we already have IRQs
@@ -3796,6 +3808,11 @@ clear_flag:
 	// BSR-998 fix stuck in SyncSource/Established state
 	// clear AHEAD_TO_SYNC_SOURCE bit after state change
 	clear_bit(AHEAD_TO_SYNC_SOURCE, &peer_device->flags);
+	/* Keep both flags only while this resync is active or explicitly deferred. */
+	if (!keep_no_resync_handler && !test_bit(RESYNC_ABORTED, &peer_device->flags)) {
+		clear_bit(B_RS_H_DONE, &peer_device->flags);
+		clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	}
 
 }
 

@@ -1479,7 +1479,6 @@ static int adm_attach(const struct cfg_ctx *ctx)
 		}
 	}
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
-	add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = 0;
 
 	return m_system_ex(argv, SLEEPS_LONG, ctx->res->name, sh_varname, adjust_with_progress, dry_run, verbose);
@@ -1561,7 +1560,6 @@ int adm_new_minor(const struct cfg_ctx *ctx)
 	argv[NA(argc)] = ssprintf("%u", ctx->vol->vnr);
 	if (!ctx->vol->disk)
 		argv[NA(argc)] = ssprintf("--diskless");
-	add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = NULL;
 #ifdef _WIN_MVFL
 	ex = add_registry_volume(ctx->vol->disk);
@@ -1591,7 +1589,6 @@ static int adm_node(const struct cfg_ctx *ctx)
 		argv[NA(argc)] = "--set-defaults";
 	make_options(argv[NA(argc)], &res->me->node_options);
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
-	add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = NULL;
 
 	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
@@ -1615,7 +1612,8 @@ static int adm_resource(const struct cfg_ctx *ctx)
 	if (reset || do_new_resource)
 		make_options(argv[NA(argc)], &res->res_options);
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
-	add_up_options(argv, &argc, ctx);
+	if (do_new_resource)
+		add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = NULL;
 
 	ex = m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
@@ -1796,7 +1794,8 @@ static void __adm_bsrsetup(const struct cfg_ctx *ctx, int flags, pid_t *pid, int
 	}
 
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
-	add_up_options(argv, &argc, ctx);
+	if (ctx->cmd == &apply_persist_role_cmd)
+		add_up_options(argv, &argc, ctx);
 
 	if (ctx->cmd == &invalidate_setup_cmd && ctx->conn)
 		argv[NA(argc)] = ssprintf("--sync-from-peer-node-id=%s", ctx->conn->peer->node_id);
@@ -2185,7 +2184,6 @@ int adm_peer_device(const struct cfg_ctx *ctx)
 
 	make_options(argv[NA(argc)], &peer_device->pd_options);
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
-	add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = 0;
 
 	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
@@ -2234,7 +2232,6 @@ static int adm_new_peer(const struct cfg_ctx *ctx)
 	make_options(argv[NA(argc)], &conn->net_options);
 
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
-	add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = 0;
 
 	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
@@ -2262,7 +2259,6 @@ static int adm_path(const struct cfg_ctx *ctx)
 		argv[NA(argc)] = ssprintf("%d", global_options.disable_ip_verification);
 
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
-	add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = 0;
 
 	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
