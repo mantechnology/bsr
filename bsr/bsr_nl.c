@@ -7792,6 +7792,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		bsr_info(100, BSR_LC_GENL, resource, "before-down handler returned %d, "
 				"canceling resource down.", ret);
 		retcode = SS_UNKNOWN_ERROR;
+		bsr_msg_put_info(adm_ctx.reply_skb, "before-down handler failed");
 		goto fail;
 	}
 
