@@ -208,6 +208,7 @@ GENL_struct(BSR_NLA_NET_CONF, 5, net_conf,
 GENL_struct(BSR_NLA_SET_ROLE_PARMS, 6, set_role_parms,
 	__flg_field(1, BSR_GENLA_F_MANDATORY,	assume_uptodate)
 	__flg_field_def(2, 0 /* OPTIONAL */, full_sync, BSR_FULL_SYNC_DEF) // BSR-1549
+	__flg_field_def(3, 0 /* OPTIONAL */, no_role_handler, 0)
 )
 
 GENL_struct(BSR_NLA_RESIZE_PARMS, 7, resize_parms,
@@ -341,6 +342,7 @@ GENL_struct(BSR_NLA_HELPER, 24, bsr_helper_info,
 
 GENL_struct(BSR_NLA_INVALIDATE_PARMS, 25, invalidate_parms,
 	__s32_field_def(1, BSR_GENLA_F_MANDATORY, sync_from_peer_node_id, BSR_SYNC_FROM_NID_DEF)
+	__flg_field_def(2, 0 /* OPTIONAL */, no_invalidate_handler, 0)
 )
 
 GENL_struct(BSR_NLA_FORGET_PEER_PARMS, 26, forget_peer_parms,
@@ -387,6 +389,7 @@ GENL_struct(BSR_NLA_IO_ERROR, 31, bsr_io_error_info,
 
 GENL_struct(BSR_NLA_INVALIDATE_PEER_PARMS, 32, invalidate_peer_parms,
 	__flg_field(1, BSR_GENLA_F_MANDATORY, use_current_oos)
+	__flg_field_def(2, 0 /* OPTIONAL */, no_invalidate_peer_handler, 0)
 )
 
 // BSR-676
@@ -439,6 +442,10 @@ GENL_struct(BSR_NLA_MINOR_MOUNT_PATH_PARMS, 39, minor_mount_path_params,
 	__str_field_def(1, BSR_GENLA_F_MANDATORY, minor_mount_path, 4096)
 )
 #endif
+
+GENL_struct(BSR_NLA_DOWN_PARMS, 40, down_parms,
+	__flg_field_def(1, 0 /* OPTIONAL */, no_down_handler, 0)
+)
 
 /*
  * Notifications and commands (genlmsghdr->cmd)
@@ -583,7 +590,8 @@ GENL_op(BSR_ADM_OUTDATE,	25, GENL_doit(bsr_adm_outdate),
 GENL_op(BSR_ADM_GET_TIMEOUT_TYPE, 26, GENL_doit(bsr_adm_get_timeout_type),
 	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED))
 GENL_op(BSR_ADM_DOWN,		27, GENL_doit(bsr_adm_down),
-	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED))
+	GENL_tla_expected(BSR_NLA_CFG_CONTEXT, BSR_F_REQUIRED)
+	GENL_tla_expected(BSR_NLA_DOWN_PARMS, 0 /* OPTIONAL */))
 
 GENL_op(BSR_ADM_GET_RESOURCES, 30,
 	GENL_op_init(

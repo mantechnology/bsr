@@ -533,11 +533,23 @@ finish:
 static int bsr_adm_finish(struct bsr_config_context *adm_ctx, struct genl_info *info, int retcode)
 {
 	int ret = 0;
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	struct bsr_genlmsghdr *dh = (struct bsr_genlmsghdr *)genl_info_userhdr(info);
+#else
+	struct bsr_genlmsghdr *dh = info->userhdr;
+#endif
+	bool success = retcode == ERR_NO ||
+		(retcode >= SS_SUCCESS && retcode < ERR_CODE_BASE);
 
 	if (retcode < SS_SUCCESS) {
 		struct bsr_resource *resource = adm_ctx->resource;		
 		bsr_err(2, BSR_LC_GENL, resource, "Failed to finish bsradm due to cmd(%u) error: %s", info->genlhdr->cmd, bsr_set_st_err_str(retcode));
 	}
+	if (success && adm_ctx->resource &&
+	    (dh->flags & BSR_GENL_F_UP_END) &&
+	    test_and_clear_bit(UP_OPERATION_PENDING, &adm_ctx->resource->flags) &&
+	    !(dh->flags & BSR_GENL_F_NO_HANDLER))
+		bsr_khelper(adm_ctx->resource, NULL, NULL, "after-up");
 
 	if (adm_ctx->device) {
 		kref_debug_put(&adm_ctx->device->kref_debug, 4);
@@ -766,7 +778,7 @@ int bsr_khelper(struct bsr_resource *resource, struct bsr_device *device, struct
 		return 0;
 
 	// BSR-1438
-	if(!resource)
+	if (!resource)
 		resource = device ? device->resource : connection->resource;
 	argv[2] = resource->name;
 	
@@ -879,7 +891,6 @@ int bsr_khelper(struct bsr_resource *resource, struct bsr_device *device, struct
 #elif _LIN
 	magic_printk(84, BSR_LC_ETC, KERN_INFO, "helper command: %s %s", usermode_helper, cmd);
 #endif
-
 	notify_helper(NOTIFY_CALL, resource, device, connection, cmd, 0);
 
 #ifdef _WIN
@@ -1747,7 +1758,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 		changed = true;
 
 	if (info->genlhdr->cmd == BSR_ADM_PRIMARY) {
-		if (changed) {
+		if (changed && !parms.no_role_handler) {
  			// BSR-1438		
 			r = bsr_khelper(resource, NULL, NULL, "before-promote");
 #ifdef _WIN
@@ -1792,7 +1803,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 					bsr_md_sync(device);
 				}
 			}
-			if (changed) {
+			if (changed && !parms.no_role_handler) {
 				// BSR-1438
 				bsr_khelper(resource, NULL, NULL, "after-promote");
 
@@ -1804,7 +1815,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			goto fail;
 	}
 	else {
-		if (changed) {
+		if (changed && !parms.no_role_handler) {
 			// BSR-1438		
 			r = bsr_khelper(resource, NULL, NULL, "before-demote");
 #ifdef _WIN
@@ -1914,7 +1925,7 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 				bsr_md_clear_flag(device, MDF_WAS_PRIMARY);
 				bsr_md_sync(device);
 			}
-			if (changed) {
+			if (changed && !parms.no_role_handler) {
 				// BSR-1438
 				bsr_khelper(resource, NULL, NULL, "after-demote");
 			}
@@ -5899,10 +5910,11 @@ fail:
 	return 0;
 }
 
-static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
+static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device, bool no_handler)
 {
 	struct bsr_resource *resource = peer_device->connection->resource;
 	enum bsr_state_rv rv;
+	bool no_handler_was_set;
 	int res = 0;
 
 	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
@@ -5910,11 +5922,24 @@ static enum bsr_state_rv invalidate_resync(struct bsr_peer_device *peer_device)
 	if (!bsr_inspect_resync_side(peer_device, L_SYNC_TARGET, NOW, false))
 		return SS_CW_FAILED_BY_PEER;
 
+	/* Restore a flag owned by an earlier operation if this request is rejected. */
+	no_handler_was_set = test_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	if (no_handler)
+		set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	else
+		clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+
 	rv = change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_T, CS_SERIALIZE);
 
 	if (rv < SS_SUCCESS && rv != SS_NEED_CONNECTION)
 		rv = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_T,
 			CS_VERBOSE | CS_SERIALIZE);
+	if (rv < SS_SUCCESS) {
+		if (no_handler_was_set)
+			set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+		else
+			clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	}
 
 	wait_event_interruptible_ex(resource->state_wait,
 				 peer_device->repl_state[NOW] != L_STARTING_SYNC_T, res);
@@ -5960,6 +5985,7 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_resource *resource;
 	struct bsr_peer_device *peer_device;
 	struct bsr_device *device;
+	bool no_handler = false;
 	int retcode = 0; /* enum bsr_ret_code rsp. enum bsr_state_rv */
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_MINOR);
@@ -6001,6 +6027,7 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
 			goto out_no_resume;
 		}
+		no_handler = inv.no_invalidate_handler;
 
 		if (inv.sync_from_peer_node_id != -1) {
 			struct bsr_connection *connection =
@@ -6032,7 +6059,7 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 		if (sync_from_peer_device->uuid_flags & UUID_FLAG_TARGET_ONLY)
 			retcode = ERR_PEER_TARGET_ONLY;
 		else
-			retcode = invalidate_resync(sync_from_peer_device);
+			retcode = invalidate_resync(sync_from_peer_device, no_handler);
 	} else {
 		int retry = 3;
 		do {
@@ -6056,8 +6083,9 @@ int bsr_adm_invalidate(struct sk_buff *skb, struct genl_info *info)
 					if (!success)
 						retcode = ERR_PEER_TARGET_ONLY;
 				}
-				else
-					retcode = invalidate_resync(peer_device);
+				else {
+					retcode = invalidate_resync(peer_device, no_handler);
+				}
 
 				if (retcode >= SS_SUCCESS)
 				// DW-907 implicitly request to get synced to all peers, as a way of hedging first source node put out.
@@ -6109,6 +6137,8 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 	struct bsr_resource *resource;
 	struct bsr_device *device;
 	struct bsr_peer_device *temp_peer_device;
+	bool no_handler = false;
+	bool no_handler_was_set;
 	int retcode; /* enum bsr_ret_code rsp. enum bsr_state_rv */
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_PEER_DEVICE);
@@ -6169,11 +6199,18 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 
 		if(inv.use_current_oos)
 			set_bit(USE_CURRENT_OOS_FOR_SYNC, &peer_device->flags);
+		no_handler = inv.no_invalidate_peer_handler;
 	}
-
 	bsr_suspend_io(device, READ_AND_WRITE);
 	wait_event(device->misc_wait, !atomic_read(&device->pending_bitmap_work.n));
 	bsr_flush_workqueue(resource, &peer_device->connection->sender_work);
+
+	/* Flush an earlier completion before assigning the flag to this request. */
+	no_handler_was_set = test_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	if (no_handler)
+		set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+	else
+		clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 	
 	retcode = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_S, CS_SERIALIZE);
 
@@ -6195,6 +6232,12 @@ int bsr_adm_invalidate_peer(struct sk_buff *skb, struct genl_info *info)
 #endif
 			retcode = stable_change_repl_state(__FUNCTION__, peer_device, L_STARTING_SYNC_S,
 							   CS_VERBOSE | CS_SERIALIZE);
+	}
+	if (retcode < SS_SUCCESS) {
+		if (no_handler_was_set)
+			set_bit(NO_RESYNC_HANDLER, &peer_device->flags);
+		else
+			clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 	}
 	bsr_resume_io(device);
 
@@ -7369,6 +7412,14 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 	enum bsr_ret_code retcode;
 	struct res_opts res_opts;
 	int err;
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	struct bsr_genlmsghdr *dh = (struct bsr_genlmsghdr *)genl_info_userhdr(info);
+#else
+	struct bsr_genlmsghdr *dh = info->userhdr;
+#endif
+	bool begin_up = dh->flags & BSR_GENL_F_UP_BEGIN;
+	bool run_before_up = begin_up &&
+		!(dh->flags & BSR_GENL_F_NO_HANDLER);
 
 #ifdef _PARALLEL_OPS
 	mutex_lock(&resources_mutex);
@@ -7393,8 +7444,25 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 	if (retcode != ERR_NO)
 		goto out;
 
-	if (adm_ctx.resource)
+	if (adm_ctx.resource) {
+		/* A pending flag means that an earlier up attempt did not reach its
+		 * final engine command.  Retry before-up in that case, but do not run
+		 * the up handlers again for an already completed resource. */
+		if (run_before_up &&
+		    test_bit(UP_OPERATION_PENDING, &adm_ctx.resource->flags)) {
+			err = bsr_khelper(adm_ctx.resource, NULL, NULL, "before-up");
+#ifdef _WIN
+			err &= 0xff;
+#else
+			err = (err >> 8) & 0xff;
+#endif
+			if (err) {
+				retcode = ERR_INVALID_REQUEST;
+				bsr_msg_put_info(adm_ctx.reply_skb, "before-up handler failed");
+			}
+		}
 		goto out;
+	}
 #ifdef _WIN 
 	if (res_opts.node_id >= BSR_NODE_ID_MAX) {
 #else // _LIN
@@ -7427,6 +7495,22 @@ int bsr_adm_new_resource(struct sk_buff *skb, struct genl_info *info)
 		resource_to_info(&resource_info, resource);
 		notify_resource_state(NULL, 0, resource, &resource_info, NOTIFY_CREATE);
 		mutex_unlock(&notification_mutex);
+
+		if (begin_up)
+			set_bit(UP_OPERATION_PENDING, &resource->flags);
+
+		if (run_before_up) {
+			err = bsr_khelper(resource, NULL, NULL, "before-up");
+#ifdef _WIN
+			err &= 0xff;
+#else
+			err = (err >> 8) & 0xff;
+#endif
+			if (err) {
+				retcode = ERR_INVALID_REQUEST;
+				bsr_msg_put_info(adm_ctx.reply_skb, "before-up handler failed");
+			}
+		}
 
 #ifdef _WIN_MULTIVOL_THREAD
 		NTSTATUS status;
@@ -7653,6 +7737,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	enum bsr_ret_code ret;
 	int i;
 	bool was_primary = false;
+	bool no_handler = false;
 	u64 im;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info,
@@ -7661,6 +7746,17 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		return retcode;
 
 	resource = adm_ctx.resource;
+	if (info->attrs[BSR_NLA_DOWN_PARMS]) {
+		struct down_parms parms = { 0, };
+		int err = down_parms_from_attrs(&parms, info);
+
+		if (err) {
+			retcode = ERR_MANDATORY_TAG;
+			bsr_msg_put_info(adm_ctx.reply_skb, from_attrs_err_to_txt(err));
+			goto out;
+		}
+		no_handler = parms.no_down_handler;
+	}
 
 	mutex_lock(&resource->adm_mutex);
 
@@ -7683,10 +7779,30 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		goto fail;
 	}
 
+	if (!no_handler)
+		ret = bsr_khelper(resource, NULL, NULL, "before-down");
+	else
+		ret = 0;
+#ifdef _WIN
+	ret = ret & 0xff;
+#else // _LIN
+	ret = (ret >> 8) & 0xff;
+#endif
+	if (ret > 0) {
+		bsr_info(100, BSR_LC_GENL, resource, "before-down handler returned %d, "
+				"canceling resource down.", ret);
+		retcode = SS_UNKNOWN_ERROR;
+		bsr_msg_put_info(adm_ctx.reply_skb, "before-down handler failed");
+		goto fail;
+	}
+
 	// BSR-1598 before-demote handler
 	if(resource->role[NOW] == R_PRIMARY) {
 		was_primary = true;
-		ret = bsr_khelper(resource, NULL, NULL, "before-demote");
+		if (!no_handler)
+			ret = bsr_khelper(resource, NULL, NULL, "before-demote");
+		else
+			ret = 0;
 #ifdef _WIN
 		ret = ret & 0xff;
 #else // _LIN
@@ -7809,7 +7925,7 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 	}
 #endif
 	// BSR-1598  after-demote handler
-	if (retcode >= SS_SUCCESS &&  was_primary)
+	if (retcode >= SS_SUCCESS && was_primary && !no_handler)
 		bsr_khelper(resource, NULL, NULL, "after-demote");
 	for_each_connection_ref(connection, im, resource) {
 		// DW-2035
@@ -7857,6 +7973,9 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		rcu_read_lock();
 	}
 	rcu_read_unlock();
+
+	if (!no_handler)
+		bsr_khelper(resource, NULL, NULL, "after-down");
 
 	mutex_lock(&resource->conf_update);
 	retcode = adm_del_resource(resource);

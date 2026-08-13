@@ -353,14 +353,14 @@ int adm_adjust_wp(const struct cfg_ctx *ctx)
 /*  */ struct adm_cmd connect_cmd = {"connect", adm_connect, &connect_cmd_ctx, ACF1_CONNECT};
 /*  */ struct adm_cmd net_options_cmd = {"net-options", adm_new_peer, &net_options_ctx, ACF1_CONNECT};
 /*  */ struct adm_cmd disconnect_cmd = {"disconnect", adm_bsrsetup, &disconnect_cmd_ctx, ACF1_DISCONNECT};
-static struct adm_cmd up_cmd = {"up", adm_up, ACF1_RESNAME };
+static struct adm_cmd up_cmd = {"up", adm_up, &up_cmd_ctx, ACF1_RESNAME };
 /*  */ struct adm_cmd res_options_cmd = {"resource-options", adm_resource, &resource_options_ctx, ACF1_RESNAME};
 /*  */ struct adm_cmd node_options_cmd = {"node-options", adm_node, &node_options_cmd_ctx, ACF1_RESNAME};
-static struct adm_cmd down_cmd = {"down", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
+static struct adm_cmd down_cmd = {"down", adm_bsrsetup, &down_cmd_ctx, ACF1_RESNAME .takes_long = 1};
 // BSR-823
 static struct adm_cmd primary_cmd = {"primary", adm_primary, &primary_adm_cmd_ctx, ACF1_RESNAME .takes_long = 1};
-static struct adm_cmd secondary_cmd = {"secondary", adm_bsrsetup, ACF1_RESNAME .takes_long = 1};
-static struct adm_cmd invalidate_cmd = {"invalidate", adm_invalidate, ACF1_MINOR_ONLY };
+static struct adm_cmd secondary_cmd = {"secondary", adm_bsrsetup, &secondary_cmd_ctx, ACF1_RESNAME .takes_long = 1};
+static struct adm_cmd invalidate_cmd = {"invalidate", adm_invalidate, &invalidate_ctx, ACF1_MINOR_ONLY };
 static struct adm_cmd invalidate_remote_cmd = {"invalidate-remote", adm_bsrsetup, &invalidate_peer_ctx, ACF1_PEER_DEVICE .takes_long = 1};
 // DW-774
 static struct adm_cmd outdate_cmd = {"outdate", adm_outdate, ACF1_DEFAULT .backend_res_name = 0};
@@ -451,6 +451,10 @@ static struct adm_cmd khelper14_cmd = {"before-demote", adm_khelper, ACF3_RES_HA
 static struct adm_cmd khelper15_cmd = {"before-promote", adm_khelper, ACF3_RES_HANDLER };
 static struct adm_cmd khelper16_cmd = {"after-demote", adm_khelper, ACF3_RES_HANDLER};
 static struct adm_cmd khelper17_cmd = {"after-promote", adm_khelper, ACF3_RES_HANDLER };
+static struct adm_cmd khelper18_cmd = {"before-down", adm_khelper, ACF3_RES_HANDLER };
+static struct adm_cmd khelper19_cmd = {"after-down", adm_khelper, ACF3_RES_HANDLER };
+static struct adm_cmd khelper20_cmd = {"before-up", adm_khelper, ACF3_RES_HANDLER };
+static struct adm_cmd khelper21_cmd = {"after-up", adm_khelper, ACF3_RES_HANDLER };
 
 
 static struct adm_cmd suspend_io_cmd = {"suspend-io", adm_bsrsetup, ACF4_ADVANCED  .backend_res_name = 0 };
@@ -570,6 +574,10 @@ struct adm_cmd *cmds[] = {
 	&khelper15_cmd,
 	&khelper16_cmd,
 	&khelper17_cmd,
+	&khelper18_cmd,
+	&khelper19_cmd,
+	&khelper20_cmd,
+	&khelper21_cmd,
 	
 	&suspend_io_cmd,
 	&resume_io_cmd,
@@ -618,6 +626,7 @@ static const struct adm_cmd invalidate_setup_cmd = {
 	// BSR-1025 changed for error output in case of error occurs
 	// __adm_bsrsetup_silent,
 	adm_bsrsetup,
+	&invalidate_ctx,
 	ACF1_MINOR_ONLY
 };
 
@@ -832,8 +841,13 @@ int _run_deferred_cmds(enum bsr_cfg_stage stage)
 				if (d->ctx.res != last_res)
 					printf(" %s", d->ctx.res->name);
 			}
+			/* The final command may complete the up operation only when all
+			 * earlier deferred commands for this resource succeeded. */
+			if (d->ctx.up_end && d->ctx.res->up_operation_failed)
+				d->ctx.up_end = 0;
 			r = __call_cmd_fn(&d->ctx, KEEP_RUNNING);
 			if (r) {
+				d->ctx.res->up_operation_failed = 1;
 				/* If something in the "prerequisite" stages failed,
 				 * there is no point in trying to continue.
 				 * However if we just failed to adjust some
@@ -1389,6 +1403,19 @@ static void add_setup_options(char **argv, int *argcp, const struct context_def 
 	*argcp = argc;
 }
 
+static void add_up_options(char **argv, int *argcp, const struct cfg_ctx *ctx)
+{
+	int argc = *argcp;
+
+	if (ctx->up_begin)
+		argv[NA(argc)] = "--up-begin";
+	if (ctx->up_end)
+		argv[NA(argc)] = "--up-end";
+	if ((ctx->up_begin || ctx->up_end) && ctx->no_handler)
+		argv[NA(argc)] = "--no-handler";
+	*argcp = argc;
+}
+
 #define make_option(ARG, OPT) do {					\
      struct d_name *b_opt;                             \
      bool found = false;                             \
@@ -1590,6 +1617,8 @@ static int adm_resource(const struct cfg_ctx *ctx)
 	if (reset || do_new_resource)
 		make_options(argv[NA(argc)], &res->res_options);
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
+	if (do_new_resource)
+		add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = NULL;
 
 	ex = m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
@@ -1770,6 +1799,8 @@ static void __adm_bsrsetup(const struct cfg_ctx *ctx, int flags, pid_t *pid, int
 	}
 
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
+	if (ctx->cmd == &apply_persist_role_cmd)
+		add_up_options(argv, &argc, ctx);
 
 	if (ctx->cmd == &invalidate_setup_cmd && ctx->conn)
 		argv[NA(argc)] = ssprintf("--sync-from-peer-node-id=%s", ctx->conn->peer->node_id);
@@ -2176,6 +2207,7 @@ static int adm_connect(const struct cfg_ctx *ctx)
 	argv[NA(argc)] = ssprintf("%s", conn->peer->node_id);
 
 	add_setup_options(argv, &argc, ctx->cmd->bsrsetup_ctx);
+	add_up_options(argv, &argc, ctx);
 	argv[NA(argc)] = 0;
 
 	return m_system_ex(argv, SLEEPS_SHORT, res->name, sh_varname, adjust_with_progress, dry_run, verbose);
@@ -2529,10 +2561,17 @@ static int adm_proxy_down(const struct cfg_ctx *ctx)
 static int adm_up(const struct cfg_ctx *ctx)
 {
 	struct cfg_ctx tmp_ctx = *ctx;
+	struct cfg_ctx new_resource_ctx = *ctx;
+	struct deferred_cmd *last = NULL;
+	enum bsr_cfg_stage stage;
 	struct connection *conn;
 	struct d_volume *vol;
 
-	schedule_deferred_cmd(&new_resource_cmd, ctx, CFG_PREREQ);
+	ctx->res->up_operation_failed = 0;
+	tmp_ctx.no_handler = find_backend_option("--no-handler") != NULL;
+	new_resource_ctx.no_handler = tmp_ctx.no_handler;
+	new_resource_ctx.up_begin = 1;
+	schedule_deferred_cmd(&new_resource_cmd, &new_resource_ctx, CFG_PREREQ);
 	schedule_deferred_cmd(&node_options_defaults_cmd, ctx, CFG_RESOURCE);
 	set_peer_in_resource(ctx->res, true);
 	for_each_connection(conn, &ctx->res->connections) {
@@ -2569,6 +2608,19 @@ static int adm_up(const struct cfg_ctx *ctx)
 
 	// BSR-1392
 	schedule_deferred_cmd(&apply_persist_role_cmd, ctx, CFG_DISK);
+
+	/* Mark the actual final engine command scheduled for this resource. */
+	for (stage = CFG_PREREQ; stage < __CFG_LAST; stage++) {
+		struct deferred_cmd *d;
+
+		STAILQ_FOREACH(d, &deferred_cmds[stage], link)
+			if (d->ctx.res == ctx->res)
+				last = d;
+	}
+	if (last) {
+		last->ctx.up_end = 1;
+		last->ctx.no_handler = tmp_ctx.no_handler;
+	}
 
 	return 0;
 }

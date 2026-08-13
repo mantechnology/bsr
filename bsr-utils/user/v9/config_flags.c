@@ -1030,6 +1030,7 @@ struct context_def primary_cmd_ctx = {
 	.fields = {
 		{ "force", FLAG(assume_uptodate) },
 		{ "full-sync", FLAG(full_sync), .argument_is_optional = true },	// BSR-1549
+		{ "no-handler", FLAG(no_role_handler) },
 		{ } },
 };
 
@@ -1040,6 +1041,29 @@ struct context_def primary_adm_cmd_ctx = {
 		{ "force", FLAG(assume_uptodate) },
 		{ "skip-check-fs", .argument_is_optional = true },	// BSR-823	
 		{ "full-sync-on-fail", .argument_is_optional = true },	// BSR-1549
+		{ "no-handler", FLAG(no_role_handler) },
+		{ } },
+};
+
+struct context_def secondary_cmd_ctx = {
+	NLA_POLICY(set_role_parms),
+	.nla_type = BSR_NLA_SET_ROLE_PARMS,
+	.fields = {
+		{ "no-handler", FLAG(no_role_handler) },
+		{ } },
+};
+
+struct context_def down_cmd_ctx = {
+	NLA_POLICY(down_parms),
+	.nla_type = BSR_NLA_DOWN_PARMS,
+	.fields = {
+		{ "no-handler", FLAG(no_down_handler) },
+		{ } },
+};
+
+struct context_def up_cmd_ctx = {
+	.fields = {
+		{ "no-handler", .argument_is_optional = true },
 		{ } },
 };
 
@@ -1233,6 +1257,7 @@ struct context_def invalidate_ctx = {
 	.nla_type = BSR_NLA_INVALIDATE_PARMS,
 	.fields = {
 		{ "sync-from-peer-node-id", NUMERIC(sync_from_peer_node_id, SYNC_FROM_NID) },
+		{ "no-handler", FLAG(no_invalidate_handler) },
 		{ } },
 };
 
@@ -1241,6 +1266,7 @@ struct context_def invalidate_peer_ctx = {
 	.nla_type = BSR_NLA_INVALIDATE_PEER_PARMS,
 	.fields = {
 		{ "use-current-oos", FLAG(use_current_oos) },
+		{ "no-handler", FLAG(no_invalidate_peer_handler) },
 		{ } },
 };
 
@@ -1311,6 +1337,10 @@ struct context_def handlers_ctx = {
 		{ "before-promote", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
 		{ "after-demote", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
 		{ "after-promote", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "before-up", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "after-up", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "before-down", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
+		{ "after-down", .ops = &fc_string, .u = { .s = { .is_ratio = false } }, .needs_double_quoting = true },
 		{ } },
 };
 

@@ -24,6 +24,10 @@ common {
 		# before-promote "/usr/lib/bsr/notify-before-demote.sh";
 		# after-demote "/usr/lib/bsr/notify-after-demote.sh";
 		# after-promote "/usr/lib/bsr/notify-after-promote.sh";
+		# before-down "/usr/lib/bsr/notify-before-down.sh";
+		# after-down "/usr/lib/bsr/notify-after-down.sh";
+		# before-up "/usr/lib/bsr/notify-before-up.sh";
+		# after-up "/usr/lib/bsr/notify-after-up.sh";
 	}
 
 	startup {

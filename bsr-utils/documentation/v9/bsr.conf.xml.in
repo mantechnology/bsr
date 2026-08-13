@@ -596,6 +596,50 @@ resource
 
       <variablelist>
         <varlistentry>
+          <term><option>before-up <replaceable>cmd</replaceable></option></term>
+          <listitem>
+            <para>Called after the resource object has been created, before
+              the remaining <command>bsradm up</command> operations. If the
+              handler fails, the remaining up operations are not performed.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>after-up <replaceable>cmd</replaceable></option></term>
+          <listitem>
+            <para>Called after the final engine command of a successful
+              <command>bsradm up</command> operation.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>before-down <replaceable>cmd</replaceable></option></term>
+
+          <listitem>
+            <para><indexterm significance="normal">
+                <primary>bsr.conf</primary>
+
+                <secondary>before-down</secondary>
+              </indexterm> Called before <command>bsradm down</command> takes a
+              resource down. If the handler fails, the down operation is not
+              performed.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>after-down <replaceable>cmd</replaceable></option></term>
+
+          <listitem>
+            <para><indexterm significance="normal">
+                <primary>bsr.conf</primary>
+
+                <secondary>after-down</secondary>
+              </indexterm> Called after <command>bsradm down</command>
+              successfully takes a resource down.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>after-resync-target <replaceable>cmd</replaceable></option></term>
 
           <listitem>
@@ -623,6 +667,18 @@ resource
               lower-level device for the duration of the resync: if the resync
               source becomes unavailable during a resync, reverting to the
               snapshot can restore a consistent state.</para>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>before-resync-source <replaceable>cmd</replaceable></option></term>
+
+          <listitem>
+            <para><indexterm significance="normal">
+                <primary>bsr.conf</primary>
+
+                <secondary>before-resync-source</secondary>
+              </indexterm> Called on a resync source before a resync begins.</para>
           </listitem>
         </varlistentry>
 

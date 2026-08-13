@@ -403,7 +403,8 @@ struct bsr_cmd commands[] = {
 	 .ctx = &primary_cmd_ctx,
 	 .summary = "Change the role of a node in a resource to primary." },
 
-	{"secondary", CTX_RESOURCE, BSR_ADM_SECONDARY, NO_PAYLOAD, F_CONFIG_CMD,
+	{"secondary", CTX_RESOURCE, BSR_ADM_SECONDARY, BSR_NLA_SET_ROLE_PARMS, F_CONFIG_CMD,
+	 .ctx = &secondary_cmd_ctx,
 	 .summary = "Change the role of a node in a resource to secondary." },
 
 	// BSR-1392
@@ -530,7 +531,8 @@ struct bsr_cmd commands[] = {
 	 .summary = "Verify the data on a lower-level device against a peer device." },
 	{"verify-stop", CTX_PEER_DEVICE, BSR_ADM_STOP_OV, NO_PAYLOAD, F_CONFIG_CMD,
 	 .summary = "Stop verify" },
-	{"down", CTX_RESOURCE | CTX_ALL, BSR_ADM_DOWN, NO_PAYLOAD, down_cmd,
+	{"down", CTX_RESOURCE | CTX_ALL, BSR_ADM_DOWN, BSR_NLA_DOWN_PARMS, down_cmd,
+	 .ctx = &down_cmd_ctx,
 	 .missing_ok = true,
 	 .warn_on_missing = true,
 	 .summary = "Take a resource down." },
@@ -1238,10 +1240,11 @@ static int get_af_ssocks(int warn_and_use_default)
 
 static struct option *make_longoptions(struct bsr_cmd *cm)
 {
-	static struct option buffer[47];
+	static struct option buffer[50];
 	int i = 0;
 	int primary_force_index = -1;
 	int connect_tentative_index = -1;
+	bool has_no_handler = false;
 
 	if (cm->ctx) {
 		struct field_def *field;
@@ -1261,6 +1264,8 @@ static struct option *make_longoptions(struct bsr_cmd *cm)
 				primary_force_index = i;
 			if (!strcmp(cm->cmd, "connect") && !strcmp(field->name, "tentative"))
 				connect_tentative_index = i;
+			if (!strcmp(field->name, "no-handler"))
+				has_no_handler = true;
 			i++;
 		}
 		assert(field - cm->ctx->fields == i);
@@ -1307,6 +1312,15 @@ static struct option *make_longoptions(struct bsr_cmd *cm)
 		buffer[i].flag = NULL;
 		buffer[i].val = '(';
 		i++;
+	}
+
+	assert(i < ARRAY_SIZE(buffer));
+	buffer[i++] = (struct option) { "up-begin", no_argument, NULL, 2000 };
+	assert(i < ARRAY_SIZE(buffer));
+	buffer[i++] = (struct option) { "up-end", no_argument, NULL, 2001 };
+	if (!has_no_handler) {
+		assert(i < ARRAY_SIZE(buffer));
+		buffer[i++] = (struct option) { "no-handler", no_argument, NULL, 2002 };
 	}
 
 	assert(i < ARRAY_SIZE(buffer));
@@ -1904,6 +1918,18 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 		c = getopt_long(argc, argv, "(", options, &idx);
 		if (c == -1)
 			break;
+		if (c == 2000) {
+			dhdr->flags |= BSR_GENL_F_UP_BEGIN;
+			continue;
+		}
+		if (c == 2001) {
+			dhdr->flags |= BSR_GENL_F_UP_END;
+			continue;
+		}
+		if (c == 2002) {
+			dhdr->flags |= BSR_GENL_F_NO_HANDLER;
+			continue;
+		}
 		if (c >= 1000) {
 			/* This is a field alias. */
 			idx = c - 1000;
@@ -1923,6 +1949,8 @@ static int _generic_config_cmd(struct bsr_cmd *cm, int argc, char **argv)
 				rv = OTHER_ERROR;
 				goto error;
 			}
+			if (!strcmp(field->name, "no-handler"))
+				dhdr->flags |= BSR_GENL_F_NO_HANDLER;
 
 
 		} else if (c == '(')

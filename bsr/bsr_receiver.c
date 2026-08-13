@@ -6902,6 +6902,8 @@ static int receive_uuids110(struct bsr_connection *connection, struct packet_inf
 			unsigned long irq_flags;
 			
 			bsr_info(208, BSR_LC_RESYNC_OV, peer_device, "Resync will be aborted since peer goes unsyncable.");
+			clear_bit(B_RS_H_DONE, &peer_device->flags);
+			clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 			begin_state_change(device->resource, &irq_flags, CS_VERBOSE);
 			__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
 			end_state_change(device->resource, &irq_flags, __FUNCTION__);
@@ -10019,6 +10021,8 @@ void conn_disconnect(struct bsr_connection *connection)
 
 		// DW-2026 Initialize resync_again
 		peer_device->resync_again = false;
+		clear_bit(B_RS_H_DONE, &peer_device->flags);
+		clear_bit(NO_RESYNC_HANDLER, &peer_device->flags);
 
 		// BSR-1170
 		wake_up(&peer_device->local_writing_wait);
