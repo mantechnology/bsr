@@ -421,6 +421,9 @@ struct p_protocol {
 // BSR-1395
 #define UUID_FLAG_VERIFY_MISMATCH		(1 << 17)	
 
+// BSR-1743
+#define UUID_FLAG_UUID_ACK_LOST			(1 << 18)
+
 struct p_uuids {
 	uint64_t current_uuid;
 	uint64_t bitmap_uuid;

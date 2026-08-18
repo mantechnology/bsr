@@ -2555,6 +2555,11 @@ static void finish_state_change(struct bsr_resource *resource, struct completion
 		if (disk_state[NEW] != D_NEGOTIATING && get_ldev(device)) {
 			u32 mdf = device->ldev->md.flags & ~(MDF_PRIMARY_IND | MDF_CRASHED_PRIMARY);
 			mdf &= ~MDF_AL_CLEAN;
+			if (role[OLD] != R_PRIMARY && role[NEW] == R_PRIMARY &&
+				(mdf & MDF_UUID_ACK_LOST)) {
+				mdf &= ~MDF_UUID_ACK_LOST;
+				bsr_info(59, BSR_LC_STATE, device, "UUID ACK loss recovery flag is cleared due to promotion to Primary.");
+			}
 			if (test_bit(CRASHED_PRIMARY, &device->flags))
 				mdf |= MDF_CRASHED_PRIMARY;
 			if (device->resource->role[NEW] == R_PRIMARY && disk_state[NEW] != D_DETACHING)

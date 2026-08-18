@@ -1961,6 +1961,10 @@ static int _bsr_send_uuids110(struct bsr_peer_device *peer_device, u64 uuid_flag
 	// DW-1874
 	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC))
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
+	// BSR-1743
+	if (peer_device->connection->agreed_pro_version >= 119 &&
+		bsr_md_test_flag(device, MDF_UUID_ACK_LOST))
+		uuid_flags |= UUID_FLAG_UUID_ACK_LOST;
 
 	// DW-1145 set UUID_FLAG_CONSISTENT_WITH_PRI if my disk is consistent with primary's
 	// BSR-936

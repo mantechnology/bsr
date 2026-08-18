@@ -447,7 +447,9 @@ enum mdf_flag {
 	// and when the corresponding flag is set, it will be promoted when the command "bsrsetup apply-persist-role" is executed.
 	MDF_WAS_PRIMARY = 1 << 18,
 	// BSR-1395 when verifying data through verify, it is set if there is a mismatch area.
-	MDF_VERIFY_MISMATCH = 1 << 19
+	MDF_VERIFY_MISMATCH = 1 << 19,
+	// BSR-1743
+	MDF_UUID_ACK_LOST = 1 << 20
 };
 
 enum mdf_peer_flag {

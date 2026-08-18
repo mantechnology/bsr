@@ -4802,6 +4802,68 @@ static int uuid_fixup_resync_start2(struct bsr_peer_device *peer_device, int *ru
 	return -2000;
 }
 
+static bool is_valid_uuid_generation(u64 uuid)
+{
+	return uuid != 0 && uuid != UUID_JUST_CREATED &&
+		uuid != (UINT64_MAX & ~UUID_PRIMARY);
+}
+
+static bool bsr_history_has_uuid(const u64 *history_uuids, u64 uuid)
+{
+	int i;
+
+	for (i = 0; i < HISTORY_UUIDS; i++) {
+		if ((history_uuids[i] & ~UUID_PRIMARY) == uuid)
+			return true;
+	}
+
+	return false;
+}
+
+/*
+ * BSR-1743 A SyncTarget updates its UUID at the end of resync, sends it to the
+ * SyncSource and commits the update only after P_UUID_ACK. If the connection is
+ * lost before the ACK, the target restores the previous current UUID while the
+ * source has already rotated that UUID into history.
+ *
+ * The persistent target marker identifies the ACK loss directly. The target
+ * must also have no bitmap UUID for the source after rolling back the completion
+ * UUID. Search the entire source history because another peer resync may rotate
+ * the target's previous current UUID before the target reconnects. The source
+ * bitmap is not checked because writes after disconnect may create a new bitmap
+ * that must be used for the recovery resync.
+ */
+static bool bsr_uuid_ack_was_lost(struct bsr_peer_device *peer_device,
+				  enum bsr_repl_state local_side) __must_hold(local)
+{
+	struct bsr_device *device = peer_device->device;
+	struct bsr_connection *connection = peer_device->connection;
+	const int node_id = device->resource->res_opts.node_id;
+	const bool local_is_target = local_side == L_SYNC_TARGET;
+	const u64 target_current = (local_is_target ?
+		bsr_current_uuid(device) : peer_device->current_uuid) & ~UUID_PRIMARY;
+	const u64 source_current = (local_is_target ?
+		peer_device->current_uuid : bsr_current_uuid(device)) & ~UUID_PRIMARY;
+	const u64 *source_history = local_is_target ?
+		peer_device->history_uuids : device->ldev->md.history_uuids;
+	const bool target_ack_lost = local_is_target ?
+		bsr_md_test_flag(device, MDF_UUID_ACK_LOST) :
+		!!(peer_device->uuid_flags & UUID_FLAG_UUID_ACK_LOST);
+	const u64 target_bitmap = local_is_target ?
+		bsr_bitmap_uuid(peer_device) : peer_device->bitmap_uuids[node_id];
+	const bool target_bitmap_empty = target_bitmap == 0 ||
+		(!local_is_target && target_bitmap == UINT64_MAX);
+
+	if (connection->agreed_pro_version < 119 ||
+		!target_ack_lost || !target_bitmap_empty)
+		return false;
+
+	return is_valid_uuid_generation(target_current) &&
+		is_valid_uuid_generation(source_current) &&
+		source_current != target_current &&
+		bsr_history_has_uuid(source_history, target_current);
+}
+
 /*
   100	after split brain try auto recover
     4   L_SYNC_SOURCE copy BitMap from
@@ -4930,6 +4992,11 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 	}
 
 	*rule_nr = 60;
+	if (bsr_uuid_ack_was_lost(peer_device, L_SYNC_TARGET)) {
+		bsr_info(253, BSR_LC_RESYNC_OV, peer_device, "Local current UUID is in peer history UUID after P_UUID_ACK was not received. rule(%d), res(-2)", *rule_nr);
+		return -2;
+	}
+
 	// BSR-1531 If the target has finished resync but is not updated on the source, compare the UUID under the following conditions.
 	peer = peer_device->bitmap_uuids[node_id] & ~UUID_PRIMARY;
  	for(i = 0; i < HISTORY_UUIDS; i++) {
@@ -4991,6 +5058,11 @@ static int bsr_uuid_compare(struct bsr_peer_device *peer_device,
 	}
 
 	*rule_nr = 80;
+	if (bsr_uuid_ack_was_lost(peer_device, L_SYNC_SOURCE)) {
+		bsr_info(254, BSR_LC_RESYNC_OV, peer_device, "The current UUID of the peer node is in the local UUID history after P_UUID_ACK was not received. rule(%d), res(2)", *rule_nr);
+		return 2;
+	}
+
 	// BSR-1531 
 	self = bsr_bitmap_uuid(peer_device) & ~UUID_PRIMARY;
 	for(i = 0; i < HISTORY_UUIDS; i++) {
@@ -5099,6 +5171,10 @@ static void log_handshake(struct bsr_peer_device *peer_device)
 	// DW-1874
 	if (bsr_md_test_peer_flag(peer_device, MDF_PEER_IN_PROGRESS_SYNC))
 		uuid_flags |= UUID_FLAG_IN_PROGRESS_SYNC;
+	// BSR-1743
+	if (peer_device->connection->agreed_pro_version >= 119 &&
+		bsr_md_test_flag(device, MDF_UUID_ACK_LOST))
+		uuid_flags |= UUID_FLAG_UUID_ACK_LOST;
 
 	bsr_info(73, BSR_LC_RESYNC_OV, peer_device, "bsr_sync_handshake:");
 	bsr_uuid_dump_self(peer_device, peer_device->comm_bm_set, uuid_flags);
