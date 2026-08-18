@@ -4837,8 +4837,6 @@ static bool bsr_uuid_ack_was_lost(struct bsr_peer_device *peer_device,
 				  enum bsr_repl_state local_side) __must_hold(local)
 {
 	struct bsr_device *device = peer_device->device;
-	struct bsr_connection *connection = peer_device->connection;
-	const int node_id = device->resource->res_opts.node_id;
 	const bool local_is_target = local_side == L_SYNC_TARGET;
 	const u64 target_current = (local_is_target ?
 		bsr_current_uuid(device) : peer_device->current_uuid) & ~UUID_PRIMARY;
@@ -4846,19 +4844,16 @@ static bool bsr_uuid_ack_was_lost(struct bsr_peer_device *peer_device,
 		peer_device->current_uuid : bsr_current_uuid(device)) & ~UUID_PRIMARY;
 	const u64 *source_history = local_is_target ?
 		peer_device->history_uuids : device->ldev->md.history_uuids;
-	const bool target_ack_lost = local_is_target ?
-		bsr_md_test_flag(device, MDF_UUID_ACK_LOST) :
-		!!(peer_device->uuid_flags & UUID_FLAG_UUID_ACK_LOST);
-	const u64 target_bitmap = local_is_target ?
-		bsr_bitmap_uuid(peer_device) : peer_device->bitmap_uuids[node_id];
-	const bool target_bitmap_empty = target_bitmap == 0 ||
-		(!local_is_target && target_bitmap == UINT64_MAX);
+	const u64 target_bitmap = local_is_target ? bsr_bitmap_uuid(peer_device) :
+		peer_device->bitmap_uuids[device->resource->res_opts.node_id];
+	const bool target_recoverable = local_is_target ?
+		bsr_md_test_flag(device, MDF_UUID_ACK_LOST) && target_bitmap == 0 :
+		(peer_device->uuid_flags & UUID_FLAG_UUID_ACK_LOST) &&
+		(target_bitmap == 0 || target_bitmap == UINT64_MAX);
 
-	if (connection->agreed_pro_version < 119 ||
-		!target_ack_lost || !target_bitmap_empty)
-		return false;
-
-	return is_valid_uuid_generation(target_current) &&
+	return peer_device->connection->agreed_pro_version >= 119 &&
+		target_recoverable &&
+		is_valid_uuid_generation(target_current) &&
 		is_valid_uuid_generation(source_current) &&
 		source_current != target_current &&
 		bsr_history_has_uuid(source_history, target_current);
