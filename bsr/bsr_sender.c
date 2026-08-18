@@ -1741,13 +1741,15 @@ static int w_resync_finished(struct bsr_work *w, int cancel)
 }
 
 // BSR-863
-static void bsr_uuid_peer(struct bsr_peer_device *peer_device)
+static bool bsr_uuid_peer(struct bsr_peer_device *peer_device)
 {
 	clear_bit(GOT_UUID_ACK, &peer_device->connection->flags);
 	bsr_send_uuids(peer_device, 0, 0, NOW);
 	wait_event(peer_device->connection->uuid_wait,
 		test_bit(GOT_UUID_ACK, &peer_device->connection->flags) ||
 		peer_device->connection->cstate[NOW] < C_CONNECTED);
+
+	return test_bit(GOT_UUID_ACK, &peer_device->connection->flags);
 }
 
 void bsr_ping_peer(struct bsr_connection *connection)
@@ -1910,7 +1912,9 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 	bool uuid_updated = false;
 	bool stable_resync = false;
 	bool uuid_resync_finished = false;
+	bool uuid_ack_received = false;
 	bool resync_retry_scheduled = false;
+	const bool track_uuid_ack_loss = connection->agreed_pro_version >= 119;
 	u64 newer = 0;
 
 	struct bsr_peer_md old_peers_md[BSR_NODE_ID_MAX];
@@ -1982,7 +1986,12 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 
 			if (connection->agreed_pro_version >= 115) {
 				// BSR-863 sync target sends the uuid to the sync source during the synchronization completion process and updates the uuid when it receives a response.
-				bsr_uuid_peer(peer_device);
+				uuid_ack_received = bsr_uuid_peer(peer_device);
+				if (track_uuid_ack_loss && uuid_resync_finished && !uuid_ack_received &&
+					device->resource->role[NOW] != R_PRIMARY) {
+					bsr_md_set_flag(device, MDF_UUID_ACK_LOST);
+					bsr_warn(255, BSR_LC_RESYNC_OV, peer_device, "P_UUID_ACK was not received after SyncTarget resync completion. UUID ACK loss recovery flag is set.");
+				}
 			}
 		}
 	}
@@ -2016,10 +2025,18 @@ int bsr_resync_finished(const char *caller, struct bsr_peer_device *peer_device,
 		// BSR-863
 		if (connection->agreed_pro_version >= 115 && uuid_resync_finished) {
 			bsr_uuid_resync_finished_rollback(peer_device, newer, before_uuid, old_peers_md, removed_history);
+			if (track_uuid_ack_loss && device->resource->role[NOW] != R_PRIMARY)
+				bsr_md_set_flag(device, MDF_UUID_ACK_LOST);
 		}
 		goto out_unlock;
 	}
 	__change_repl_state_and_auto_cstate(peer_device, L_ESTABLISHED, __FUNCTION__);
+	if (track_uuid_ack_loss && uuid_ack_received && !peer_device->rs_failed &&
+		(old_repl_state == L_SYNC_TARGET || old_repl_state == L_PAUSED_SYNC_T) &&
+		bsr_md_test_flag(device, MDF_UUID_ACK_LOST)) {
+		bsr_md_clear_flag(device, MDF_UUID_ACK_LOST);
+		bsr_info(256, BSR_LC_RESYNC_OV, peer_device, "UUID ACK loss recovery flag is cleared after P_UUID_ACK was received.");
+	}
 
 	// BSR-595
 	{
