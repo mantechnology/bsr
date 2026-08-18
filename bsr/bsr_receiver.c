@@ -4805,7 +4805,7 @@ static int uuid_fixup_resync_start2(struct bsr_peer_device *peer_device, int *ru
 static bool is_valid_uuid_generation(u64 uuid)
 {
 	return uuid != 0 && uuid != UUID_JUST_CREATED &&
-		uuid != (UINT64_MAX & ~UUID_PRIMARY);
+		uuid != (~0ULL & ~UUID_PRIMARY);
 }
 
 static bool bsr_history_has_uuid(const u64 *history_uuids, u64 uuid)
@@ -4849,7 +4849,7 @@ static bool bsr_uuid_ack_was_lost(struct bsr_peer_device *peer_device,
 	const bool target_recoverable = local_is_target ?
 		bsr_md_test_flag(device, MDF_UUID_ACK_LOST) && target_bitmap == 0 :
 		(peer_device->uuid_flags & UUID_FLAG_UUID_ACK_LOST) &&
-		(target_bitmap == 0 || target_bitmap == UINT64_MAX);
+		(target_bitmap == 0 || target_bitmap == ~0ULL);
 
 	return peer_device->connection->agreed_pro_version >= 119 &&
 		target_recoverable &&
