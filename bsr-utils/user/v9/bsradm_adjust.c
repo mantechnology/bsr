@@ -1201,6 +1201,8 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 
 	// BSR-1392
 	schedule_deferred_cmd(&apply_persist_role_cmd, ctx, CFG_DISK);
+	if (!running)
+		mark_deferred_up_commands(ctx, find_backend_option("--no-handler") != NULL);
 
 	return 0;
 }
