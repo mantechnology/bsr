@@ -7,7 +7,6 @@
 #else
 #include <unistd.h>
 #endif
-#ifdef _WIN
 namespace {
 
 struct debug_failure_key {
@@ -58,6 +57,7 @@ bool clear_debug_failure(const char *resource_name, int vnr, int peer_node_id,
 
 } // namespace
 
+#ifdef _WIN
 HANDLE
 OpenDevice(PCHAR devicename)
 {
@@ -974,18 +974,28 @@ int GetDebugToFile(enum bsrmon_type debug_type, struct resource *res, char *resp
 			fp = fopen(path, "r");
 
 			if (!fp) {
-				bsrmon_log(stderr, "Failed to open file, path : %s\n", path);
+				if (mark_debug_failure(res->name, vol->vnr, -1, debug_type))
+					bsrmon_log(stderr, "Failed to open file, path : %s\n", path);
 				goto fail;
 			}
 
+			errno = 0;
 			fread(buffer + strlen(buffer), MAX_DEBUG_BUF_SIZE - strlen(buffer), 1, fp);
 			
 			ret = errno;
 
 			fclose(fp);
 
-			if (ret == ENODEV)
+			if (ret == ENODEV) {
+				if (mark_debug_failure(res->name, vol->vnr, -1, debug_type))
+					bsrmon_log(stderr, "Failed to read file, path : %s\n", path);
 				goto fail;
+			}
+
+			if (clear_debug_failure(res->name, vol->vnr, -1, debug_type)) {
+				bsrmon_log(stdout, "Recovered %s(vnr:%d) %s collection.\n",
+						res->name, vol->vnr, perf_type_str(debug_type));
+			}
 #endif
 			// BSR-776 do not write error messages to the performance file.
 			if (!strncmp(buffer, "err reading", 11))
