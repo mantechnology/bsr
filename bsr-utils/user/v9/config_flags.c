@@ -1310,6 +1310,7 @@ struct context_def adjust_ctx = {
 	.fields = {
 		{ "skip-disk", .argument_is_optional = true },
 		{ "skip-net", .argument_is_optional = true },
+		{ "no-handler", .argument_is_optional = true },
 		CONNECT_CMD_OPTIONS,
 		{ } },
 };

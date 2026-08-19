@@ -674,6 +674,32 @@ void schedule_deferred_cmd(struct adm_cmd *cmd,
 	STAILQ_INSERT_TAIL(&deferred_cmds[stage], d, link);
 }
 
+void mark_deferred_up_commands(const struct cfg_ctx *ctx, bool no_handler)
+{
+	struct deferred_cmd *last = NULL;
+	enum bsr_cfg_stage stage;
+
+	ctx->res->up_operation_failed = 0;
+	for (stage = CFG_PREREQ; stage < __CFG_LAST; stage++) {
+		struct deferred_cmd *d;
+
+		STAILQ_FOREACH(d, &deferred_cmds[stage], link) {
+			if (d->ctx.res != ctx->res)
+				continue;
+			if (d->ctx.cmd == &new_resource_cmd) {
+				d->ctx.up_begin = 1;
+				d->ctx.no_handler = no_handler;
+			}
+			last = d;
+		}
+	}
+
+	if (last) {
+		last->ctx.up_end = 1;
+		last->ctx.no_handler = no_handler;
+	}
+}
+
 enum on_error { KEEP_RUNNING, EXIT_ON_FAIL };
 static int __call_cmd_fn(const struct cfg_ctx *ctx, enum on_error on_error)
 {
@@ -2561,17 +2587,11 @@ static int adm_proxy_down(const struct cfg_ctx *ctx)
 static int adm_up(const struct cfg_ctx *ctx)
 {
 	struct cfg_ctx tmp_ctx = *ctx;
-	struct cfg_ctx new_resource_ctx = *ctx;
-	struct deferred_cmd *last = NULL;
-	enum bsr_cfg_stage stage;
 	struct connection *conn;
 	struct d_volume *vol;
 
-	ctx->res->up_operation_failed = 0;
 	tmp_ctx.no_handler = find_backend_option("--no-handler") != NULL;
-	new_resource_ctx.no_handler = tmp_ctx.no_handler;
-	new_resource_ctx.up_begin = 1;
-	schedule_deferred_cmd(&new_resource_cmd, &new_resource_ctx, CFG_PREREQ);
+	schedule_deferred_cmd(&new_resource_cmd, ctx, CFG_PREREQ);
 	schedule_deferred_cmd(&node_options_defaults_cmd, ctx, CFG_RESOURCE);
 	set_peer_in_resource(ctx->res, true);
 	for_each_connection(conn, &ctx->res->connections) {
@@ -2609,18 +2629,7 @@ static int adm_up(const struct cfg_ctx *ctx)
 	// BSR-1392
 	schedule_deferred_cmd(&apply_persist_role_cmd, ctx, CFG_DISK);
 
-	/* Mark the actual final engine command scheduled for this resource. */
-	for (stage = CFG_PREREQ; stage < __CFG_LAST; stage++) {
-		struct deferred_cmd *d;
-
-		STAILQ_FOREACH(d, &deferred_cmds[stage], link)
-			if (d->ctx.res == ctx->res)
-				last = d;
-	}
-	if (last) {
-		last->ctx.up_end = 1;
-		last->ctx.no_handler = tmp_ctx.no_handler;
-	}
+	mark_deferred_up_commands(ctx, tmp_ctx.no_handler);
 
 	return 0;
 }
