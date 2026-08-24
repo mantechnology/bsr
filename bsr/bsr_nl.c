@@ -1628,6 +1628,12 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 	bool promote = false;
 	int r;
 	struct bsr_connection * connection;
+#ifdef COMPAT_HAVE_GENL_INFO_USERHDR
+	struct bsr_genlmsghdr *dh = (struct bsr_genlmsghdr *)genl_info_userhdr(info);
+#else
+	struct bsr_genlmsghdr *dh = info->userhdr;
+#endif
+	bool no_handler = dh->flags & BSR_GENL_F_NO_HANDLER;
 
 	retcode = bsr_adm_prepare(&adm_ctx, skb, info, BSR_ADM_NEED_RESOURCE);
 	if (!adm_ctx.reply_skb)
@@ -1659,7 +1665,10 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 			}
 
 			// BSR-1438
-			r = bsr_khelper(resource, NULL, NULL, "before-promote");
+			if (!no_handler)
+				r = bsr_khelper(resource, NULL, NULL, "before-promote");
+			else
+				r = 0;
 #ifdef _WIN
 			r = r & 0xff;
 #else // _LIN
@@ -1696,7 +1705,8 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 				}
 #endif
 				// BSR-1438
-				bsr_khelper(resource, NULL, NULL, "after-promote");
+				if (!no_handler)
+					bsr_khelper(resource, NULL, NULL, "after-promote");
 
 				bsr_info(94, BSR_LC_ETC, resource, "Promoted due to persist-role setting");
 			}

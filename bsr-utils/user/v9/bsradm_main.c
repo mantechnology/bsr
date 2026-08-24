@@ -1437,7 +1437,7 @@ static void add_up_options(char **argv, int *argcp, const struct cfg_ctx *ctx)
 		argv[NA(argc)] = "--up-begin";
 	if (ctx->up_end)
 		argv[NA(argc)] = "--up-end";
-	if ((ctx->up_begin || ctx->up_end) && ctx->no_handler)
+	if (ctx->no_handler)
 		argv[NA(argc)] = "--no-handler";
 	*argcp = argc;
 }
@@ -2587,6 +2587,7 @@ static int adm_proxy_down(const struct cfg_ctx *ctx)
 static int adm_up(const struct cfg_ctx *ctx)
 {
 	struct cfg_ctx tmp_ctx = *ctx;
+	struct cfg_ctx persist_role_ctx = *ctx;
 	struct connection *conn;
 	struct d_volume *vol;
 
@@ -2627,7 +2628,8 @@ static int adm_up(const struct cfg_ctx *ctx)
 	}
 
 	// BSR-1392
-	schedule_deferred_cmd(&apply_persist_role_cmd, ctx, CFG_DISK);
+	persist_role_ctx.no_handler = tmp_ctx.no_handler;
+	schedule_deferred_cmd(&apply_persist_role_cmd, &persist_role_ctx, CFG_DISK);
 
 	mark_deferred_up_commands(ctx, tmp_ctx.no_handler);
 
