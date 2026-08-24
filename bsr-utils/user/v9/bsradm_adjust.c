@@ -1086,6 +1086,7 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 {
 	char config_file_dummy[250];
 	struct d_resource* running;
+	struct cfg_ctx persist_role_ctx = *ctx;
 	struct volumes empty = STAILQ_HEAD_INITIALIZER(empty);
 	struct d_volume *vol;
 	
@@ -1200,9 +1201,10 @@ int _adm_adjust(const struct cfg_ctx *ctx, int adjust_flags)
 	}
 
 	// BSR-1392
-	schedule_deferred_cmd(&apply_persist_role_cmd, ctx, CFG_DISK);
+	persist_role_ctx.no_handler = find_backend_option("--no-handler") != NULL;
+	schedule_deferred_cmd(&apply_persist_role_cmd, &persist_role_ctx, CFG_DISK);
 	if (!running)
-		mark_deferred_up_commands(ctx, find_backend_option("--no-handler") != NULL);
+		mark_deferred_up_commands(ctx, persist_role_ctx.no_handler);
 
 	return 0;
 }
