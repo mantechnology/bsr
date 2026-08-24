@@ -1668,6 +1668,8 @@ int bsr_adm_apply_persist_role(struct sk_buff *skb, struct genl_info *info)
 			if (r > 0) {
 				bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
 				"dropping connection.", r);
+				retcode = SS_UNKNOWN_ERROR;
+				bsr_msg_put_info(adm_ctx.reply_skb, "before-promote handler failed");
 				for_each_connection_rcu(connection, resource) 
 					change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 				goto fail;
@@ -1769,6 +1771,8 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			if (r > 0) {
 				bsr_info(93, BSR_LC_GENL, resource, "before-promote handler returned %d, "
 					"dropping connection.", r);
+				retcode = SS_UNKNOWN_ERROR;
+				bsr_msg_put_info(adm_ctx.reply_skb, "before-promote handler failed");
 				for_each_connection_rcu(connection, resource) 
 					change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 				goto fail;
@@ -1826,6 +1830,8 @@ int bsr_adm_set_role(struct sk_buff *skb, struct genl_info *info)
 			if (r > 0) {
 				bsr_info(94, BSR_LC_GENL, resource, "before-demote handler returned %d, "
 					"dropping connection.", r);
+				retcode = SS_UNKNOWN_ERROR;
+				bsr_msg_put_info(adm_ctx.reply_skb, "before-demote handler failed");
 				for_each_connection_ref(connection, im, resource)
 					change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 				goto fail;
@@ -7811,6 +7817,8 @@ int bsr_adm_down(struct sk_buff *skb, struct genl_info *info)
 		if (ret > 0) {
 			bsr_info(98, BSR_LC_GENL, resource, "before-demote handler returned %d, "
 				 "dropping connection.", ret);
+			retcode = SS_UNKNOWN_ERROR;
+			bsr_msg_put_info(adm_ctx.reply_skb, "before-demote handler failed");
 			for_each_connection_ref(connection, im, resource)
 				change_cstate_ex(connection, C_DISCONNECTING, CS_HARD);
 			goto fail;
